@@ -1,0 +1,54 @@
+# ===============================
+# Dependencies
+# ===============================
+node_modules/
+**/node_modules/
+
+# ===============================
+# Build outputs
+# ===============================
+dist/
+build/
+out/
+.release/
+**/dist/
+**/build/
+
+# ===============================
+# Electron / Forge
+# ===============================
+.electron/
+webpack/
+.webpack/
+**/.webpack/
+**/.electron/
+
+# ===============================
+# Environment variables
+# ===============================
+.env
+.env.*
+!.env.example
+
+# ===============================
+# Logs
+# ===============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# ===============================
+# OS files
+# ===============================
+.DS_Store
+Thumbs.db
+
+# ===============================
+# Editor / IDE
+# ===============================
+.vscode/
+.idea/
+*.swp

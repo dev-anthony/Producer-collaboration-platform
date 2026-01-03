@@ -1,26 +1,116 @@
+
+// import React, { useEffect, useState } from 'react';
+// import LoginPage from './pages/Login';
+// import Dashboard from './pages/Dashboard';
+
+// const Client_Id = "Ov23li5uzPwPHy58STiN";
+
+// function App() {
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [jwtToken, setJwtToken] = useState(null); // in-memory token
+//   const [isLoading, setIsLoading] = useState(true);
+//   const [error, setError] = useState(null);
+
+//   useEffect(() => {
+//     const checkAuth = async () => {
+//       const urlParams = new URLSearchParams(window.location.search);
+//       const code = urlParams.get("code");
+
+//       if (code) {
+//         await handleOAuthCallback(code);
+//       } else {
+//         setIsLoading(false);
+//       }
+//     };
+//     checkAuth();
+//   }, []);
+
+//   const handleOAuthCallback = async (code) => {
+//     try {
+//       setIsLoading(true);
+
+//       // Exchange OAuth code for JWT token
+//       const response = await fetch(
+//         `http://localhost:5000/api/auth/getAccessToken?code=${code}`
+//       );
+//       const data = await response.json();
+
+//       if (data.token) {
+//         setJwtToken(data.token);
+//         setIsAuthenticated(true);
+
+//         // Clean URL to remove code param
+//        const currentPath = window.location.pathname;
+// window.history.replaceState({}, document.title, currentPath);
+//       } else {
+//         setError(data.error || "Failed to get token from server");
+//       }
+//     } catch (err) {
+//       setError(err.message);
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   const handleLogout = () => {
+//     setIsAuthenticated(false);
+//     setJwtToken(null);
+//   };
+
+//   if (isLoading) {
+//     return (
+//       <div className="bg-gray-900 h-screen flex items-center justify-center">
+//         <div className="text-white text-xl">⏳ Loading...</div>
+//       </div>
+//     );
+//   }
+
+//   if (error) {
+//     return (
+//       <div className="bg-gray-900 h-screen flex items-center justify-center p-4">
+//         <div className="max-w-md w-full bg-red-500 bg-opacity-10 border border-red-500 rounded-xl p-8 text-center">
+//           <h2 className="text-2xl font-bold text-red-500 mb-2">Error</h2>
+//           <p className="text-gray-300 mb-6">{error}</p>
+//           <button
+//             onClick={() => setError(null)}
+//             className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+//           >
+//             Try Again
+//           </button>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   return isAuthenticated ? (
+//     <Dashboard onLogout={handleLogout} jwtToken={jwtToken} />
+//   ) : (
+//     <LoginPage clientId={Client_Id} />
+//   );
+// }
+
+// export default App;
+// App.jsx
 import React, { useEffect, useState } from 'react';
+import LoginPage from './pages/Login';
+import Dashboard from './pages/Dashboard';
 
 const Client_Id = "Ov23li5uzPwPHy58STiN";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [jwtToken, setJwtToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log('🚀 App mounted');
-    console.log('📍 Current URL:', window.location.href);
-    console.log('📍 Search params:', window.location.search);
-    
     const checkAuth = async () => {
-      // Check for existing token
-      const token = localStorage.getItem("accessToken");
-      console.log('🔑 Checking localStorage for token...');
-      console.log('🔑 Token found:', token ? 'YES' : 'NO');
+      // Check for existing token in localStorage first
+      const savedToken = localStorage.getItem('jwtToken');
       
-      if (token) {
-        console.log('✅ Token exists:', token.substring(0, 20) + '...');
+      if (savedToken) {
+        console.log('✅ Found saved JWT token in localStorage');
+        setJwtToken(savedToken);
         setIsAuthenticated(true);
         setIsLoading(false);
         return;
@@ -29,186 +119,113 @@ function App() {
       // Check for OAuth code in URL
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
-      console.log('🔍 OAuth code from URL:', code);
-      
+
       if (code) {
-        console.log('🎯 Processing OAuth code...');
+        console.log('🎯 OAuth code found, processing...');
         await handleOAuthCallback(code);
       } else {
-        console.log('❌ No code found, user needs to login');
+        console.log('❌ No token or OAuth code, showing login');
         setIsLoading(false);
       }
     };
-
     checkAuth();
   }, []);
 
   const handleOAuthCallback = async (code) => {
     try {
       setIsLoading(true);
-      console.log('📡 Fetching access token from backend...');
-      
-      const response = await fetch(`http://localhost:5000/getAccessToken?code=${code}`);
+      console.log('📡 Exchanging code for JWT token...');
+
+      const response = await fetch(
+        `http://localhost:5000/api/auth/getAccessToken?code=${code}`
+      );
       const data = await response.json();
-      
+
       console.log('📦 Backend response:', data);
-      
-      if (data.access_token) {
-        console.log('✅ Access token received:', data.access_token.substring(0, 20) + '...');
-        console.log('💾 Saving to localStorage...');
+
+      if (data.token) {
+        console.log('✅ JWT token received');
         
-        localStorage.setItem("accessToken", data.access_token);
-        
-        console.log('🔍 Verifying localStorage save...');
-        const savedToken = localStorage.getItem("accessToken");
-        console.log('✓ Token in localStorage:', savedToken ? 'YES' : 'NO');
-        
-        if (savedToken) {
-          console.log('✅ Token successfully saved!');
-          setIsAuthenticated(true);
-          setError(null);
-          
-          // Clean URL
-          window.history.replaceState({}, document.title, '/');
-        } else {
-          console.error('❌ Failed to save token to localStorage!');
-          setError('Failed to save authentication token');
+        // Save to localStorage AND state
+        localStorage.setItem('jwtToken', data.token);
+        setJwtToken(data.token);
+        setIsAuthenticated(true);
+
+        // Also save user info if provided
+        if (data.user) {
+          localStorage.setItem('userInfo', JSON.stringify(data.user));
         }
+
+        // Clean URL - keep current path, just remove query params
+        const currentPath = window.location.pathname;
+        window.history.replaceState({}, document.title, currentPath);
+        console.log('🧹 URL cleaned to:', currentPath);
+        console.log('💾 Token saved to localStorage');
       } else {
-        const errorMsg = data.error_description || data.error || 'No access token received';
+        const errorMsg = data.error || "Failed to get token from server";
         console.error('❌ OAuth error:', errorMsg);
         setError(errorMsg);
       }
     } catch (err) {
       console.error('❌ Network error:', err);
-      setError('Network error: ' + err.message);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getUserData = async () => {
-    const token = localStorage.getItem("accessToken");
-    console.log('👤 Getting user data...');
-    console.log('🔑 Token:', token ? 'Present' : 'Missing');
-    
-    if (!token) {
-      setError('No access token found');
-      return;
-    }
-
-    try {
-      console.log('📡 Fetching user data from backend...');
-      const response = await fetch("http://localhost:5000/getUserData", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      
-      const data = await response.json();
-      console.log('👤 User data received:', data);
-      
-      if (data.message || data.error) {
-        setError(data.message || data.error);
-      } else {
-        setUser(data);
-        setError(null);
-      }
-    } catch (err) {
-      console.error('❌ Error fetching user data:', err);
-      setError('Failed to fetch user data: ' + err.message);
-    }
-  };
-
-  const loginWithGithub = () => {
-    const redirectUri = 'http://localhost:3000';
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${Client_Id}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user`;
-    
-    console.log('🔐 Redirecting to GitHub OAuth...');
-    console.log('🔗 URL:', authUrl);
-    window.location.href = authUrl;
-  };
-
-  const logout = () => {
+  const handleLogout = () => {
     console.log('👋 Logging out...');
-    localStorage.removeItem("accessToken");
+    
+    // Clear localStorage
+    localStorage.removeItem('jwtToken');
+    localStorage.removeItem('userInfo');
+    
+    // Clear state
     setIsAuthenticated(false);
-    setUser(null);
-    setError(null);
-    console.log('✅ Logged out');
+    setJwtToken(null);
+    
+    console.log('✅ Logged out and cleared localStorage');
   };
 
   if (isLoading) {
     return (
-      <div className='bg-black h-screen flex items-center justify-center'>
-        <div className="text-white text-xl">⏳ Loading...</div>
+      <div className="bg-gray-900 h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-white text-xl">⏳ Loading...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className='bg-black h-screen flex items-center justify-center'>
-      <div className="text-white text-center max-w-md p-8">
-        {error && (
-          <div className="bg-red-500 text-white p-4 rounded mb-4">
-            ❌ {error}
-          </div>
-        )}
-        
-        {isAuthenticated ? (
-          <div>
-            <h1 className="text-2xl font-bold mb-4">✅ Logged In!</h1>
-            <p className="text-sm text-gray-400 mb-4">Token stored in localStorage</p>
-            
-            <button 
-              onClick={logout}
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded mb-6"
-            >
-              Logout
-            </button>
-            
-            <div className="border-t border-gray-700 pt-6">
-              <h3 className="text-xl mb-4">User Data</h3>
-              <button 
-                onClick={getUserData}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded mb-4"
-              >
-                Get User Data
-              </button>
-              
-              {user && (
-                <div className="mt-4 bg-gray-800 p-4 rounded">
-                  <h2 className="text-2xl mb-2">Hey {user.login}! 👋</h2>
-                  {user.avatar_url && (
-                    <img 
-                      src={user.avatar_url} 
-                      alt="Avatar" 
-                      className="w-24 h-24 rounded-full mx-auto my-4"
-                    />
-                  )}
-                  {user.name && <p className="text-lg">{user.name}</p>}
-                  {user.bio && <p className="text-sm text-gray-400 mt-2">{user.bio}</p>}
-                  {user.public_repos !== undefined && (
-                    <p className="mt-2">📦 {user.public_repos} public repos</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div>
-            <h3 className="text-2xl mb-6">🔒 Not Logged In</h3>
-            <button 
-              onClick={loginWithGithub}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded text-lg"
-            >
-              Login with GitHub
-            </button>
-          </div>
-        )}
+  if (error) {
+    return (
+      <div className="bg-gray-900 h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-red-500 bg-opacity-10 border border-red-500 rounded-xl p-8 text-center">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+          </svg>
+          <h2 className="text-2xl font-bold text-red-500 mb-2">Authentication Error</h2>
+          <p className="text-gray-300 mb-6">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setIsLoading(false);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return isAuthenticated ? (
+    <Dashboard onLogout={handleLogout} jwtToken={jwtToken} />
+  ) : (
+    <LoginPage clientId={Client_Id} />
   );
 }
 

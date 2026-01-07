@@ -2,6 +2,7 @@
 import React from 'react';
 
 function Sidebar({ onLogout, user }) {
+  
   return (
     <div className="w-50 bg-gray-800 border-r border-gray-700 flex flex-col">
       {/* Logo */}
@@ -70,7 +71,8 @@ function Sidebar({ onLogout, user }) {
         )}
         
         <button
-          onClick={onLogout}
+          onClick={
+            onLogout}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500 hover:bg-opacity-10 rounded-lg transition-colors"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

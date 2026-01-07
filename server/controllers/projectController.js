@@ -1117,6 +1117,132 @@ exports.getCollaboratedProjects = async (req, res) => {
     });
   }
 };
+// Clone/Pull project files from GitHub
+exports.cloneProjectFiles = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      // Check if user is owner or collaborator
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (ownerCheck.length === 0 && collabCheck.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
+      }
+
+      // Get project details
+      const [projects] = await connection.execute(
+        `SELECT p.*, gt.access_token
+         FROM projects p
+         JOIN users u ON p.user_id = u.id
+         LEFT JOIN github_tokens gt ON u.id = gt.user_id
+         WHERE p.id = ?`,
+        [projectId]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const project = projects[0];
+
+      if (!project.access_token) {
+        return res.status(401).json({ error: 'GitHub token missing' });
+      }
+
+      // Initialize Octokit
+      const octokit = new Octokit({
+        auth: project.access_token
+      });
+
+      // Get repository owner
+      const repoUrl = project.repo_url;
+      const repoOwner = repoUrl.split('/')[3]; // Extract owner from URL
+
+      // Get all files from repository
+      const { data: contents } = await octokit.repos.getContent({
+        owner: repoOwner,
+        repo: project.repo_name,
+        path: ''
+      });
+
+      // Recursively get all files
+      const allFiles = await getAllRepoFiles(octokit, repoOwner, project.repo_name, '');
+
+      res.json({
+        message: 'Files fetched successfully',
+        project: {
+          id: project.id,
+          name: project.repo_name,
+          repoUrl: project.repo_url
+        },
+        files: allFiles
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('cloneProjectFiles error:', error);
+    res.status(500).json({
+      error: 'Failed to clone project files',
+      message: error.message
+    });
+  }
+};
+
+// Helper function to recursively get all files from GitHub repo
+async function getAllRepoFiles(octokit, owner, repo, path = '') {
+  const files = [];
+  
+  try {
+    const { data: contents } = await octokit.repos.getContent({
+      owner,
+      repo,
+      path
+    });
+
+    for (const item of contents) {
+      if (item.type === 'file') {
+        // Download file content
+        const { data: fileData } = await octokit.repos.getContent({
+          owner,
+          repo,
+          path: item.path
+        });
+
+        files.push({
+          name: item.name,
+          path: item.path,
+          size: item.size,
+          content: fileData.content, // base64 encoded
+          encoding: fileData.encoding,
+          downloadUrl: item.download_url
+        });
+      } else if (item.type === 'dir') {
+        // Recursively get files from subdirectory
+        const subFiles = await getAllRepoFiles(octokit, owner, repo, item.path);
+        files.push(...subFiles);
+      }
+    }
+  } catch (error) {
+    console.error(`Error getting files from ${path}:`, error.message);
+  }
+
+  return files;
+}
+
 
 
 
@@ -1130,5 +1256,6 @@ module.exports = {
   generateShareLink: exports.generateShareLink,
   getProjectByToken: exports.getProjectByToken,
   joinProject: exports.joinProject,
-  getCollaboratedProjects: exports.getCollaboratedProjects
+  getCollaboratedProjects: exports.getCollaboratedProjects,
+  cloneProjectFiles: exports.cloneProjectFiles
 };

@@ -26,5 +26,7 @@ router.post('/:projectId/share', projectController.generateShareLink);
 router.get('/share/:shareToken', projectController.getProjectByToken);
 router.post('/join', projectController.joinProject);
 router.get('/collaborated', projectController.getCollaboratedProjects);
+// routes/projects.js - Add this route
+router.get('/:projectId/clone', projectController.cloneProjectFiles);
 
 module.exports = router;

@@ -22,5 +22,9 @@ router.post('/:projectId/push', projectController.pushProjectChanges);
 
 
 router.delete('/:projectId', projectController.deleteProject);
+router.post('/:projectId/share', projectController.generateShareLink);
+router.get('/share/:shareToken', projectController.getProjectByToken);
+router.post('/join', projectController.joinProject);
+router.get('/collaborated', projectController.getCollaboratedProjects);
 
 module.exports = router;

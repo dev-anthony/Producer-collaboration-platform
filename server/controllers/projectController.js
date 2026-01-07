@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { Octokit } = require('@octokit/rest');
+const crypto = require('crypto');
 const pool = require('../config/db');
 
 // Configure multer for file uploads
@@ -494,8 +495,8 @@ exports.detectFileChanges = async (req, res) => {
 
       const storedStructure = JSON.parse(projects[0].file_paths);
       
-      console.log('🔍 Stored structure:', storedStructure);
-      console.log('🔍 Current structure:', currentFileStructure);
+      console.log(' Stored structure:', storedStructure);
+      console.log(' Current structure:', currentFileStructure);
 
       // Check for changes by comparing the entire structure
       let hasChanges = false;
@@ -554,7 +555,7 @@ exports.detectFileChanges = async (req, res) => {
         }
       });
 
-      console.log('📊 Change details:', changeDetails);
+      console.log('Change details:', changeDetails);
 
       if (hasChanges) {
         await connection.execute(
@@ -700,8 +701,8 @@ exports.pushProjectChanges = async (req, res) => {
           folders: []
         };
 
-        console.log('🔍 Stored structure:', storedStructure);
-        console.log('🔍 New structure:', newFileStructure);
+        console.log(' Stored structure:', storedStructure);
+        console.log(' New structure:', newFileStructure);
 
         // Determine which files are new/modified
         const filesToUpload = [];
@@ -748,7 +749,7 @@ exports.pushProjectChanges = async (req, res) => {
           });
         });
 
-        console.log(`📤 Files to upload: ${filesToUpload.length}`);
+        console.log(`Files to upload: ${filesToUpload.length}`);
         
         if (filesToUpload.length === 0) {
           return res.status(400).json({ error: 'No modified files found to push' });
@@ -771,7 +772,7 @@ exports.pushProjectChanges = async (req, res) => {
           `Update: ${filesToUpload.length} file(s) modified`
         );
 
-        console.log('✅ Changed files pushed successfully');
+        console.log(' Changed files pushed successfully');
 
         // Update database with new file structure
         await connection.execute(
@@ -881,6 +882,243 @@ exports.deleteProject = async (req, res) => {
     });
   }
 };
+//generate project link
+exports.generateShareLink = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      // Verify user owns the project
+      const [projects] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
+      }
+
+      const project = projects[0];
+
+      // Generate share token if doesn't exist
+      let shareToken = project.share_token;
+      if (!shareToken) {
+        shareToken = crypto.randomBytes(32).toString('hex');
+        await connection.execute(
+          'UPDATE projects SET share_token = ? WHERE id = ?',
+          [shareToken, projectId]
+        );
+      }
+
+      // Generate share link
+      const shareLink = `${process.env.ORIGIN || 'http://localhost:3000'}/join/${shareToken}`;
+
+      res.json({
+        shareLink,
+        shareToken,
+        projectName: project.repo_name
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('generateShareLink error:', error);
+    res.status(500).json({
+      error: 'Failed to generate share link',
+      message: error.message
+    });
+  }
+};
+// Get project info from share token
+exports.getProjectByToken = async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      const [projects] = await connection.execute(
+        `SELECT p.*, u.username as owner_username, u.avatar_url as owner_avatar
+         FROM projects p
+         JOIN users u ON p.user_id = u.id
+         WHERE p.share_token = ?`,
+        [shareToken]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Invalid share link' });
+      }
+
+      const project = projects[0];
+      const fileStructure = JSON.parse(project.file_paths);
+
+      res.json({
+        id: project.id,
+        name: project.repo_name,
+        description: project.description,
+        visibility: project.visibility,
+        repoUrl: project.repo_url,
+        owner: {
+          username: project.owner_username,
+          avatar: project.owner_avatar
+        },
+        fileCount: (fileStructure.individualFiles?.length || 0) + 
+                   fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0)
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getProjectByToken error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch project',
+      message: error.message
+    });
+  }
+};
+exports.joinProject = async (req, res) => {
+  try {
+    const { shareToken, localPath } = req.body;
+    const userId = req.userId;
+
+    if (!shareToken || !localPath) {
+      return res.status(400).json({ error: 'Share token and local path are required' });
+    }
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      // Get project from share token
+      const [projects] = await connection.execute(
+        'SELECT * FROM projects WHERE share_token = ?',
+        [shareToken]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Invalid share link' });
+      }
+
+      const project = projects[0];
+
+      // Check if already a collaborator
+      const [existing] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [project.id, userId]
+      );
+
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'You are already a collaborator on this project' });
+      }
+
+      // Add as collaborator
+      await connection.execute(
+        `INSERT INTO project_collaborators (project_id, user_id, role, local_path)
+         VALUES (?, ?, 'collaborator', ?)`,
+        [project.id, userId, localPath]
+      );
+
+      await connection.commit();
+
+      res.json({
+        message: 'Successfully joined project',
+        project: {
+          id: project.id,
+          name: project.repo_name,
+          repoUrl: project.repo_url,
+          localPath: localPath
+        }
+      });
+
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('joinProject error:', error);
+    res.status(500).json({
+      error: 'Failed to join project',
+      message: error.message
+    });
+  }
+};
+// Get user's collaborated projects
+exports.getCollaboratedProjects = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      const [projects] = await connection.execute(
+        `SELECT 
+          p.id,
+          p.repo_name as name,
+          p.repo_url as url,
+          p.description,
+          p.visibility,
+          p.file_paths,
+          p.has_changes,
+          p.updated_at,
+          pc.role,
+          pc.local_path,
+          u.username as owner_username,
+          u.avatar_url as owner_avatar
+         FROM project_collaborators pc
+         JOIN projects p ON pc.project_id = p.id
+         JOIN users u ON p.user_id = u.id
+         WHERE pc.user_id = ? AND p.user_id != ?
+         ORDER BY pc.joined_at DESC`,
+        [userId, userId]
+      );
+
+      const formattedProjects = projects.map(p => {
+        const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
+        const totalFileCount = (fileStructure.individualFiles?.length || 0) + 
+                               fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0);
+
+        return {
+          id: p.id,
+          name: p.name,
+          url: p.url,
+          description: p.description,
+          visibility: p.visibility,
+          fileCount: totalFileCount,
+          updatedAt: p.updated_at,
+          hasUnpushedChanges: p.has_changes === 1,
+          role: p.role,
+          localPath: p.local_path,
+          owner: {
+            username: p.owner_username,
+            avatar: p.owner_avatar
+          },
+          isCollaborator: true
+        };
+      });
+
+      res.json({ projects: formattedProjects });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getCollaboratedProjects error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch collaborated projects',
+      message: error.message
+    });
+  }
+};
+
+
 
 module.exports = {
   createProjectRepo: exports.createProjectRepo,
@@ -888,5 +1126,9 @@ module.exports = {
   markProjectChanges: exports.markProjectChanges,
   detectFileChanges: exports.detectFileChanges,
   pushProjectChanges: exports.pushProjectChanges,
-  deleteProject: exports.deleteProject
+  deleteProject: exports.deleteProject,
+  generateShareLink: exports.generateShareLink,
+  getProjectByToken: exports.getProjectByToken,
+  joinProject: exports.joinProject,
+  getCollaboratedProjects: exports.getCollaboratedProjects
 };

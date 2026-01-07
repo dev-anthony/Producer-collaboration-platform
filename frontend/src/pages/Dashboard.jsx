@@ -492,8 +492,10 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatsCard from '../components/StatsCard';
 import ProjectCard from '../components/ProjectCard';
-import {Plus} from 'lucide-react';
+import {Plus, Users} from 'lucide-react';
 import Modal from '../components/Modal';
+import JoinProjectModal from '../components/JoinProjectModal';
+
 
 function Dashboard({ onLogout, jwtToken }) {
   const [user, setUser] = useState(null);
@@ -501,10 +503,12 @@ function Dashboard({ onLogout, jwtToken }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [collaboratedProjects, setCollaboratedProjects] = useState([]);
   useEffect(() => {
     getUserData();
     getProjects();
+     getCollaboratedProjects();
   }, []);
 
   const toggleModal = () => {
@@ -549,6 +553,19 @@ function Dashboard({ onLogout, jwtToken }) {
       console.error("Error fetching projects:", err);
     }
   };
+  const getCollaboratedProjects = async () => {
+  try {
+    const response = await fetch("http://localhost:5000/api/projects/collaborated", {
+      headers: { "Authorization": `Bearer ${jwtToken}` }
+    });
+    const data = await response.json();
+    if (!data.error) {
+      setCollaboratedProjects(data.projects || []);
+    }
+  } catch (err) {
+    console.error("Error fetching collaborated projects:", err);
+  }
+};
 
   const handleCheckChanges = async (projectId) => {
     try {
@@ -854,14 +871,22 @@ function Dashboard({ onLogout, jwtToken }) {
                   color="purple"
                 />
               </div>
-
-              <div className="mb-6">
+              {/* New Buttons for Create and Join Project */}
+              <div className="mb-6 flex items-center justify-between">
                 <button
                   onClick={toggleModal}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
                   Create New Project
+                </button>
+                
+                <button
+                  onClick={() => setIsJoinModalOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                >
+                  <Users className="w-5 h-5" />
+                  Join Project
                 </button>
               </div>
 
@@ -879,6 +904,7 @@ function Dashboard({ onLogout, jwtToken }) {
                         onDelete={() => handleDeleteProject(project.id)}
                         onPushChanges={() => handlePushChanges(project.id)}
                         onCheckChanges={handleCheckChanges}
+                           jwtToken={jwtToken}
                       />
                     ))}
                   </div>
@@ -887,6 +913,32 @@ function Dashboard({ onLogout, jwtToken }) {
             </>
           )}
         </div>
+        {collaboratedProjects.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-white mb-4">Collaborated Projects</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {collaboratedProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  hasUnpushedChanges={project.hasUnpushedChanges}
+                  onDelete={() => handleDeleteProject(project.id)}
+                  onPushChanges={() => handlePushChanges(project.id)}
+                  onCheckChanges={handleCheckChanges}
+                  jwtToken={jwtToken}
+                  isCollaborator={true}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isJoinModalOpen && (
+          <JoinProjectModal 
+            toggleModal={() => setIsJoinModalOpen(false)} 
+            jwtToken={jwtToken}
+          />
+        )}
 
         {isModalOpen && <Modal toggleModal={toggleModal} />}
       </div>

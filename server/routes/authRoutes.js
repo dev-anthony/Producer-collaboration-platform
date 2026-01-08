@@ -10,4 +10,7 @@ router.get('/getAccessToken', authController.getAccessToken);
 // Get GitHub user data (protected route)
 router.get('/getUserData', authMiddleware.verifyToken, authController.getUserData);
 
+router.post('/logout', authMiddleware.verifyToken, authController.revokeGitHubToken);
+
+
 module.exports = router;

@@ -78,3 +78,68 @@ function LoginPage({ clientId }) {
 }
 
 export default LoginPage;
+// import React from 'react';
+// import { Github } from 'lucide-react';
+
+// function Login({ clientId }) {
+//   const handleGitHubLogin = () => {
+//     // IMPORTANT: Add these parameters to force re-authentication
+//     const params = new URLSearchParams({
+//       client_id: clientId,
+//       redirect_uri: window.location.origin, // Your app URL
+//       scope: 'read:user user:email repo', // Permissions needed
+//       // THESE ARE THE KEY PARAMETERS:
+//       prompt: 'login', // Force login screen
+//       allow_signup: 'true'
+//     });
+
+//     // Redirect to GitHub OAuth with forced login
+//     window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`;
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
+//       <div className="max-w-md w-full">
+//         {/* Logo/Header */}
+//         <div className="text-center mb-8">
+//           <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-600 rounded-full mb-4">
+//             <Github className="w-12 h-12 text-white" />
+//           </div>
+//           <h1 className="text-4xl font-bold text-white mb-2">GitSyncr</h1>
+//           <p className="text-gray-400">Collaborate on music production with GitHub</p>
+//         </div>
+
+//         {/* Login Card */}
+//         <div className="bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
+//           <h2 className="text-2xl font-bold text-white mb-2 text-center">Welcome Back</h2>
+//           <p className="text-gray-400 text-center mb-6">Sign in to continue</p>
+
+//           {/* GitHub Login Button */}
+//           <button
+//             onClick={handleGitHubLogin}
+//             className="w-full bg-gray-900 hover:bg-gray-950 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 transition-all border border-gray-700 hover:border-purple-500"
+//           >
+//             <Github className="w-6 h-6" />
+//             Sign in with GitHub
+//           </button>
+
+//           {/* Info */}
+//           <div className="mt-6 text-center">
+//             <p className="text-xs text-gray-500">
+//               By signing in, you agree to our Terms of Service and Privacy Policy
+//             </p>
+//           </div>
+//         </div>
+
+//         {/* Features */}
+//         <div className="mt-8 text-center space-y-2">
+//           <p className="text-gray-400 text-sm">✨ Version Control for Audio Files</p>
+//           <p className="text-gray-400 text-sm">🤝 Real-time Collaboration</p>
+//           <p className="text-gray-400 text-sm">🔒 Secure GitHub Integration</p>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// export default Login;

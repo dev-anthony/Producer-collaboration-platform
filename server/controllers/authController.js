@@ -235,3 +235,89 @@ exports.getUserData = async (req, res) => {
     });
   }
 };
+
+// Add to authController.js
+
+// Revoke GitHub OAuth token
+exports.revokeGitHubToken = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const connection = await pool.promise().getConnection();
+
+    try {
+      // Get user's GitHub token
+      const [tokens] = await connection.execute(
+        'SELECT access_token FROM github_tokens WHERE user_id = ?',
+        [userId]
+      );
+
+      let githubRevoked = false;
+
+      if (tokens.length > 0 && tokens[0].access_token) {
+        const token = tokens[0].access_token;
+
+        try {
+          // Revoke the token on GitHub using the correct API endpoint
+          const revokeResponse = await fetch(
+            `https://api.github.com/applications/${process.env.CLIENT_ID}/token`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Basic ${Buffer.from(
+                  `${process.env.CLIENT_ID}:${process.env.GITHUB_CLIENT_SECRET}`
+                ).toString('base64')}`,
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'ProdCollab-App'
+              },
+              body: JSON.stringify({
+                access_token: token
+              })
+            }
+          );
+
+          if (revokeResponse.ok || revokeResponse.status === 204) {
+            console.log('✅ GitHub token revoked successfully');
+            githubRevoked = true;
+          } else {
+            const errorText = await revokeResponse.text();
+            console.warn('⚠️ Failed to revoke GitHub token:', revokeResponse.status, errorText);
+          }
+        } catch (revokeError) {
+          console.error('❌ Error revoking GitHub token:', revokeError);
+          // Continue even if GitHub revoke fails
+        }
+      }
+
+      // Delete token from database regardless of GitHub API result
+      await connection.execute(
+        'DELETE FROM github_tokens WHERE user_id = ?',
+        [userId]
+      );
+
+      console.log('✅ Token deleted from database');
+
+      res.json({ 
+        message: 'Logged out successfully',
+        githubRevoked: githubRevoked,
+        tokenDeleted: true
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Error in logout:', error);
+    res.status(500).json({
+      error: 'Logout failed',
+      message: error.message
+    });
+  }
+};
+
+// Export it
+module.exports = {
+  getAccessToken: exports.getAccessToken,
+  getUserData: exports.getUserData,
+  revokeGitHubToken: exports.revokeGitHubToken
+};

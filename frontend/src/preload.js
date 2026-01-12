@@ -57,10 +57,32 @@
 // });
 
 // console.log('Preload script loaded successfully');
-const { contextBridge } = require('electron');
+// const { contextBridge  , ipcRenderer} = require('electron');
+
+// contextBridge.exposeInMainWorld('electronAPI', {
+//   platform: process.platform,
+//    selectFolder: () => ipcRenderer.invoke('select-folder'),
+//   writeFiles: (data) => ipcRenderer.invoke('write-files', data)
+// });
+
+// console.log('Preload loaded');
+// src/preload.js
+// const { ipcRenderer } = require('electron');
+
+// window.electron = {
+//   selectFolder: () => ipcRenderer.invoke('select-folder'),
+//   writeFiles: (data) => ipcRenderer.invoke('write-files', data)
+// };
+// preload.js
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  platform: process.platform
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  saveFolderPath: (projectId, folderPath) =>
+    ipcRenderer.invoke('save-folder-path', { projectId, folderPath }),
+  getFolderPath: (projectId) => ipcRenderer.invoke('get-folder-path', projectId),
+  readProjectFiles: (projectId, fileStructure) =>
+    ipcRenderer.invoke('read-project-files', { projectId, fileStructure }),
+  writeFiles: (data) => ipcRenderer.invoke('write-files', data),
 });
-
-console.log('Preload loaded');
+// console.log('Preload script loaded!');

@@ -1,4 +1,4 @@
-console.log('===== INDEX.JSX STARTED =====');
+// console.log('===== INDEX.JSX STARTED =====');
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';

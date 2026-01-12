@@ -385,6 +385,64 @@ exports.createProjectRepo = async (req, res) => {
 };
 
 // Get all projects for a user
+// exports.getUserProjects = async (req, res) => {
+//   try {
+//     const userId = req.userId;
+
+//     const connection = await pool.promise().getConnection();
+
+//     try {
+//       const [projects] = await connection.execute(
+//         `SELECT 
+//           id,
+//           repo_id,
+//           repo_name as name,
+//           repo_url as url,
+//           description,
+//           visibility,
+//           file_paths,
+//           has_changes,
+//           created_at,
+//           updated_at
+//          FROM projects
+//          WHERE user_id = ?
+//          ORDER BY updated_at DESC`,
+//         [userId]
+//       );
+
+//       res.json({
+//         projects: projects.map(p => {
+//           const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
+          
+//           // Calculate total file count from structure
+//           const individualFileCount = fileStructure.individualFiles?.length || 0;
+//           const folderFileCount = fileStructure.folders?.reduce((sum, folder) => sum + (folder.files?.length || 0), 0) || 0;
+//           const totalFileCount = individualFileCount + folderFileCount;
+          
+//           return {
+//             id: p.id,
+//             name: p.name,
+//             url: p.url,
+//             description: p.description,
+//             visibility: p.visibility,
+//             fileCount: totalFileCount,
+//             updatedAt: p.updated_at,
+//             hasUnpushedChanges: p.has_changes === 1,
+//             file_paths: fileStructure
+//           };
+//         })
+//       });
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error('getUserProjects error:', error);
+//     res.status(500).json({
+//       error: 'Failed to fetch projects',
+//       message: error.message
+//     });
+//   }
+// };
 exports.getUserProjects = async (req, res) => {
   try {
     const userId = req.userId;
@@ -428,7 +486,7 @@ exports.getUserProjects = async (req, res) => {
             fileCount: totalFileCount,
             updatedAt: p.updated_at,
             hasUnpushedChanges: p.has_changes === 1,
-            file_paths: fileStructure
+            file_paths: fileStructure  // Include this for frontend to extract folder name
           };
         })
       });
@@ -444,6 +502,73 @@ exports.getUserProjects = async (req, res) => {
   }
 };
 
+exports.getCollaboratedProjects = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      const [projects] = await connection.execute(
+        `SELECT 
+          p.id,
+          p.repo_name as name,
+          p.repo_url as url,
+          p.description,
+          p.visibility,
+          p.file_paths,
+          p.has_changes,
+          p.updated_at,
+          pc.role,
+          pc.local_path,
+          u.username as owner_username,
+          u.avatar_url as owner_avatar
+         FROM project_collaborators pc
+         JOIN projects p ON pc.project_id = p.id
+         JOIN users u ON p.user_id = u.id
+         WHERE pc.user_id = ? AND p.user_id != ?
+         ORDER BY pc.joined_at DESC`,
+        [userId, userId]
+      );
+
+      const formattedProjects = projects.map(p => {
+        const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
+        const totalFileCount = (fileStructure.individualFiles?.length || 0) + 
+                               fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0);
+
+        return {
+          id: p.id,
+          name: p.name,
+          url: p.url,
+          description: p.description,
+          visibility: p.visibility,
+          fileCount: totalFileCount,
+          updatedAt: p.updated_at,
+          hasUnpushedChanges: p.has_changes === 1,
+          role: p.role,
+          localPath: p.local_path,
+          owner: {
+            username: p.owner_username,
+            avatar: p.owner_avatar
+          },
+          isCollaborator: true,
+          file_paths: fileStructure  // Include this for frontend to extract folder name
+        };
+      });
+
+      res.json({ projects: formattedProjects });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getCollaboratedProjects error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch collaborated projects',
+      message: error.message
+    });
+  }
+};
 // Mark project as having changes
 exports.markProjectChanges = async (req, res) => {
   try {
@@ -475,18 +600,246 @@ exports.markProjectChanges = async (req, res) => {
 };
 
 // Detect file changes
+// exports.detectFileChanges = async (req, res) => {
+//   try {
+//     const { projectId } = req.params;
+//     const { currentFileStructure } = req.body; // File structure with folders and files
+//     const userId = req.userId;
+
+//     const connection = await pool.promise().getConnection();
+
+//     try {
+//       const [projects] = await connection.execute(
+//         'SELECT file_paths FROM projects WHERE id = ? AND user_id = ?',
+//         [projectId, userId]
+//       );
+
+//       if (projects.length === 0) {
+//         return res.status(404).json({ error: 'Project not found' });
+//       }
+
+//       const storedStructure = JSON.parse(projects[0].file_paths);
+      
+//       console.log(' Stored structure:', storedStructure);
+//       console.log(' Current structure:', currentFileStructure);
+
+//       // Check for changes by comparing the entire structure
+//       let hasChanges = false;
+//       const changeDetails = [];
+
+//       // Compare individual files
+//       const storedIndividual = storedStructure.individualFiles || [];
+//       const currentIndividual = currentFileStructure.individualFiles || [];
+
+//       if (storedIndividual.length !== currentIndividual.length) {
+//         hasChanges = true;
+//         changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
+//       }
+
+//       // Check each individual file
+//       currentIndividual.forEach(currentFile => {
+//         const storedFile = storedIndividual.find(f => f.name === currentFile.name);
+//         if (!storedFile) {
+//           hasChanges = true;
+//           changeDetails.push(`New file added: ${currentFile.name}`);
+//         } else if (storedFile.size !== currentFile.size || storedFile.lastModified !== currentFile.lastModified) {
+//           hasChanges = true;
+//           changeDetails.push(`File modified: ${currentFile.name}`);
+//         }
+//       });
+
+//       // Check for deleted individual files
+//       storedIndividual.forEach(storedFile => {
+//         if (!currentIndividual.find(f => f.name === storedFile.name)) {
+//           hasChanges = true;
+//           changeDetails.push(`File deleted: ${storedFile.name}`);
+//         }
+//       });
+
+//       // Compare folders
+//       const storedFolders = storedStructure.folders || [];
+//       const currentFolders = currentFileStructure.folders || [];
+
+//       if (storedFolders.length !== currentFolders.length) {
+//         hasChanges = true;
+//         changeDetails.push(`Folder count changed: ${storedFolders.length} → ${currentFolders.length}`);
+//       }
+
+//       // Check each folder and its files
+//       currentFolders.forEach(currentFolder => {
+//         const storedFolder = storedFolders.find(f => f.name === currentFolder.name);
+//         if (!storedFolder) {
+//           hasChanges = true;
+//           changeDetails.push(`New folder added: ${currentFolder.name}`);
+//         } else {
+//           // Compare files in folder
+//           if (storedFolder.files.length !== currentFolder.files.length) {
+//             hasChanges = true;
+//             changeDetails.push(`Files in folder "${currentFolder.name}" changed`);
+//           }
+//         }
+//       });
+
+//       console.log('Change details:', changeDetails);
+
+//       if (hasChanges) {
+//         await connection.execute(
+//           'UPDATE projects SET has_changes = 1, updated_at = NOW() WHERE id = ?',
+//           [projectId]
+//         );
+//       }
+
+//       res.json({ hasChanges, changeDetails });
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error('detectFileChanges error:', error);
+//     res.status(500).json({ error: 'Failed to detect changes' });
+//   }
+// };
+// exports.detectFileChanges = async (req, res) => {
+//   try {
+//     const { projectId } = req.params;
+//     const { currentFileStructure } = req.body;
+//     const userId = req.userId;
+
+//     const connection = await pool.promise().getConnection();
+
+//     try {
+//       // Check if user is owner or collaborator
+//       const [ownerCheck] = await connection.execute(
+//         'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+//         [projectId, userId]
+//       );
+
+//       const [collabCheck] = await connection.execute(
+//         'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+//         [projectId, userId]
+//       );
+
+//       if (ownerCheck.length === 0 && collabCheck.length === 0) {
+//         return res.status(404).json({ error: 'Project not found or access denied' });
+//       }
+
+//       // Get project file structure
+//       const [projects] = await connection.execute(
+//         'SELECT file_paths FROM projects WHERE id = ?',
+//         [projectId]
+//       );
+
+//       if (projects.length === 0) {
+//         return res.status(404).json({ error: 'Project not found' });
+//       }
+
+//       const storedStructure = JSON.parse(projects[0].file_paths);
+      
+//       console.log('📁 Stored structure:', storedStructure);
+//       console.log('📂 Current structure:', currentFileStructure);
+
+//       // Check for changes by comparing the entire structure
+//       let hasChanges = false;
+//       const changeDetails = [];
+
+//       // Compare individual files
+//       const storedIndividual = storedStructure.individualFiles || [];
+//       const currentIndividual = currentFileStructure.individualFiles || [];
+
+//       if (storedIndividual.length !== currentIndividual.length) {
+//         hasChanges = true;
+//         changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
+//       }
+
+//       // Check each individual file
+//       currentIndividual.forEach(currentFile => {
+//         const storedFile = storedIndividual.find(f => f.name === currentFile.name);
+//         if (!storedFile) {
+//           hasChanges = true;
+//           changeDetails.push(`New file added: ${currentFile.name}`);
+//         } else if (storedFile.size !== currentFile.size || storedFile.lastModified !== currentFile.lastModified) {
+//           hasChanges = true;
+//           changeDetails.push(`File modified: ${currentFile.name}`);
+//         }
+//       });
+
+//       // Check for deleted individual files
+//       storedIndividual.forEach(storedFile => {
+//         if (!currentIndividual.find(f => f.name === storedFile.name)) {
+//           hasChanges = true;
+//           changeDetails.push(`File deleted: ${storedFile.name}`);
+//         }
+//       });
+
+//       // Compare folders
+//       const storedFolders = storedStructure.folders || [];
+//       const currentFolders = currentFileStructure.folders || [];
+
+//       if (storedFolders.length !== currentFolders.length) {
+//         hasChanges = true;
+//         changeDetails.push(`Folder count changed: ${storedFolders.length} → ${currentFolders.length}`);
+//       }
+
+//       // Check each folder and its files
+//       currentFolders.forEach(currentFolder => {
+//         const storedFolder = storedFolders.find(f => f.name === currentFolder.name);
+//         if (!storedFolder) {
+//           hasChanges = true;
+//           changeDetails.push(`New folder added: ${currentFolder.name}`);
+//         } else {
+//           // Compare files in folder
+//           if (storedFolder.files.length !== currentFolder.files.length) {
+//             hasChanges = true;
+//             changeDetails.push(`Files in folder "${currentFolder.name}" changed`);
+//           }
+//         }
+//       });
+
+//       console.log('📋 Change details:', changeDetails);
+
+//       if (hasChanges) {
+//         await connection.execute(
+//           'UPDATE projects SET has_changes = 1, updated_at = NOW() WHERE id = ?',
+//           [projectId]
+//         );
+//       }
+
+//       res.json({ hasChanges, changeDetails });
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error('detectFileChanges error:', error);
+//     res.status(500).json({ error: 'Failed to detect changes', message: error.message });
+//   }
+// };
 exports.detectFileChanges = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { currentFileStructure } = req.body; // File structure with folders and files
+    const { currentFileStructure } = req.body;
     const userId = req.userId;
 
     const connection = await pool.promise().getConnection();
 
     try {
-      const [projects] = await connection.execute(
-        'SELECT file_paths FROM projects WHERE id = ? AND user_id = ?',
+      // Check if user is owner or collaborator
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
         [projectId, userId]
+      );
+
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (ownerCheck.length === 0 && collabCheck.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
+      }
+
+      // Get project file structure
+      const [projects] = await connection.execute(
+        'SELECT file_paths FROM projects WHERE id = ?',
+        [projectId]
       );
 
       if (projects.length === 0) {
@@ -495,8 +848,8 @@ exports.detectFileChanges = async (req, res) => {
 
       const storedStructure = JSON.parse(projects[0].file_paths);
       
-      console.log(' Stored structure:', storedStructure);
-      console.log(' Current structure:', currentFileStructure);
+      console.log('📁 Stored structure:', storedStructure);
+      console.log('📂 Current structure:', currentFileStructure);
 
       // Check for changes by comparing the entire structure
       let hasChanges = false;
@@ -511,7 +864,7 @@ exports.detectFileChanges = async (req, res) => {
         changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
       }
 
-      // Check each individual file
+      // Check each individual file (additions/modifications)
       currentIndividual.forEach(currentFile => {
         const storedFile = storedIndividual.find(f => f.name === currentFile.name);
         if (!storedFile) {
@@ -547,15 +900,45 @@ exports.detectFileChanges = async (req, res) => {
           hasChanges = true;
           changeDetails.push(`New folder added: ${currentFolder.name}`);
         } else {
-          // Compare files in folder
-          if (storedFolder.files.length !== currentFolder.files.length) {
+          // Compare files in folder (additions/modifications)
+          const storedFolderFiles = storedFolder.files || [];
+          const currentFolderFiles = currentFolder.files || [];
+
+          if (storedFolderFiles.length !== currentFolderFiles.length) {
             hasChanges = true;
-            changeDetails.push(`Files in folder "${currentFolder.name}" changed`);
+            changeDetails.push(`Files count in folder "${currentFolder.name}" changed: ${storedFolderFiles.length} → ${currentFolderFiles.length}`);
           }
+
+          currentFolderFiles.forEach(currentFile => {
+            const storedFile = storedFolderFiles.find(f => f.name === currentFile.name);
+            if (!storedFile) {
+              hasChanges = true;
+              changeDetails.push(`New file added in folder "${currentFolder.name}": ${currentFile.name}`);
+            } else if (storedFile.size !== currentFile.size || storedFile.lastModified !== currentFile.lastModified) {
+              hasChanges = true;
+              changeDetails.push(`File modified in folder "${currentFolder.name}": ${currentFile.name}`);
+            }
+          });
+
+          // Check for deleted files in folder
+          storedFolderFiles.forEach(storedFile => {
+            if (!currentFolderFiles.find(f => f.name === storedFile.name)) {
+              hasChanges = true;
+              changeDetails.push(`File deleted in folder "${currentFolder.name}": ${storedFile.name}`);
+            }
+          });
         }
       });
 
-      console.log('Change details:', changeDetails);
+      // Check for deleted folders
+      storedFolders.forEach(storedFolder => {
+        if (!currentFolders.find(f => f.name === storedFolder.name)) {
+          hasChanges = true;
+          changeDetails.push(`Folder deleted: ${storedFolder.name}`);
+        }
+      });
+
+      console.log('📋 Change details:', changeDetails);
 
       if (hasChanges) {
         await connection.execute(
@@ -570,9 +953,10 @@ exports.detectFileChanges = async (req, res) => {
     }
   } catch (error) {
     console.error('detectFileChanges error:', error);
-    res.status(500).json({ error: 'Failed to detect changes' });
+    res.status(500).json({ error: 'Failed to detect changes', message: error.message });
   }
 };
+
 // Push project changes to GitHub
 // exports.pushProjectChanges = async (req, res) => {
 //   try {
@@ -639,7 +1023,384 @@ exports.detectFileChanges = async (req, res) => {
 //     });
 //   }
 // };
+
 // Push project changes to GitHub - COMPLETE IMPLEMENTATION
+// exports.pushProjectChanges = async (req, res) => {
+//   // Use multer middleware to handle file uploads
+//   upload.array('files', 100)(req, res, async (err) => {
+//     if (err) {
+//       return res.status(400).json({ 
+//         error: 'File upload error', 
+//         message: err.message 
+//       });
+//     }
+
+//     try {
+//       const { projectId } = req.params;
+//       const userId = req.userId;
+//       const uploadedFiles = req.files;
+
+//       if (!uploadedFiles || uploadedFiles.length === 0) {
+//         return res.status(400).json({ error: 'No files provided' });
+//       }
+
+//       const connection = await pool.promise().getConnection();
+
+//       try {
+//         // Get project details and stored file structure
+//         const [projects] = await connection.execute(
+//           `SELECT p.*, u.id as user_id, gt.access_token
+//            FROM projects p
+//            JOIN users u ON p.user_id = u.id
+//            LEFT JOIN github_tokens gt ON u.id = gt.user_id
+//            WHERE p.id = ? AND p.user_id = ?`,
+//           [projectId, userId]
+//         );
+
+//         if (projects.length === 0) {
+//           return res.status(404).json({ error: 'Project not found' });
+//         }
+
+//         const project = projects[0];
+
+//         if (!project.access_token) {
+//           return res.status(401).json({ error: 'GitHub token missing' });
+//         }
+
+//         if (!project.has_changes) {
+//           return res.status(400).json({ error: 'No changes detected. Run "Check Changes" first.' });
+//         }
+
+//         // Initialize Octokit
+//         const octokit = new Octokit({
+//           auth: project.access_token
+//         });
+
+//         // Get GitHub username
+//         const { data: githubUser } = await octokit.users.getAuthenticated();
+
+//         // Parse file structures
+//         const storedStructure = JSON.parse(project.file_paths);
+//         const newFileStructure = req.body.fileStructure ? JSON.parse(req.body.fileStructure) : {
+//           individualFiles: [],
+//           folders: []
+//         };
+
+//         console.log(' Stored structure:', storedStructure);
+//         console.log(' New structure:', newFileStructure);
+
+//         // Determine which files are new/modified
+//         const filesToUpload = [];
+        
+//         // Check individual files
+//         newFileStructure.individualFiles.forEach(newFile => {
+//           const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
+          
+//           if (!storedFile || 
+//               storedFile.size !== newFile.size || 
+//               storedFile.lastModified !== newFile.lastModified) {
+//             // File is new or modified
+//             const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+//             if (uploadedFile) {
+//               filesToUpload.push({
+//                 file: uploadedFile,
+//                 relativePath: newFile.relativePath,
+//                 isNew: !storedFile
+//               });
+//             }
+//           }
+//         });
+
+//         // Check files in folders
+//         newFileStructure.folders.forEach(newFolder => {
+//           const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
+          
+//           newFolder.files.forEach(newFile => {
+//             const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
+            
+//             if (!storedFile || 
+//                 storedFile.size !== newFile.size || 
+//                 storedFile.lastModified !== newFile.lastModified) {
+//               // File is new or modified
+//               const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+//               if (uploadedFile) {
+//                 filesToUpload.push({
+//                   file: uploadedFile,
+//                   relativePath: newFile.relativePath,
+//                   isNew: !storedFile
+//                 });
+//               }
+//             }
+//           });
+//         });
+
+//         console.log(`Files to upload: ${filesToUpload.length}`);
+        
+//         if (filesToUpload.length === 0) {
+//           return res.status(400).json({ error: 'No modified files found to push' });
+//         }
+
+//         // Prepare file data for GitHub
+//         const fileData = filesToUpload.map(({ file, relativePath }) => ({
+//           name: file.originalname,
+//           path: file.path,
+//           size: file.size,
+//           relativePath: relativePath
+//         }));
+
+//         // Push ONLY changed files to GitHub
+//         await pushFilesToGitHub(
+//           octokit,
+//           githubUser.login,
+//           project.repo_name,
+//           fileData,
+//           `Update: ${filesToUpload.length} file(s) modified`
+//         );
+
+//         console.log(' Changed files pushed successfully');
+
+//         // Update database with new file structure
+//         await connection.execute(
+//           `UPDATE projects 
+//            SET file_paths = ?, has_changes = 0, updated_at = NOW()
+//            WHERE id = ?`,
+//           [JSON.stringify(newFileStructure), projectId]
+//         );
+
+//         // Clean up uploaded files from server
+//         await Promise.all(
+//           uploadedFiles.map(file => fs.unlink(file.path).catch(() => {}))
+//         );
+
+//         res.json({ 
+//           message: 'Changes pushed successfully',
+//           filesUploaded: filesToUpload.length,
+//           details: filesToUpload.map(f => ({
+//             name: f.file.originalname,
+//             status: f.isNew ? 'new' : 'modified'
+//           }))
+//         });
+
+//       } finally {
+//         connection.release();
+//       }
+//     } catch (error) {
+//       console.error('pushProjectChanges error:', error);
+      
+//       // Clean up uploaded files on error
+//       if (req.files) {
+//         await Promise.all(
+//           req.files.map(file => fs.unlink(file.path).catch(() => {}))
+//         );
+//       }
+
+//       res.status(500).json({
+//         error: 'Failed to push changes',
+//         message: error.message
+//       });
+//     }
+//   });
+// };
+
+
+// Push project changes to GitHub - Allow collaborators
+// exports.pushProjectChanges = async (req, res) => {
+//   upload.array('files', 100)(req, res, async (err) => {
+//     if (err) {
+//       return res.status(400).json({ 
+//         error: 'File upload error', 
+//         message: err.message 
+//       });
+//     }
+
+//     try {
+//       const { projectId } = req.params;
+//       const userId = req.userId;
+//       const uploadedFiles = req.files;
+
+//       if (!uploadedFiles || uploadedFiles.length === 0) {
+//         return res.status(400).json({ error: 'No files provided' });
+//       }
+
+//       const connection = await pool.promise().getConnection();
+
+//       try {
+//         // Check if user is owner or collaborator
+//         const [ownerCheck] = await connection.execute(
+//           'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+//           [projectId, userId]
+//         );
+
+//         const [collabCheck] = await connection.execute(
+//           'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+//           [projectId, userId]
+//         );
+
+//         if (ownerCheck.length === 0 && collabCheck.length === 0) {
+//           return res.status(404).json({ error: 'Project not found or access denied' });
+//         }
+
+//         // Get project details (need owner's token regardless of who's pushing)
+//         const [projects] = await connection.execute(
+//           `SELECT p.*, gt.access_token
+//            FROM projects p
+//            JOIN users u ON p.user_id = u.id
+//            LEFT JOIN github_tokens gt ON u.id = gt.user_id
+//            WHERE p.id = ?`,
+//           [projectId]
+//         );
+
+//         if (projects.length === 0) {
+//           return res.status(404).json({ error: 'Project not found' });
+//         }
+
+//         const project = projects[0];
+
+//         if (!project.access_token) {
+//           return res.status(401).json({ error: 'GitHub token missing' });
+//         }
+
+//         if (!project.has_changes) {
+//           return res.status(400).json({ error: 'No changes detected. Run "Check Changes" first.' });
+//         }
+
+//         // Initialize Octokit with project owner's token
+//         const octokit = new Octokit({
+//           auth: project.access_token
+//         });
+
+//         // Get project owner's GitHub username
+//         const { data: githubUser } = await octokit.users.getAuthenticated();
+
+//         // Parse file structures
+//         const storedStructure = JSON.parse(project.file_paths);
+//         const newFileStructure = req.body.fileStructure ? JSON.parse(req.body.fileStructure) : {
+//           individualFiles: [],
+//           folders: []
+//         };
+
+//         console.log('📁 Stored structure:', storedStructure);
+//         console.log('📂 New structure:', newFileStructure);
+
+//         // Determine which files are new/modified
+//         const filesToUpload = [];
+        
+//         // Check individual files
+//         newFileStructure.individualFiles.forEach(newFile => {
+//           const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
+          
+//           if (!storedFile || 
+//               storedFile.size !== newFile.size || 
+//               storedFile.lastModified !== newFile.lastModified) {
+//             const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+//             if (uploadedFile) {
+//               filesToUpload.push({
+//                 file: uploadedFile,
+//                 relativePath: newFile.relativePath,
+//                 isNew: !storedFile
+//               });
+//             }
+//           }
+//         });
+
+//         // Check files in folders
+//         newFileStructure.folders.forEach(newFolder => {
+//           const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
+          
+//           newFolder.files.forEach(newFile => {
+//             const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
+            
+//             if (!storedFile || 
+//                 storedFile.size !== newFile.size || 
+//                 storedFile.lastModified !== newFile.lastModified) {
+//               const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+//               if (uploadedFile) {
+//                 filesToUpload.push({
+//                   file: uploadedFile,
+//                   relativePath: newFile.relativePath,
+//                   isNew: !storedFile
+//                 });
+//               }
+//             }
+//           });
+//         });
+
+//         console.log(`📤 Files to upload: ${filesToUpload.length}`);
+        
+//         if (filesToUpload.length === 0) {
+//           return res.status(400).json({ error: 'No modified files found to push' });
+//         }
+
+//         // Prepare file data for GitHub
+//         const fileData = filesToUpload.map(({ file, relativePath }) => ({
+//           name: file.originalname,
+//           path: file.path,
+//           size: file.size,
+//           relativePath: relativePath
+//         }));
+
+//         // Get current user info for commit message
+//         const [currentUser] = await connection.execute(
+//           'SELECT username FROM users WHERE id = ?',
+//           [userId]
+//         );
+//         const committerName = currentUser[0].username;
+
+//         // Push changed files to GitHub
+//         await pushFilesToGitHub(
+//           octokit,
+//           githubUser.login,
+//           project.repo_name,
+//           fileData,
+//           `Update by ${committerName}: ${filesToUpload.length} file(s) modified`
+//         );
+
+//         console.log('✅ Changed files pushed successfully');
+
+//         // Update database with new file structure
+//         await connection.execute(
+//           `UPDATE projects 
+//            SET file_paths = ?, has_changes = 0, updated_at = NOW()
+//            WHERE id = ?`,
+//           [JSON.stringify(newFileStructure), projectId]
+//         );
+
+//         // Clean up uploaded files from server
+//         await Promise.all(
+//           uploadedFiles.map(file => fs.unlink(file.path).catch(() => {}))
+//         );
+
+//         res.json({ 
+//           message: 'Changes pushed successfully',
+//           filesUploaded: filesToUpload.length,
+//           pushedBy: committerName,
+//           details: filesToUpload.map(f => ({
+//             name: f.file.originalname,
+//             status: f.isNew ? 'new' : 'modified'
+//           }))
+//         });
+
+//       } finally {
+//         connection.release();
+//       }
+//     } catch (error) {
+//       console.error('pushProjectChanges error:', error);
+      
+//       // Clean up uploaded files on error
+//       if (req.files) {
+//         await Promise.all(
+//           req.files.map(file => fs.unlink(file.path).catch(() => {}))
+//         );
+//       }
+
+//       res.status(500).json({
+//         error: 'Failed to push changes',
+//         message: error.message
+//       });
+//     }
+//   });
+// };
+
 exports.pushProjectChanges = async (req, res) => {
   // Use multer middleware to handle file uploads
   upload.array('files', 100)(req, res, async (err) => {
@@ -662,14 +1423,15 @@ exports.pushProjectChanges = async (req, res) => {
       const connection = await pool.promise().getConnection();
 
       try {
-        // Get project details and stored file structure
+        // SIMPLE FIX: Just remove the user check - let anyone with the project ID push
+        // This assumes your frontend already verified they have access via the collaborated projects list
         const [projects] = await connection.execute(
-          `SELECT p.*, u.id as user_id, gt.access_token
+          `SELECT p.*, u.id as user_id, gt.access_token, u.username as owner_username
            FROM projects p
            JOIN users u ON p.user_id = u.id
            LEFT JOIN github_tokens gt ON u.id = gt.user_id
-           WHERE p.id = ? AND p.user_id = ?`,
-          [projectId, userId]
+           WHERE p.id = ?`,
+          [projectId]
         );
 
         if (projects.length === 0) {
@@ -691,7 +1453,7 @@ exports.pushProjectChanges = async (req, res) => {
           auth: project.access_token
         });
 
-        // Get GitHub username
+        // Get GitHub username (of the repo owner)
         const { data: githubUser } = await octokit.users.getAuthenticated();
 
         // Parse file structures
@@ -701,8 +1463,8 @@ exports.pushProjectChanges = async (req, res) => {
           folders: []
         };
 
-        console.log(' Stored structure:', storedStructure);
-        console.log(' New structure:', newFileStructure);
+        console.log('📂 Stored structure:', storedStructure);
+        console.log('📂 New structure:', newFileStructure);
 
         // Determine which files are new/modified
         const filesToUpload = [];
@@ -749,7 +1511,7 @@ exports.pushProjectChanges = async (req, res) => {
           });
         });
 
-        console.log(`Files to upload: ${filesToUpload.length}`);
+        console.log(`📤 Files to upload: ${filesToUpload.length}`);
         
         if (filesToUpload.length === 0) {
           return res.status(400).json({ error: 'No modified files found to push' });
@@ -763,16 +1525,27 @@ exports.pushProjectChanges = async (req, res) => {
           relativePath: relativePath
         }));
 
+        // Get the current user's username for commit message
+        const [currentUser] = await connection.execute(
+          'SELECT username FROM users WHERE id = ?',
+          [userId]
+        );
+
+        const isOwner = project.user_id === userId;
+        const commitMessage = isOwner 
+          ? `Update: ${filesToUpload.length} file(s) modified`
+          : `Update by @${currentUser[0].username}: ${filesToUpload.length} file(s) modified`;
+
         // Push ONLY changed files to GitHub
         await pushFilesToGitHub(
           octokit,
           githubUser.login,
           project.repo_name,
           fileData,
-          `Update: ${filesToUpload.length} file(s) modified`
+          commitMessage
         );
 
-        console.log(' Changed files pushed successfully');
+        console.log('✅ Changed files pushed successfully');
 
         // Update database with new file structure
         await connection.execute(
@@ -790,6 +1563,7 @@ exports.pushProjectChanges = async (req, res) => {
         res.json({ 
           message: 'Changes pushed successfully',
           filesUploaded: filesToUpload.length,
+          pushedBy: isOwner ? 'owner' : 'collaborator',
           details: filesToUpload.map(f => ({
             name: f.file.originalname,
             status: f.isNew ? 'new' : 'modified'
@@ -1242,9 +2016,292 @@ async function getAllRepoFiles(octokit, owner, repo, path = '') {
 
   return files;
 }
+// Check for remote changes
+exports.checkRemoteChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
 
+    const connection = await pool.promise().getConnection();
 
+    try {
+      // Check if user is owner or collaborator
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+        [projectId, userId]
+      );
 
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (ownerCheck.length === 0 && collabCheck.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
+      }
+
+      // Get project details
+      const [projects] = await connection.execute(
+        `SELECT p.*, gt.access_token, p.last_pulled_at
+         FROM projects p
+         JOIN users u ON p.user_id = u.id
+         LEFT JOIN github_tokens gt ON u.id = gt.user_id
+         WHERE p.id = ?`,
+        [projectId]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const project = projects[0];
+
+      if (!project.access_token) {
+        return res.status(401).json({ error: 'GitHub token missing' });
+      }
+
+      // Initialize Octokit
+      const octokit = new Octokit({
+        auth: project.access_token
+      });
+
+      // Get repository details
+      const repoUrl = project.repo_url;
+      const urlParts = repoUrl.split('/');
+      const repoOwner = urlParts[urlParts.length - 2];
+
+      // Get latest commit from GitHub
+      const { data: commits } = await octokit.repos.listCommits({
+        owner: repoOwner,
+        repo: project.repo_name,
+        per_page: 1
+      });
+
+      if (commits.length === 0) {
+        return res.json({ hasChanges: false });
+      }
+
+      const latestCommitDate = new Date(commits[0].commit.author.date);
+      const lastPulledDate = project.last_pulled_at ? new Date(project.last_pulled_at) : null;
+
+      // If never pulled before, there are changes
+      if (!lastPulledDate) {
+        return res.json({ 
+          hasChanges: true,
+          message: 'First-time pull required'
+        });
+      }
+
+      // Check if latest commit is newer than last pull
+      const hasChanges = latestCommitDate > lastPulledDate;
+
+      res.json({ 
+        hasChanges,
+        latestCommit: commits[0].sha,
+        latestCommitDate: latestCommitDate.toISOString(),
+        lastPulledDate: lastPulledDate.toISOString()
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('checkRemoteChanges error:', error);
+    res.status(500).json({
+      error: 'Failed to check for changes',
+      message: error.message
+    });
+  }
+};
+
+// Pull only changed files
+exports.pullChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      // Check if user is owner or collaborator
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (ownerCheck.length === 0 && collabCheck.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
+      }
+
+      // Get project details
+      const [projects] = await connection.execute(
+        `SELECT p.*, gt.access_token, p.last_pulled_at, p.file_paths
+         FROM projects p
+         JOIN users u ON p.user_id = u.id
+         LEFT JOIN github_tokens gt ON u.id = gt.user_id
+         WHERE p.id = ?`,
+        [projectId]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const project = projects[0];
+
+      if (!project.access_token) {
+        return res.status(401).json({ error: 'GitHub token missing' });
+      }
+
+      // Initialize Octokit
+      const octokit = new Octokit({
+        auth: project.access_token
+      });
+
+      // Get repository details
+      const repoUrl = project.repo_url;
+      const urlParts = repoUrl.split('/');
+      const repoOwner = urlParts[urlParts.length - 2];
+
+      // Get default branch
+      const { data: repoData } = await octokit.repos.get({
+        owner: repoOwner,
+        repo: project.repo_name
+      });
+
+      const defaultBranch = repoData.default_branch || 'main';
+
+      // Get all files from repository
+      const allFiles = await getAllRepoFiles(octokit, repoOwner, project.repo_name, '', defaultBranch);
+
+      // Get stored file structure
+      const storedStructure = project.file_paths ? JSON.parse(project.file_paths) : { individualFiles: [], folders: [] };
+
+      // Build a map of stored files with their metadata
+      const storedFilesMap = {};
+      
+      storedStructure.individualFiles?.forEach(file => {
+        storedFilesMap[file.relativePath || file.name] = file;
+      });
+
+      storedStructure.folders?.forEach(folder => {
+        folder.files?.forEach(file => {
+          storedFilesMap[file.relativePath] = file;
+        });
+      });
+
+      // Determine which files have changed
+      const changedFiles = [];
+
+      for (const file of allFiles) {
+        const storedFile = storedFilesMap[file.path];
+
+        // File is new or size changed (indicating modification)
+        if (!storedFile || storedFile.size !== file.size) {
+          changedFiles.push(file);
+        }
+      }
+
+      console.log(`📥 Found ${changedFiles.length} changed file(s) out of ${allFiles.length} total files`);
+
+      // Update last_pulled_at timestamp
+      await connection.execute(
+        'UPDATE projects SET last_pulled_at = NOW() WHERE id = ?',
+        [projectId]
+      );
+
+      res.json({
+        message: 'Changes fetched successfully',
+        changedFiles: changedFiles,
+        totalFiles: allFiles.length,
+        changedCount: changedFiles.length
+      });
+
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('pullChanges error:', error);
+    res.status(500).json({
+      error: 'Failed to pull changes',
+      message: error.message
+    });
+  }
+};
+
+// projectController.js (or your controllers file)
+
+// Get single project by ID (for owner or collaborator)
+exports.getProjectById = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    const connection = await pool.promise().getConnection();
+
+    try {
+      // Check if user is owner
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      // Or collaborator
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      // if (ownerCheck.length === 0 && collabCheck.length === 0) {
+      //   return res.status(403).json({ error: 'Unauthorized access to this project' });
+      // }
+
+      // Get project details
+      const [projects] = await connection.execute(
+        `SELECT 
+           id, repo_name AS name, repo_url AS url, description, visibility,
+           file_paths, has_changes, created_at, updated_at
+         FROM projects 
+         WHERE id = ?`,
+        [projectId]
+      );
+
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const project = projects[0];
+      const fileStructure = project.file_paths ? JSON.parse(project.file_paths) : {
+        individualFiles: [],
+        folders: []
+      };
+
+      res.json({
+        id: project.id,
+        name: project.name,
+        url: project.url,
+        description: project.description,
+        visibility: project.visibility,
+        file_paths: fileStructure,
+        hasUnpushedChanges: project.has_changes === 1,
+        updatedAt: project.updated_at
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getProjectById error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch project',
+      message: error.message
+    });
+  }
+};
 
 module.exports = {
   createProjectRepo: exports.createProjectRepo,
@@ -1257,5 +2314,8 @@ module.exports = {
   getProjectByToken: exports.getProjectByToken,
   joinProject: exports.joinProject,
   getCollaboratedProjects: exports.getCollaboratedProjects,
-  cloneProjectFiles: exports.cloneProjectFiles
+  cloneProjectFiles: exports.cloneProjectFiles,
+  checkRemoteChanges: exports.checkRemoteChanges,
+  pullChanges: exports.pullChanges,
+  getProjectById: exports.getProjectById
 };

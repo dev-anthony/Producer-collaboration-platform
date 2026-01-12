@@ -49,14 +49,14 @@ const jwt = require('jsonwebtoken');
 
 exports.verifyToken = (req, res, next) => {
   // DEBUG: Log all headers
-  console.log('\n🔍 === TOKEN VERIFICATION DEBUG ===');
-  console.log('📋 All Headers:', JSON.stringify(req.headers, null, 2));
+  // console.log('\n🔍 === TOKEN VERIFICATION DEBUG ===');
+  // console.log(' All Headers:', JSON.stringify(req.headers, null, 2));
   
   const authHeader = req.get('Authorization');
-  console.log('🔑 Authorization Header:', authHeader);
+  console.log(' Authorization Header:', authHeader);
   
   if (!authHeader) {
-    console.error('❌ No Authorization header found!');
+    console.error(' No Authorization header found!');
     return res.status(401).json({ 
       error: 'No Authorization header provided',
       debug: 'Authorization header is missing from the request'
@@ -65,7 +65,7 @@ exports.verifyToken = (req, res, next) => {
 
   // Check if it starts with "Bearer "
   if (!authHeader.startsWith('Bearer ')) {
-    console.error('❌ Authorization header does not start with "Bearer "');
+    console.error(' Authorization header does not start with "Bearer "');
     return res.status(401).json({ 
       error: 'Invalid Authorization header format',
       debug: `Header should start with "Bearer " but got: ${authHeader.substring(0, 20)}...`
@@ -74,11 +74,11 @@ exports.verifyToken = (req, res, next) => {
 
   // Extract token
   const token = authHeader.split(' ')[1];
-  console.log('🔑 Extracted Token:', token ? `${token.substring(0, 30)}...` : 'EMPTY');
-  console.log('🔑 Token Length:', token?.length);
+  console.log(' Extracted Token:', token ? `${token.substring(0, 30)}...` : 'EMPTY');
+  console.log(' Token Length:', token?.length);
   
   if (!token) {
-    console.error('❌ Token is empty after extraction');
+    console.error(' Token is empty after extraction');
     return res.status(401).json({ 
       error: 'Invalid Authorization header format',
       debug: 'Token is empty after "Bearer " prefix'
@@ -87,10 +87,10 @@ exports.verifyToken = (req, res, next) => {
 
   // Check token structure (JWT should have 3 parts)
   const tokenParts = token.split('.');
-  console.log('🔑 Token Parts:', tokenParts.length, '(should be 3)');
+  console.log(' Token Parts:', tokenParts.length, '(should be 3)');
   
   if (tokenParts.length !== 3) {
-    console.error('❌ Token does not have 3 parts (header.payload.signature)');
+    console.error('Token does not have 3 parts (header.payload.signature)');
     return res.status(401).json({ 
       error: 'Malformed JWT token',
       debug: `Token has ${tokenParts.length} parts, expected 3`
@@ -99,27 +99,27 @@ exports.verifyToken = (req, res, next) => {
 
   // Check JWT_SECRET
   if (!process.env.JWT_SECRET) {
-    console.error('❌ JWT_SECRET is not set in environment!');
+    console.error('JWT_SECRET is not set in environment!');
     return res.status(500).json({ 
       error: 'Server configuration error',
       debug: 'JWT_SECRET is not configured'
     });
   }
-  console.log('🔑 JWT_SECRET exists:', process.env.JWT_SECRET ? 'YES' : 'NO');
-  console.log('🔑 JWT_SECRET length:', process.env.JWT_SECRET?.length);
+  // console.log(' JWT_SECRET exists:', process.env.JWT_SECRET ? 'YES' : 'NO');
+  // console.log('JWT_SECRET length:', process.env.JWT_SECRET?.length);
 
   try {
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token verified successfully!');
-    console.log('👤 Decoded payload:', JSON.stringify(decoded, null, 2));
+    // console.log(' Token verified successfully!');
+    console.log(' Decoded payload:', JSON.stringify(decoded, null, 2));
     
     // Attach user info to request
     req.userId = decoded.userId;
     req.githubId = decoded.githubId;
     req.username = decoded.username;
     
-    console.log('✅ User authenticated:', {
+    console.log(' User authenticated:', {
       userId: req.userId,
       githubId: req.githubId,
       username: req.username
@@ -128,10 +128,10 @@ exports.verifyToken = (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('❌ JWT Verification Failed!');
-    console.error('❌ Error Name:', error.name);
-    console.error('❌ Error Message:', error.message);
-    console.error('❌ Full Error:', error);
+    console.error(' JWT Verification Failed!');
+    console.error(' Error Name:', error.name);
+    console.error(' Error Message:', error.message);
+    console.error(' Full Error:', error);
     
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({

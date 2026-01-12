@@ -39,12 +39,12 @@
 // import './index.jsx';
 
 // console.log('👋 This message is being logged by "renderer.js", included via webpack');
-console.log('===== RENDERER.JS STARTED =====');
+// console.log('===== RENDERER.JS STARTED =====');
 
 import './index.css';
-console.log('===== CSS IMPORTED =====');
+// console.log('===== CSS IMPORTED =====');
 
 import './index.jsx';
-console.log('===== INDEX.JSX IMPORTED =====');
+// console.log('===== INDEX.JSX IMPORTED =====');
 
-console.log('👋 This message is being logged by "renderer.js", included via webpack');
+// console.log('This message is being logged by "renderer.js", included via webpack');

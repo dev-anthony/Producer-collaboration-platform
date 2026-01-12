@@ -2,149 +2,142 @@
 @tailwind components;
 @tailwind utilities;
 
-/* src/index.css */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ============================================
+   CSS VARIABLES
+   ============================================ */
+@layer base {
+  :root {
+    /* Deep dark backgrounds */
+    --background: 220 20% 4%;
+    --foreground: 210 20% 95%;
+    /* Card/Panel surfaces */
+    --card: 220 18% 7%;
+    --card-foreground: 210 20% 95%;
+    --popover: 220 18% 8%;
+    --popover-foreground: 210 20% 95%;
+    /* Electric cyan - primary accent */
+    --primary: 185 85% 50%;
+    --primary-foreground: 220 20% 4%;
+    /* Warm amber - secondary accent */
+    --secondary: 35 90% 55%;
+    --secondary-foreground: 220 20% 4%;
+    /* Muted surfaces */
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+    /* Accent surfaces */
+    --accent: 220 15% 15%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 210 20% 98%;
+    /* Borders */
+    --border: 220 15% 18%;
+    --input: 220 15% 15%;
+    --ring: 185 85% 50%;
+    --radius: 0.75rem;
+    /* Sidebar */
+    --sidebar-background: 220 18% 6%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 185 85% 50%;
+    --sidebar-primary-foreground: 220 20% 4%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 185 85% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #f6f8fa;
-  color: #24292f;
+/* ============================================
+   CUSTOM UTILITIES
+   ============================================ */
+@layer utilities {
+  /* Glassmorphism effect */
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  
+  .glass-strong {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3), 0 0 40px hsl(var(--primary) / 0.1);
+  }
+  
+  .glow-secondary {
+    box-shadow: 0 0 20px hsl(var(--secondary) / 0.3), 0 0 40px hsl(var(--secondary) / 0.1);
+  }
+
+  /* Grid pattern background */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  }
+
+  /* Pulse glow animation */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
 }
 
-.loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  font-size: 1.5rem;
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px hsl(var(--primary) / 0.3); }
+  50% { box-shadow: 0 0 25px hsl(var(--primary) / 0.5); }
 }
 
-/* Login Page */
-.login-container {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #24292f, #1a1d21);
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.login-card {
-  background: white;
-  padding: 3rem 4rem;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  text-align: center;
-  max-width: 400px;
-  width: 100%;
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-.login-card h1 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  color: #24292f;
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.login-card p {
-  color: #57606a;
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
 }
 
-.github-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background-color: #24292f;
-  color: white;
-  border: none;
-  padding: 14px 28px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  width: 100%;
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out forwards;
 }
 
-.github-btn:hover {
-  background-color: #1a1d21;
-}
-
-.github-btn svg {
-  fill: white;
-}
-
-/* Dashboard */
-.dashboard-container {
-  min-height: 100vh;
-  background-color: #f6f8fa;
-}
-
-.dashboard-header {
-  background-color: white;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #d0d7de;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.dashboard-header h1 {
-  font-size: 1.8rem;
-  color: #24292f;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  font-size: 1.1rem;
-}
-
-.logout-btn {
-  background: #fa777c;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.logout-btn:hover {
-  background: #f1464d;
-}
-
-.dashboard-main {
-  padding: 3rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.welcome-card {
-  background: white;
-  padding: 3rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  text-align: center;
-}
-
-.welcome-card h2 {
-  font-size: 2.2rem;
-  margin-bottom: 1rem;
-  color: #24292f;
-}
-
-.welcome-card p {
-  font-size: 1.2rem;
-  color: #57606a;
-  line-height: 1.6;
-  margin-bottom: 1rem;
+.animate-slide-in-left {
+  animation: slide-in-left 0.5s ease-out forwards;
 }

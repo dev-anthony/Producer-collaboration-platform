@@ -81,7 +81,9 @@
   .glow-secondary {
     box-shadow: 0 0 20px hsl(var(--secondary) / 0.3), 0 0 40px hsl(var(--secondary) / 0.1);
   }
-
+/* .anything{
+  color:hsl(185 85% 50%);
+} */
   /* Grid pattern background */
   .bg-grid-pattern {
     background-image: 

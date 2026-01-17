@@ -13,22 +13,20 @@ router.post('/create', projectController.createProjectRepo);
 // Get all user projects
 router.get('/', projectController.getUserProjects);
 
-// Mark project as having changes
-router.patch('/:projectId/changes', projectController.markProjectChanges);
-//detect changes
-router.post('/:projectId/detect-changes', projectController.detectFileChanges);
-// Push changes to GitHub 
-router.post('/:projectId/push', projectController.pushProjectChanges);
-router.get('/:projectId',  projectController.getProjectById);
-
-router.delete('/:projectId', projectController.deleteProject);
-router.post('/:projectId/share', projectController.generateShareLink);
+// IMPORTANT: Put specific routes BEFORE parameterized routes
+router.get('/collaborated', projectController.getCollaboratedProjects);
 router.get('/share/:shareToken', projectController.getProjectByToken);
 router.post('/join', projectController.joinProject);
-router.get('/collaborated', projectController.getCollaboratedProjects);
-// routes/projects.js - Add this route
+
+// Parameterized routes should come AFTER specific routes
+router.get('/:projectId', projectController.getProjectById);
 router.get('/:projectId/clone', projectController.cloneProjectFiles);
-// Add these routes to your project routes file
 router.get('/:projectId/check-remote-changes', projectController.checkRemoteChanges);
 router.get('/:projectId/pull-changes', projectController.pullChanges);
+router.patch('/:projectId/changes', projectController.markProjectChanges);
+router.post('/:projectId/detect-changes', projectController.detectFileChanges);
+router.post('/:projectId/push', projectController.pushProjectChanges);
+router.post('/:projectId/share', projectController.generateShareLink);
+router.delete('/:projectId', projectController.deleteProject);
+
 module.exports = router;

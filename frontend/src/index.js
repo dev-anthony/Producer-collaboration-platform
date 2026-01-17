@@ -1,681 +1,383 @@
 
-// // const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-
-// // if (require('electron-squirrel-startup')) {
-// //   app.quit();
-// // }
-
-// // const createWindow = () => {
-// //   const mainWindow = new BrowserWindow({
-// //     width: 800,
-// //     height: 600,
-// //     webPreferences: {
-// //       sandbox: false,
-// //       contextIsolation: false,
-// //       nodeIntegration: false,
-// //       webSecurity: true,
-// //     },
-// //   });
-
-// //   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-// //   mainWindow.webContents.openDevTools();
-
-// //   // Handle OAuth callback redirect
-// //   mainWindow.webContents.on('will-redirect', (event, url) => {
-// //     console.log('🔀 Will redirect to:', url);
-    
-// //     // Only intercept OAuth callbacks, not HMR reloads
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       console.log('🔥 OAuth callback detected in will-redirect!');
-// //       event.preventDefault();
-      
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-// //       console.log('📝 OAuth code:', code);
-      
-// //       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //       console.log('🔄 Loading:', newURL);
-// //       mainWindow.loadURL(newURL);
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('will-navigate', (event, url) => {
-// //     console.log('➡️ Will navigate to:', url);
-    
-// //     // Only intercept OAuth callbacks, not HMR reloads
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       console.log('🔥 OAuth callback detected in will-navigate!');
-// //       event.preventDefault();
-      
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-// //       console.log('📝 OAuth code:', code);
-      
-// //       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //       console.log('🔄 Loading:', newURL);
-// //       mainWindow.loadURL(newURL);
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
-// //     if (!isMainFrame) return;
-    
-// //     console.log('🚀 Did start navigation to:', url);
-    
-// //     // Only intercept OAuth callbacks, not HMR or normal navigation
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       console.log('🔥 OAuth callback detected in did-start-navigation!');
-      
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-      
-// //       if (code) {
-// //         console.log('📝 OAuth code:', code);
-// //         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //         console.log('🔄 Loading:', newURL);
-        
-// //         mainWindow.webContents.stop();
-// //         mainWindow.loadURL(newURL);
-// //       }
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-// //     // Ignore HMR-related 404s during development
-// //     if (errorCode === -6 && validatedURL === 'http://localhost:3000/') {
-// //       console.log('⚠️ Ignoring HMR 404, not reloading');
-// //       return;
-// //     }
-
-// //     console.error('❌ Failed to load:', validatedURL);
-// //     console.error('❌ Error:', errorDescription, 'Code:', errorCode);
-    
-// //     // Only handle OAuth callback 404s
-// //     if (validatedURL.includes('?code=') && errorCode === -6) {
-// //       const urlObj = new URL(validatedURL);
-// //       const code = urlObj.searchParams.get('code');
-      
-// //       if (code) {
-// //         console.log('🔄 Recovering from 404, code:', code);
-// //         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //         console.log('🔄 Reloading as:', newURL);
-// //         mainWindow.loadURL(newURL);
-// //       }
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('did-navigate', (event, url) => {
-// //     console.log('✅ Did navigate to:', url);
-// //   });
-// // };
-// // ipcMain.handle('select-folder', async () => {
-// //   const result = await dialog.showOpenDialog({
-// //     properties: ['openDirectory'],
-// //     title: 'Select folder to save files'
-// //   });
-// //   return result.canceled ? null : result.filePaths[0];
-// // });
-
-// // ipcMain.handle('write-files', async (event, { folderPath, files }) => {
-// //   let successCount = 0;
-// //   let failCount = 0;
-// //   let lastError = null;
-
-// //   for (const file of files) {
-// //     try {
-// //       const content = Buffer.from(file.content, 'base64');
-// //       const fullPath = path.join(folderPath, file.path);
-// //       await fs.mkdir(path.dirname(fullPath), { recursive: true });
-// //       await fs.writeFile(fullPath, content);
-// //       successCount++;
-// //     } catch (err) {
-// //       failCount++;
-// //       lastError = err.message;
-// //     }
-// //   }
-
-// //   return { success: failCount === 0, successCount, failCount, error: lastError };
-// // });
-
-// // app.whenReady().then(() => {
-// //   createWindow();
-
-// //   app.on('activate', () => {
-// //     if (BrowserWindow.getAllWindows().length === 0) {
-// //       createWindow();
-      
-// //     }
-// //   });
-// // });
-
-// // app.on('window-all-closed', () => {
-// //   if (process.platform !== 'darwin') {
-// //     app.quit();
-// //   }
-// // });
-
-
-
-
-
-// // const { app, BrowserWindow } = require('electron');
-
-// // if (require('electron-squirrel-startup')) {
-// //   app.quit();
-// // }
-
-// // // Store windows in array
-// // const windows = [];
-
-// // const createWindow = (sessionName = 'default', xOffset = 0) => {
-// //   const mainWindow = new BrowserWindow({
-// //     width: 800,
-// //     height: 600,
-// //     x: xOffset, // Offset windows so they don't overlap
-// //     y: 100,
-// //     webPreferences: {
-// //       sandbox: false,
-// //       contextIsolation: false,
-// //       nodeIntegration: false,
-// //       webSecurity: true,
-// //       // IMPORTANT: Different partition for each window = separate storage
-// //       partition: `persist:${sessionName}`,
-// //     },
-// //   });
-
-// //   // Add title to distinguish windows
-// //   mainWindow.setTitle(`GitSyncr - ${sessionName}`);
-
-// //   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-// //   mainWindow.webContents.openDevTools();
-
-// //   // Handle OAuth callback redirect
-// //   mainWindow.webContents.on('will-redirect', (event, url) => {
-// //     console.log(`[${sessionName}] 🔀 Will redirect to:`, url);
-    
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       console.log(`[${sessionName}] 🔥 OAuth callback detected!`);
-// //       event.preventDefault();
-      
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-// //       console.log(`[${sessionName}] 📝 OAuth code:`, code);
-      
-// //       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //       console.log(`[${sessionName}] 🔄 Loading:`, newURL);
-// //       mainWindow.loadURL(newURL);
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('will-navigate', (event, url) => {
-// //     console.log(`[${sessionName}] ➡️ Will navigate to:`, url);
-    
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       console.log(`[${sessionName}] 🔥 OAuth callback detected!`);
-// //       event.preventDefault();
-      
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-// //       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //       mainWindow.loadURL(newURL);
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
-// //     if (!isMainFrame) return;
-    
-// //     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-// //       const urlObj = new URL(url);
-// //       const code = urlObj.searchParams.get('code');
-      
-// //       if (code) {
-// //         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //         mainWindow.webContents.stop();
-// //         mainWindow.loadURL(newURL);
-// //       }
-// //     }
-// //   });
-
-// //   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-// //     if (errorCode === -6 && validatedURL === 'http://localhost:3000/') {
-// //       return; // Ignore HMR 404s
-// //     }
-    
-// //     if (validatedURL.includes('?code=') && errorCode === -6) {
-// //       const urlObj = new URL(validatedURL);
-// //       const code = urlObj.searchParams.get('code');
-      
-// //       if (code) {
-// //         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-// //         mainWindow.loadURL(newURL);
-// //       }
-// //     }
-// //   });
-
-// //   mainWindow.on('closed', () => {
-// //     const index = windows.indexOf(mainWindow);
-// //     if (index > -1) {
-// //       windows.splice(index, 1);
-// //     }
-// //   });
-
-// //   windows.push(mainWindow);
-// //   return mainWindow;
-// // };
-
-// // app.whenReady().then(() => {
-// //   // Create TWO windows with different sessions for testing
-// //   // Each window has completely separate localStorage, cookies, etc.
-  
-// //   createWindow('Account-A', 0);     // First window at x=0
-// //   createWindow('Account-B', 850);   // Second window at x=850 (offset to right)
-  
-// //   // Optional: Create a third window for testing
-// //   // createWindow('Account-C', 1700);
-
-// //   app.on('activate', () => {
-// //     if (BrowserWindow.getAllWindows().length === 0) {
-// //       createWindow('Account-A', 0);
-// //     }
-// //   });
-// // });
-
-// // app.on('window-all-closed', () => {
-// //   if (process.platform !== 'darwin') {
-// //     app.quit();
-// //   }
-// // });
-
-// // // Optional: Add keyboard shortcut to open new window during development
-// // // Press Cmd/Ctrl+N to open additional window
-// // app.on('web-contents-created', (event, contents) => {
-// //   contents.on('before-input-event', (event, input) => {
-// //     if (input.key === 'n' && (input.meta || input.control)) {
-// //       const windowCount = windows.length;
-// //       const offset = windowCount * 850;
-// //       createWindow(`Account-${String.fromCharCode(65 + windowCount)}`, offset);
-// //     }
-// //   });
-// // });
-
-
-
-
-// const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-// const path = require('path');
-// const fs = require('fs').promises;
-
-// if (require('electron-squirrel-startup')) {
-//   app.quit();
-// }
-
-// // Store windows in array
-// const windows = [];
-
-// const createWindow = (sessionName = 'default', xOffset = 0) => {
-//   const mainWindow = new BrowserWindow({
-//     width: 800,
-//     height: 600,
-//     x: xOffset, // Offset windows so they don't overlap
-//     y: 100,
-//     webPreferences: {
-//       sandbox: false,
-//       contextIsolation: false,
-//       nodeIntegration: false,
-//       webSecurity: true,
-//       // IMPORTANT: Different partition for each window = separate storage
-//       partition: `persist:${sessionName}`,
-//     },
-//   });
-
-//   // Add title to distinguish windows
-//   mainWindow.setTitle(`GitSyncr - ${sessionName}`);
-
-//   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-//   mainWindow.webContents.openDevTools();
-
-//   // Handle OAuth callback redirect
-//   mainWindow.webContents.on('will-redirect', (event, url) => {
-//     console.log(`[${sessionName}] 🔀 Will redirect to:`, url);
-    
-//     // Only intercept OAuth callbacks, not HMR reloads
-//     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-//       console.log(`[${sessionName}] 🔥 OAuth callback detected in will-redirect!`);
-//       event.preventDefault();
-      
-//       const urlObj = new URL(url);
-//       const code = urlObj.searchParams.get('code');
-//       console.log(`[${sessionName}] 📝 OAuth code:`, code);
-      
-//       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-//       console.log(`[${sessionName}] 🔄 Loading:`, newURL);
-//       mainWindow.loadURL(newURL);
-//     }
-//   });
-
-//   mainWindow.webContents.on('will-navigate', (event, url) => {
-//     console.log(`[${sessionName}] ➡️ Will navigate to:`, url);
-    
-//     // Only intercept OAuth callbacks, not HMR reloads
-//     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-//       console.log(`[${sessionName}] 🔥 OAuth callback detected in will-navigate!`);
-//       event.preventDefault();
-      
-//       const urlObj = new URL(url);
-//       const code = urlObj.searchParams.get('code');
-//       console.log(`[${sessionName}] 📝 OAuth code:`, code);
-      
-//       const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-//       console.log(`[${sessionName}] 🔄 Loading:`, newURL);
-//       mainWindow.loadURL(newURL);
-//     }
-//   });
-
-//   mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
-//     if (!isMainFrame) return;
-    
-//     console.log(`[${sessionName}] 🚀 Did start navigation to:`, url);
-    
-//     // Only intercept OAuth callbacks, not HMR or normal navigation
-//     if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-//       console.log(`[${sessionName}] 🔥 OAuth callback detected in did-start-navigation!`);
-      
-//       const urlObj = new URL(url);
-//       const code = urlObj.searchParams.get('code');
-      
-//       if (code) {
-//         console.log(`[${sessionName}] 📝 OAuth code:`, code);
-//         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-//         console.log(`[${sessionName}] 🔄 Loading:`, newURL);
-        
-//         mainWindow.webContents.stop();
-//         mainWindow.loadURL(newURL);
-//       }
-//     }
-//   });
-
-//   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-//     // Ignore HMR-related 404s during development
-//     if (errorCode === -6 && validatedURL === 'http://localhost:3000/') {
-//       console.log(`[${sessionName}] ⚠️ Ignoring HMR 404, not reloading`);
-//       return;
-//     }
-
-//     console.error(`[${sessionName}] ❌ Failed to load:`, validatedURL);
-//     console.error(`[${sessionName}] ❌ Error:`, errorDescription, 'Code:', errorCode);
-    
-//     // Only handle OAuth callback 404s
-//     if (validatedURL.includes('?code=') && errorCode === -6) {
-//       const urlObj = new URL(validatedURL);
-//       const code = urlObj.searchParams.get('code');
-      
-//       if (code) {
-//         console.log(`[${sessionName}] 🔄 Recovering from 404, code:`, code);
-//         const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-//         console.log(`[${sessionName}] 🔄 Reloading as:`, newURL);
-//         mainWindow.loadURL(newURL);
-//       }
-//     }
-//   });
-
-//   mainWindow.webContents.on('did-navigate', (event, url) => {
-//     console.log(`[${sessionName}] ✅ Did navigate to:`, url);
-//   });
-
-//   mainWindow.on('closed', () => {
-//     const index = windows.indexOf(mainWindow);
-//     if (index > -1) {
-//       windows.splice(index, 1);
-//     }
-//   });
-
-//   windows.push(mainWindow);
-//   return mainWindow;
-// };
-
-// // IPC Handlers (available to ALL windows)
-// ipcMain.handle('select-folder', async () => {
-//   const result = await dialog.showOpenDialog({
-//     properties: ['openDirectory'],
-//     title: 'Select folder to save files'
-//   });
-//   return result.canceled ? null : result.filePaths[0];
-// });
-
-// ipcMain.handle('write-files', async (event, { folderPath, files }) => {
-//   let successCount = 0;
-//   let failCount = 0;
-//   let lastError = null;
-
-//   for (const file of files) {
-//     try {
-//       const content = Buffer.from(file.content, 'base64');
-//       const fullPath = path.join(folderPath, file.path);
-//       await fs.mkdir(path.dirname(fullPath), { recursive: true });
-//       await fs.writeFile(fullPath, content);
-//       successCount++;
-//     } catch (err) {
-//       failCount++;
-//       lastError = err.message;
-//     }
-//   }
-
-//   return { success: failCount === 0, successCount, failCount, error: lastError };
-// });
-
-// app.whenReady().then(() => {
-//   // Create TWO windows with different sessions for testing
-//   // Each window has completely separate localStorage, cookies, etc.
-  
-//   createWindow('Account-A', 0);     // First window at x=0
-//   createWindow('Account-B', 850);   // Second window at x=850 (offset to right)
-  
-//   // Optional: Create a third window for testing
-//   // createWindow('Account-C', 1700);
-
-//   app.on('activate', () => {
-//     if (BrowserWindow.getAllWindows().length === 0) {
-//       createWindow('Account-A', 0);
-//     }
-//   });
-// });
-
-// app.on('window-all-closed', () => {
-//   if (process.platform !== 'darwin') {
-//     app.quit();
-//   }
-// });
-
-// // Optional: Add keyboard shortcut to open new window during development
-// // Press Cmd/Ctrl+N to open additional window
-// app.on('web-contents-created', (event, contents) => {
-//   contents.on('before-input-event', (event, input) => {
-//     if (input.key === 'n' && (input.meta || input.control)) {
-//       const windowCount = windows.length;
-//       const offset = windowCount * 850;
-//       createWindow(`Account-${String.fromCharCode(65 + windowCount)}`, offset);
-//     }
-//   });
-// });
-
-
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const chokidar = require('chokidar');
+const Store = require('electron-store').default;
 
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
+// Initialize persistent storage for folder paths
+const store = new Store({ name: 'project-folders' });
+global.projectStore = store;
+
+console.log('[MAIN] Store initialized →', store.path);
 
 const windows = [];
+const watchers = new Map(); // projectId -> watcher instance
 
-// Simple in-memory store for folder paths per project (you can use electron-store later)
-const projectFolders = {}; // { projectId: absoluteFolderPath }
-
-const createWindow = (sessionName = 'default', xOffset = 0) => {
-  const mainWindow = new BrowserWindow({
+// ──────────────────────────────────────────────────────────────────────────────
+// Window Creation
+// ──────────────────────────────────────────────────────────────────────────────
+function createWindow(sessionName = 'default', xOffset = 0) {
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     x: xOffset,
     y: 100,
     webPreferences: {
-      sandbox: false,
-      contextIsolation: false, // for simplicity (you can secure it later)
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true,
-      partition: `persist:${sessionName}`,
+      sandbox: false,
+      devTools: true,
     },
   });
 
-  mainWindow.setTitle(`GitSyncr - ${sessionName}`);
-  mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  // mainWindow.webContents.openDevTools();
-
-  // Your existing OAuth handling code...
-  // (keeping it unchanged for brevity)
-   mainWindow.webContents.on('will-redirect', (event, url) => {
-    console.log(`[${sessionName}] 🔀 Will redirect to:`, url);
-    
-    if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-      console.log(`[${sessionName}] 🔥 OAuth callback detected!`);
-      event.preventDefault();
-      
-      const urlObj = new URL(url);
-      const code = urlObj.searchParams.get('code');
-      console.log(`[${sessionName}] 📝 OAuth code:`, code);
-      
-      const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-      console.log(`[${sessionName}] 🔄 Loading:`, newURL);
-      mainWindow.loadURL(newURL);
-    }
+  // CSP for security
+  win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          process.env.NODE_ENV === 'development'
+            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+            : "default-src 'self'; script-src 'self'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+        ]
+      }
+    });
   });
-    mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
-    if (!isMainFrame) return;
+
+  // ============================================================================
+  // OAUTH HANDLING - Intercept GitHub OAuth Callback
+  // ============================================================================
+  
+  win.webContents.on('will-navigate', (event, url) => {
+    console.log('[OAUTH] will-navigate →', url);
     
-    if (url.startsWith('http://localhost:3000/?code=') && !url.includes('main_window')) {
-      const urlObj = new URL(url);
-      const code = urlObj.searchParams.get('code');
+    // If this is the OAuth callback with code parameter
+    if (url.includes('?code=')) {
+      event.preventDefault(); // CRITICAL: Stop default navigation
       
-      if (code) {
-        const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-        mainWindow.webContents.stop();
-        mainWindow.loadURL(newURL);
+      try {
+        const urlObj = new URL(url);
+        const code = urlObj.searchParams.get('code');
+        
+        if (code) {
+          console.log('[OAUTH] ✅ Code captured:', code);
+          // Redirect to webpack dev server with the code
+          const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
+          console.log('[OAUTH] Loading app with code:', targetUrl);
+          win.loadURL(targetUrl);
+        } else {
+          console.log('[OAUTH] No code found, loading main app');
+          win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+        }
+      } catch (err) {
+        console.error('[OAUTH] URL parsing error:', err);
+        win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
       }
     }
   });
 
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    if (errorCode === -6 && validatedURL === 'http://localhost:3000/') {
-      return; // Ignore HMR 404s
-    }
+  // Backup: Handle navigation after it happens (safety net)
+  win.webContents.on('did-navigate', (event, url) => {
+    console.log('[OAUTH] did-navigate →', url);
     
-    if (validatedURL.includes('?code=') && errorCode === -6) {
-      const urlObj = new URL(validatedURL);
-      const code = urlObj.searchParams.get('code');
-      
-      if (code) {
-        const newURL = MAIN_WINDOW_WEBPACK_ENTRY + '?code=' + code;
-        mainWindow.loadURL(newURL);
+    // If we somehow navigated to a URL with code that isn't our webpack server
+    if (url.includes('?code=') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
+      try {
+        const urlObj = new URL(url);
+        const code = urlObj.searchParams.get('code');
+        if (code) {
+          console.log('[OAUTH] ✅ Late capture - redirecting with code');
+          win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
+        }
+      } catch (err) {
+        console.error('[OAUTH] Navigation handling error:', err);
       }
     }
   });
 
-
-  mainWindow.on('closed', () => {
-    const index = windows.indexOf(mainWindow);
-    if (index > -1) windows.splice(index, 1);
+  // Handle failed loads (404 recovery)
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
+    
+    // If load failed but URL contains OAuth code, extract and retry
+    if (validatedURL.includes('?code=')) {
+      try {
+        const urlObj = new URL(validatedURL);
+        const code = urlObj.searchParams.get('code');
+        if (code) {
+          console.log('[OAUTH] ✅ Recovery - loading with code from failed URL');
+          win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
+        }
+      } catch (err) {
+        console.error('[OAUTH] Recovery error:', err);
+        win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+      }
+    }
   });
 
-  windows.push(mainWindow);
-  return mainWindow;
-};
+  // ============================================================================
+  // END OAUTH HANDLING
+  // ============================================================================
 
-// ────────────────────────────────────────────────────────────────
+  // Initial load
+  win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  win.setTitle(`ProdCollab - ${sessionName}`);
+
+  win.on('closed', () => {
+    const idx = windows.indexOf(win);
+    if (idx !== -1) windows.splice(idx, 1);
+  });
+
+  windows.push(win);
+  return win;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// File Watching System
+// ──────────────────────────────────────────────────────────────────────────────
+function startWatching(projectId, folderPath) {
+  const pid = String(projectId);
+
+  // Stop existing watcher if any
+  if (watchers.has(pid)) {
+    watchers.get(pid).close();
+    watchers.delete(pid);
+    console.log(`[WATCHER] Stopped existing watcher for ${pid}`);
+  }
+
+  const watcher = chokidar.watch(folderPath, {
+    ignored: /(^|[\/\\])\../, // Ignore dotfiles
+    ignoreInitial: true, // Don't trigger for existing files
+    persistent: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 2000, // Wait 2s after last change
+      pollInterval: 100
+    },
+    depth: 99, // Watch all subdirectories
+  });
+
+  watcher
+    .on('add', (filePath) => {
+      console.log(`[WATCHER] File added: ${filePath}`);
+      notifyAll('file-changed', { projectId: pid, event: 'add', path: filePath });
+    })
+    .on('change', (filePath) => {
+      console.log(`[WATCHER] File changed: ${filePath}`);
+      notifyAll('file-changed', { projectId: pid, event: 'change', path: filePath });
+    })
+    .on('unlink', (filePath) => {
+      console.log(`[WATCHER] File deleted: ${filePath}`);
+      notifyAll('file-changed', { projectId: pid, event: 'unlink', path: filePath });
+    })
+    .on('addDir', (dirPath) => {
+      console.log(`[WATCHER] Folder added: ${dirPath}`);
+      notifyAll('file-changed', { projectId: pid, event: 'addDir', path: dirPath });
+    })
+    .on('unlinkDir', (dirPath) => {
+      console.log(`[WATCHER] Folder deleted: ${dirPath}`);
+      notifyAll('file-changed', { projectId: pid, event: 'unlinkDir', path: dirPath });
+    })
+    .on('error', (error) => {
+      console.error(`[WATCHER] Error for ${pid}:`, error);
+    });
+
+  watchers.set(pid, watcher);
+  console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
+}
+
+function stopWatching(projectId) {
+  const pid = String(projectId);
+  if (watchers.has(pid)) {
+    watchers.get(pid).close();
+    watchers.delete(pid);
+    console.log(`[WATCHER] Stopped watching ${pid}`);
+  }
+}
+
+function restoreAllWatchers() {
+  console.log('[MAIN] Restoring watchers from persistent storage...');
+  const watched = store.get('watchedFolders', {});
+  console.log('[MAIN] Found saved projects:', Object.keys(watched));
+
+  for (const [pid, folderPath] of Object.entries(watched)) {
+    if (folderPath) {
+      startWatching(pid, folderPath);
+    }
+  }
+}
+
+function notifyAll(channel, data) {
+  windows.forEach(w => {
+    if (!w.isDestroyed()) {
+      w.webContents.send(channel, data);
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// File System Helpers
+// ──────────────────────────────────────────────────────────────────────────────
+async function scanFolderRecursive(dirPath, basePath = dirPath) {
+  const allowed = [
+    '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg',
+    '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
+  ];
+  const files = [];
+  const folders = new Set();
+
+  async function scan(current) {
+    const entries = await fs.readdir(current, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      const rel = path.relative(basePath, full);
+
+      // Skip hidden files and .git
+      if (entry.name.startsWith('.') || entry.name === '.git') continue;
+
+      if (entry.isDirectory()) {
+        folders.add(rel);
+        await scan(full);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (allowed.includes(ext)) {
+          const stats = await fs.stat(full);
+          files.push({
+            name: entry.name,
+            size: stats.size,
+            relativePath: rel,
+            lastModified: stats.mtimeMs
+          });
+        }
+      }
+    }
+  }
+
+  await scan(dirPath);
+  return { files, folders: Array.from(folders) };
+}
+
+async function readFolderFiles(folderPath) {
+  const contents = await scanFolderRecursive(folderPath);
+  const result = [];
+
+  for (const info of contents.files) {
+    const fullPath = path.join(folderPath, info.relativePath);
+    const buffer = await fs.readFile(fullPath);
+    result.push({
+      name: info.name,
+      relativePath: info.relativePath,
+      content: buffer.toString('base64'),
+      size: info.size,
+      lastModified: info.lastModified,
+    });
+  }
+
+  return result;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // IPC Handlers
-// ────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 
+// Folder selection
 ipcMain.handle('select-folder', async () => {
-  const result = await dialog.showOpenDialog({
+  const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Select your project folder',
+    title: 'Select Project Folder',
   });
-  return result.canceled ? null : result.filePaths[0];
+  return canceled ? null : filePaths[0];
 });
 
-ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
-  projectFolders[projectId] = folderPath;
+// Save folder path (persistent)
+ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
+  if (!projectId || !folderPath) {
+    throw new Error('Missing projectId or folderPath');
+  }
+
+  const pid = String(projectId);
+  const current = store.get('watchedFolders', {});
+  current[pid] = folderPath;
+  store.set('watchedFolders', current);
+
+  console.log(`[SAVE] Project ${pid} → ${folderPath}`);
+  
+  // Automatically start watching when folder is saved
+  startWatching(pid, folderPath);
+
   return true;
 });
 
-ipcMain.handle('get-folder-path', async (event, projectId) => {
-  return projectFolders[projectId] || null;
+// Get folder path
+ipcMain.handle('get-folder-path', async (_, projectId) => {
+  const pid = String(projectId);
+  const watched = store.get('watchedFolders', {});
+  const folderPath = watched[pid] || null;
+  console.log(`[GET] Project ${pid} → ${folderPath || '(none)'}`);
+  return folderPath;
 });
 
-// NEW: Read files from saved folder for push
-ipcMain.handle('read-project-files', async (event, { projectId, fileStructure }) => {
-  const folderPath = projectFolders[projectId];
-  if (!folderPath) {
-    throw new Error('No folder path saved for this project');
+// Delete folder path
+ipcMain.handle('delete-folder-path', async (_, projectId) => {
+  const pid = String(projectId);
+  const current = store.get('watchedFolders', {});
+  
+  if (current[pid]) {
+    delete current[pid];
+    store.set('watchedFolders', current);
+    stopWatching(pid);
+    console.log(`[DELETE] Removed folder path for ${pid}`);
   }
+  
+  return true;
+});
 
-  const filesToUpload = [];
-
+// Scan folder
+ipcMain.handle('scan-folder', async (_, folderPath) => {
+  console.log(`[SCAN] Scanning: ${folderPath}`);
   try {
-    // Helper to read file as base64
-    const readBase64 = async (filePath) => {
-      const buffer = await fs.readFile(filePath);
-      return buffer.toString('base64');
-    };
-
-    // 1. Individual (root-level) files
-    for (const file of fileStructure.individualFiles || []) {
-      const fullPath = path.join(folderPath, file.relativePath || file.name);
-      try {
-        const stats = await fs.stat(fullPath);
-        if (stats.isFile()) {
-          filesToUpload.push({
-            name: file.name,
-            relativePath: file.relativePath || file.name,
-            content: await readBase64(fullPath),
-            size: stats.size,
-            lastModified: stats.mtimeMs,
-          });
-        }
-      } catch (err) {
-        console.warn(`Missing root file: ${fullPath}`);
-      }
-    }
-
-    // 2. Files inside folders
-    for (const folder of fileStructure.folders || []) {
-      for (const file of folder.files || []) {
-        const fullPath = path.join(folderPath, file.relativePath);
-        try {
-          const stats = await fs.stat(fullPath);
-          if (stats.isFile()) {
-            filesToUpload.push({
-              name: file.name,
-              relativePath: file.relativePath,
-              content: await readBase64(fullPath),
-              size: stats.size,
-              lastModified: stats.mtimeMs,
-            });
-          }
-        } catch (err) {
-          console.warn(`Missing file: ${fullPath}`);
-        }
-      }
-    }
-
-    return filesToUpload;
+    const result = await scanFolderRecursive(folderPath);
+    console.log(`[SCAN] Found ${result.files.length} files`);
+    return result;
   } catch (err) {
-    console.error('Error reading project files:', err);
+    console.error('[SCAN] Error:', err);
     throw err;
   }
 });
+// Add this to your IPC handlers in main.js (if not already there)
+ipcMain.handle('has-folder-path', async (_, projectId) => {
+  const pid = String(projectId);
+  const watched = store.get('watchedFolders', {});
+  const folderPath = watched[pid];
+  
+  console.log(`[CHECK] Project ${pid} has folder: ${!!folderPath}`);
+  return {
+    hasPath: !!folderPath,
+    path: folderPath || null
+  };
+});
 
-// Your existing write-files handler
-ipcMain.handle('write-files', async (event, { folderPath, files }) => {
+// Read project files
+ipcMain.handle('read-project-files', async (_, { projectId, fileStructure }) => {
+  const pid = String(projectId);
+  console.log(`[READ] Reading files for project ${pid}`);
+
+  const watched = store.get('watchedFolders', {});
+  const folderPath = watched[pid];
+
+  if (!folderPath) {
+    console.error(`[READ] No folder path for project ${pid}`);
+    throw new Error('No folder path saved for this project');
+  }
+
+  console.log(`[READ] Using path: ${folderPath}`);
+  return await readFolderFiles(folderPath);
+});
+
+// Write files
+ipcMain.handle('write-files', async (_, { folderPath, files }) => {
   let successCount = 0;
   let failCount = 0;
   let lastError = null;
@@ -690,15 +392,52 @@ ipcMain.handle('write-files', async (event, { folderPath, files }) => {
     } catch (err) {
       failCount++;
       lastError = err.message;
+      console.error(`[WRITE] Failed to write ${file.path}:`, err);
     }
   }
 
-  return { success: failCount === 0, successCount, failCount, error: lastError };
+  return { 
+    success: failCount === 0, 
+    successCount, 
+    failCount, 
+    error: lastError 
+  };
 });
 
+// Start watching
+ipcMain.handle('start-watching', async (_, { projectId, folderPath }) => {
+  try {
+    startWatching(projectId, folderPath);
+    return { success: true };
+  } catch (err) {
+    console.error('[WATCHER] Start failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Stop watching
+ipcMain.handle('stop-watching', async (_, projectId) => {
+  try {
+    stopWatching(projectId);
+    return { success: true };
+  } catch (err) {
+    console.error('[WATCHER] Stop failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// App Lifecycle
+// ──────────────────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   createWindow('Account-A', 0);
   createWindow('Account-B', 850);
+
+  // Restore watchers after a brief delay to ensure windows are ready
+  setTimeout(() => {
+    console.log('[MAIN] Restoring watchers...');
+    restoreAllWatchers();
+  }, 800);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -708,5 +447,18 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // Clean up all watchers
+  watchers.forEach(w => w.close());
+  watchers.clear();
+  
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  // Clean up watchers before quitting
+  watchers.forEach(w => w.close());
+  watchers.clear();
+  console.log('[MAIN] Application shutting down cleanly');
 });

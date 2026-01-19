@@ -89,13 +89,54 @@ function App() {
     }
   };
 
-  const handleLogout = async () => {
-    console.log('[APP] 👋 Logging out...');
+  // const handleLogout = async () => {
+  //   console.log('[APP] 👋 Logging out...');
     
-    try {
-      const token = localStorage.getItem('jwtToken');
+  //   try {
+  //     const token = localStorage.getItem('jwtToken');
       
-      if (token) {
+  //     if (token) {
+  //       const response = await fetch('http://localhost:5000/api/auth/logout', {
+  //         method: 'POST',
+  //         headers: {
+  //           'Authorization': `Bearer ${token}`,
+  //           'Content-Type': 'application/json'
+  //         }
+  //       });
+
+  //       if (response.ok) {
+  //         console.log('[APP] ✅ Server session revoked');
+  //       } else {
+  //         console.warn('[APP] ⚠️ Server logout failed, continuing anyway');
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('[APP] ❌ Logout error:', error);
+  //   } finally {
+  //     // Always clear local data
+  //     localStorage.clear();
+  //     sessionStorage.clear();
+      
+  //     // Clear cookies
+  //     document.cookie.split(";").forEach((c) => {
+  //       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+  //     });
+      
+  //     setIsAuthenticated(false);
+  //     setJwtToken(null);
+      
+  //     console.log('[APP] ✅ Logged out successfully');
+  //   }
+  // };
+  const handleLogout = async () => {
+  console.log(' Logging out...');
+  
+  try {
+    const token = localStorage.getItem('jwtToken');
+    
+    // STEP 1: Revoke server session
+    if (token) {
+      try {
         const response = await fetch('http://localhost:5000/api/auth/logout', {
           method: 'POST',
           headers: {
@@ -105,29 +146,48 @@ function App() {
         });
 
         if (response.ok) {
-          console.log('[APP] ✅ Server session revoked');
+          console.log('Server session revoked');
         } else {
-          console.warn('[APP] ⚠️ Server logout failed, continuing anyway');
+          console.warn('Server logout failed, continuing anyway');
         }
+      } catch (error) {
+        console.error(' Server logout error:', error);
+        // Continue with logout anyway
       }
-    } catch (error) {
-      console.error('[APP] ❌ Logout error:', error);
-    } finally {
-      // Always clear local data
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear cookies
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-      });
-      
-      setIsAuthenticated(false);
-      setJwtToken(null);
-      
-      console.log('[APP] ✅ Logged out successfully');
     }
-  };
+    
+    // STEP 2: Clear Electron OAuth session (GitHub cookies)
+    if (window.electronAPI?.clearOAuthSession) {
+      console.log('[APP] Clearing Electron OAuth session...');
+      const result = await window.electronAPI.clearOAuthSession();
+      
+      if (result.success) {
+        console.log('Electron session cleared');
+      } else {
+        console.warn(' Session clear failed:', result.error);
+      }
+    }
+    
+    // STEP 3: Clear local storage
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // STEP 4: Update state
+    setIsAuthenticated(false);
+    setJwtToken(null);
+    
+    console.log(' Logged out successfully - GitHub session cleared');
+    
+  } catch (error) {
+    console.error(' Logout error:', error);
+    
+    // Even if something fails, clear local state
+    localStorage.clear();
+    sessionStorage.clear();
+    setIsAuthenticated(false);
+    setJwtToken(null);
+  }
+};
 
   // Loading state
   if (isLoading) {

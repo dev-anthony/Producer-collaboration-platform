@@ -221,7 +221,7 @@ function notifyAll(channel, data) {
 // ──────────────────────────────────────────────────────────────────────────────
 async function scanFolderRecursive(dirPath, basePath = dirPath) {
   const allowed = [
-    '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg',
+    '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
     '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
   ];
   const files = [];
@@ -423,6 +423,59 @@ ipcMain.handle('stop-watching', async (_, projectId) => {
   } catch (err) {
     console.error('[WATCHER] Stop failed:', err);
     return { success: false, error: err.message };
+  }
+});
+
+//logout
+// Add this IPC handler to main.js, near your other ipcMain.handle() calls
+
+ipcMain.handle('clear-oauth-session', async () => {
+  console.log('[AUTH] Clearing OAuth session...');
+  
+  try {
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        const session = win.webContents.session;
+        
+        // Clear ALL storage data
+        await session.clearStorageData({
+          storages: [
+            'cookies',
+            'filesystem',
+            'indexdb',
+            'localstorage',
+            'shadercache',
+            'websql',
+            'serviceworkers',
+            'cachestorage'
+          ]
+        });
+        
+        // Specifically clear GitHub cookies
+        const allCookies = await session.cookies.get({});
+        
+        for (const cookie of allCookies) {
+          if (
+            cookie.domain.includes('github.com') ||
+            cookie.domain.includes('githubusercontent.com')
+          ) {
+            const url = `https://${cookie.domain}${cookie.path}`;
+            await session.cookies.remove(url, cookie.name);
+            console.log(`[AUTH] Cleared cookie: ${cookie.name} from ${cookie.domain}`);
+          }
+        }
+        
+        // Clear cache
+        await session.clearCache();
+        
+        console.log('[AUTH] ✅ Session cleared for window');
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('[AUTH] ❌ Failed to clear session:', error);
+    return { success: false, error: error.message };
   }
 });
 

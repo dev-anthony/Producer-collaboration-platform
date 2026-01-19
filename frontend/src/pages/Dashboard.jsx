@@ -311,9 +311,9 @@ const handlePushChanges = async (projectId) => {
 
     const pushData = await pushRes.json();
 
-    console.log('[PUSH] ✅ Push successful:', pushData);
+    console.log('[PUSH] Push successful:', pushData);
 
-    alert(`✅ Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
+    alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
     
     // Clear the unpushed changes flag
     setProjectsWithChanges(prev => {

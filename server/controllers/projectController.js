@@ -26,7 +26,7 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedExtensions = [
-      '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', 
+      '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
       '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
     ];
     
@@ -79,11 +79,11 @@ const pushFilesToGitHub = async (octokit, owner, repo, files, message = 'Initial
     const blobs = [];
     for (const file of files) {
       try {
-        console.log(`📤 Uploading: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(` Uploading: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         
         // Check file size (GitHub has a 100MB limit per file)
         if (file.size > 100 * 1024 * 1024) {
-          console.warn(`⚠️ Skipping ${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+          console.warn(` Skipping ${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
           continue;
         }
 
@@ -91,7 +91,7 @@ const pushFilesToGitHub = async (octokit, owner, repo, files, message = 'Initial
         
         // Validate base64 content
         if (!content || content.length === 0) {
-          console.warn(`⚠️ Skipping ${file.name}: Empty file`);
+          console.warn(` Skipping ${file.name}: Empty file`);
           continue;
         }
 
@@ -112,9 +112,9 @@ const pushFilesToGitHub = async (octokit, owner, repo, files, message = 'Initial
           sha: blobData.sha
         });
 
-        console.log(`✅ Uploaded: ${filePath}`);
+        console.log(` Uploaded: ${filePath}`);
       } catch (fileError) {
-        console.error(`❌ Error uploading ${file.name}:`, fileError.message);
+        console.error(` Error uploading ${file.name}:`, fileError.message);
         // Continue with other files instead of failing completely
       }
     }
@@ -123,7 +123,7 @@ const pushFilesToGitHub = async (octokit, owner, repo, files, message = 'Initial
       throw new Error('No files were successfully uploaded');
     }
 
-    console.log(`📦 Creating tree with ${blobs.length} files`);
+    console.log(` Creating tree with ${blobs.length} files`);
 
     // Create a new tree with all files
     const { data: newTree } = await octokit.git.createTree({
@@ -150,7 +150,7 @@ const pushFilesToGitHub = async (octokit, owner, repo, files, message = 'Initial
       sha: newCommit.sha
     });
 
-    console.log(`✅ Successfully pushed ${blobs.length} files`);
+    console.log(` Successfully pushed ${blobs.length} files`);
     return newCommit;
   } catch (error) {
     throw new Error(`Failed to push files to GitHub: ${error.message}`);
@@ -384,7 +384,7 @@ exports.createProjectRepo = async (req, res) => {
   });
 };
 
-// Get all projects for a user
+
 // exports.getUserProjects = async (req, res) => {
 //   try {
 //     const userId = req.userId;
@@ -599,7 +599,7 @@ exports.markProjectChanges = async (req, res) => {
   }
 };
 
-// Detect file changes
+
 // exports.detectFileChanges = async (req, res) => {
 //   try {
 //     const { projectId } = req.params;
@@ -957,449 +957,6 @@ exports.detectFileChanges = async (req, res) => {
   }
 };
 
-// Push project changes to GitHub
-// exports.pushProjectChanges = async (req, res) => {
-//   try {
-//     const { projectId } = req.params;
-//     const userId = req.userId;
-
-//     const connection = await pool.promise().getConnection();
-
-//     try {
-//       // Get project details
-//       const [projects] = await connection.execute(
-//         `SELECT p.*, u.id as user_id, gt.access_token
-//          FROM projects p
-//          JOIN users u ON p.user_id = u.id
-//          LEFT JOIN github_tokens gt ON u.id = gt.user_id
-//          WHERE p.id = ? AND p.user_id = ?`,
-//         [projectId, userId]
-//       );
-
-//       if (projects.length === 0) {
-//         return res.status(404).json({ error: 'Project not found' });
-//       }
-
-//       const project = projects[0];
-
-//       if (!project.access_token) {
-//         return res.status(401).json({ error: 'GitHub token missing' });
-//       }
-
-//       if (!project.has_changes) {
-//         return res.status(400).json({ error: 'No changes to push' });
-//       }
-
-//       // Initialize Octokit
-//       const octokit = new Octokit({
-//         auth: project.access_token
-//       });
-
-//       // Get GitHub username
-//       const { data: githubUser } = await octokit.users.getAuthenticated();
-
-//       // TODO: Here you would implement the actual file upload logic
-//       // For now, we'll just mark the changes as pushed
-      
-//       // Reset has_changes flag
-//       await connection.execute(
-//         'UPDATE projects SET has_changes = 0, updated_at = NOW() WHERE id = ?',
-//         [projectId]
-//       );
-
-//       res.json({ 
-//         message: 'Changes pushed successfully',
-//         note: 'Full implementation requires re-uploading modified files'
-//       });
-
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error('pushProjectChanges error:', error);
-//     res.status(500).json({
-//       error: 'Failed to push changes',
-//       message: error.message
-//     });
-//   }
-// };
-
-// Push project changes to GitHub - COMPLETE IMPLEMENTATION
-// exports.pushProjectChanges = async (req, res) => {
-//   // Use multer middleware to handle file uploads
-//   upload.array('files', 100)(req, res, async (err) => {
-//     if (err) {
-//       return res.status(400).json({ 
-//         error: 'File upload error', 
-//         message: err.message 
-//       });
-//     }
-
-//     try {
-//       const { projectId } = req.params;
-//       const userId = req.userId;
-//       const uploadedFiles = req.files;
-
-//       if (!uploadedFiles || uploadedFiles.length === 0) {
-//         return res.status(400).json({ error: 'No files provided' });
-//       }
-
-//       const connection = await pool.promise().getConnection();
-
-//       try {
-//         // Get project details and stored file structure
-//         const [projects] = await connection.execute(
-//           `SELECT p.*, u.id as user_id, gt.access_token
-//            FROM projects p
-//            JOIN users u ON p.user_id = u.id
-//            LEFT JOIN github_tokens gt ON u.id = gt.user_id
-//            WHERE p.id = ? AND p.user_id = ?`,
-//           [projectId, userId]
-//         );
-
-//         if (projects.length === 0) {
-//           return res.status(404).json({ error: 'Project not found' });
-//         }
-
-//         const project = projects[0];
-
-//         if (!project.access_token) {
-//           return res.status(401).json({ error: 'GitHub token missing' });
-//         }
-
-//         if (!project.has_changes) {
-//           return res.status(400).json({ error: 'No changes detected. Run "Check Changes" first.' });
-//         }
-
-//         // Initialize Octokit
-//         const octokit = new Octokit({
-//           auth: project.access_token
-//         });
-
-//         // Get GitHub username
-//         const { data: githubUser } = await octokit.users.getAuthenticated();
-
-//         // Parse file structures
-//         const storedStructure = JSON.parse(project.file_paths);
-//         const newFileStructure = req.body.fileStructure ? JSON.parse(req.body.fileStructure) : {
-//           individualFiles: [],
-//           folders: []
-//         };
-
-//         console.log(' Stored structure:', storedStructure);
-//         console.log(' New structure:', newFileStructure);
-
-//         // Determine which files are new/modified
-//         const filesToUpload = [];
-        
-//         // Check individual files
-//         newFileStructure.individualFiles.forEach(newFile => {
-//           const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
-          
-//           if (!storedFile || 
-//               storedFile.size !== newFile.size || 
-//               storedFile.lastModified !== newFile.lastModified) {
-//             // File is new or modified
-//             const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-//             if (uploadedFile) {
-//               filesToUpload.push({
-//                 file: uploadedFile,
-//                 relativePath: newFile.relativePath,
-//                 isNew: !storedFile
-//               });
-//             }
-//           }
-//         });
-
-//         // Check files in folders
-//         newFileStructure.folders.forEach(newFolder => {
-//           const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
-          
-//           newFolder.files.forEach(newFile => {
-//             const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
-            
-//             if (!storedFile || 
-//                 storedFile.size !== newFile.size || 
-//                 storedFile.lastModified !== newFile.lastModified) {
-//               // File is new or modified
-//               const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-//               if (uploadedFile) {
-//                 filesToUpload.push({
-//                   file: uploadedFile,
-//                   relativePath: newFile.relativePath,
-//                   isNew: !storedFile
-//                 });
-//               }
-//             }
-//           });
-//         });
-
-//         console.log(`Files to upload: ${filesToUpload.length}`);
-        
-//         if (filesToUpload.length === 0) {
-//           return res.status(400).json({ error: 'No modified files found to push' });
-//         }
-
-//         // Prepare file data for GitHub
-//         const fileData = filesToUpload.map(({ file, relativePath }) => ({
-//           name: file.originalname,
-//           path: file.path,
-//           size: file.size,
-//           relativePath: relativePath
-//         }));
-
-//         // Push ONLY changed files to GitHub
-//         await pushFilesToGitHub(
-//           octokit,
-//           githubUser.login,
-//           project.repo_name,
-//           fileData,
-//           `Update: ${filesToUpload.length} file(s) modified`
-//         );
-
-//         console.log(' Changed files pushed successfully');
-
-//         // Update database with new file structure
-//         await connection.execute(
-//           `UPDATE projects 
-//            SET file_paths = ?, has_changes = 0, updated_at = NOW()
-//            WHERE id = ?`,
-//           [JSON.stringify(newFileStructure), projectId]
-//         );
-
-//         // Clean up uploaded files from server
-//         await Promise.all(
-//           uploadedFiles.map(file => fs.unlink(file.path).catch(() => {}))
-//         );
-
-//         res.json({ 
-//           message: 'Changes pushed successfully',
-//           filesUploaded: filesToUpload.length,
-//           details: filesToUpload.map(f => ({
-//             name: f.file.originalname,
-//             status: f.isNew ? 'new' : 'modified'
-//           }))
-//         });
-
-//       } finally {
-//         connection.release();
-//       }
-//     } catch (error) {
-//       console.error('pushProjectChanges error:', error);
-      
-//       // Clean up uploaded files on error
-//       if (req.files) {
-//         await Promise.all(
-//           req.files.map(file => fs.unlink(file.path).catch(() => {}))
-//         );
-//       }
-
-//       res.status(500).json({
-//         error: 'Failed to push changes',
-//         message: error.message
-//       });
-//     }
-//   });
-// };
-
-
-// Push project changes to GitHub - Allow collaborators
-// exports.pushProjectChanges = async (req, res) => {
-//   upload.array('files', 100)(req, res, async (err) => {
-//     if (err) {
-//       return res.status(400).json({ 
-//         error: 'File upload error', 
-//         message: err.message 
-//       });
-//     }
-
-//     try {
-//       const { projectId } = req.params;
-//       const userId = req.userId;
-//       const uploadedFiles = req.files;
-
-//       if (!uploadedFiles || uploadedFiles.length === 0) {
-//         return res.status(400).json({ error: 'No files provided' });
-//       }
-
-//       const connection = await pool.promise().getConnection();
-
-//       try {
-//         // Check if user is owner or collaborator
-//         const [ownerCheck] = await connection.execute(
-//           'SELECT * FROM projects WHERE id = ? AND user_id = ?',
-//           [projectId, userId]
-//         );
-
-//         const [collabCheck] = await connection.execute(
-//           'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
-//           [projectId, userId]
-//         );
-
-//         if (ownerCheck.length === 0 && collabCheck.length === 0) {
-//           return res.status(404).json({ error: 'Project not found or access denied' });
-//         }
-
-//         // Get project details (need owner's token regardless of who's pushing)
-//         const [projects] = await connection.execute(
-//           `SELECT p.*, gt.access_token
-//            FROM projects p
-//            JOIN users u ON p.user_id = u.id
-//            LEFT JOIN github_tokens gt ON u.id = gt.user_id
-//            WHERE p.id = ?`,
-//           [projectId]
-//         );
-
-//         if (projects.length === 0) {
-//           return res.status(404).json({ error: 'Project not found' });
-//         }
-
-//         const project = projects[0];
-
-//         if (!project.access_token) {
-//           return res.status(401).json({ error: 'GitHub token missing' });
-//         }
-
-//         if (!project.has_changes) {
-//           return res.status(400).json({ error: 'No changes detected. Run "Check Changes" first.' });
-//         }
-
-//         // Initialize Octokit with project owner's token
-//         const octokit = new Octokit({
-//           auth: project.access_token
-//         });
-
-//         // Get project owner's GitHub username
-//         const { data: githubUser } = await octokit.users.getAuthenticated();
-
-//         // Parse file structures
-//         const storedStructure = JSON.parse(project.file_paths);
-//         const newFileStructure = req.body.fileStructure ? JSON.parse(req.body.fileStructure) : {
-//           individualFiles: [],
-//           folders: []
-//         };
-
-//         console.log('📁 Stored structure:', storedStructure);
-//         console.log('📂 New structure:', newFileStructure);
-
-//         // Determine which files are new/modified
-//         const filesToUpload = [];
-        
-//         // Check individual files
-//         newFileStructure.individualFiles.forEach(newFile => {
-//           const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
-          
-//           if (!storedFile || 
-//               storedFile.size !== newFile.size || 
-//               storedFile.lastModified !== newFile.lastModified) {
-//             const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-//             if (uploadedFile) {
-//               filesToUpload.push({
-//                 file: uploadedFile,
-//                 relativePath: newFile.relativePath,
-//                 isNew: !storedFile
-//               });
-//             }
-//           }
-//         });
-
-//         // Check files in folders
-//         newFileStructure.folders.forEach(newFolder => {
-//           const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
-          
-//           newFolder.files.forEach(newFile => {
-//             const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
-            
-//             if (!storedFile || 
-//                 storedFile.size !== newFile.size || 
-//                 storedFile.lastModified !== newFile.lastModified) {
-//               const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-//               if (uploadedFile) {
-//                 filesToUpload.push({
-//                   file: uploadedFile,
-//                   relativePath: newFile.relativePath,
-//                   isNew: !storedFile
-//                 });
-//               }
-//             }
-//           });
-//         });
-
-//         console.log(`📤 Files to upload: ${filesToUpload.length}`);
-        
-//         if (filesToUpload.length === 0) {
-//           return res.status(400).json({ error: 'No modified files found to push' });
-//         }
-
-//         // Prepare file data for GitHub
-//         const fileData = filesToUpload.map(({ file, relativePath }) => ({
-//           name: file.originalname,
-//           path: file.path,
-//           size: file.size,
-//           relativePath: relativePath
-//         }));
-
-//         // Get current user info for commit message
-//         const [currentUser] = await connection.execute(
-//           'SELECT username FROM users WHERE id = ?',
-//           [userId]
-//         );
-//         const committerName = currentUser[0].username;
-
-//         // Push changed files to GitHub
-//         await pushFilesToGitHub(
-//           octokit,
-//           githubUser.login,
-//           project.repo_name,
-//           fileData,
-//           `Update by ${committerName}: ${filesToUpload.length} file(s) modified`
-//         );
-
-//         console.log('✅ Changed files pushed successfully');
-
-//         // Update database with new file structure
-//         await connection.execute(
-//           `UPDATE projects 
-//            SET file_paths = ?, has_changes = 0, updated_at = NOW()
-//            WHERE id = ?`,
-//           [JSON.stringify(newFileStructure), projectId]
-//         );
-
-//         // Clean up uploaded files from server
-//         await Promise.all(
-//           uploadedFiles.map(file => fs.unlink(file.path).catch(() => {}))
-//         );
-
-//         res.json({ 
-//           message: 'Changes pushed successfully',
-//           filesUploaded: filesToUpload.length,
-//           pushedBy: committerName,
-//           details: filesToUpload.map(f => ({
-//             name: f.file.originalname,
-//             status: f.isNew ? 'new' : 'modified'
-//           }))
-//         });
-
-//       } finally {
-//         connection.release();
-//       }
-//     } catch (error) {
-//       console.error('pushProjectChanges error:', error);
-      
-//       // Clean up uploaded files on error
-//       if (req.files) {
-//         await Promise.all(
-//           req.files.map(file => fs.unlink(file.path).catch(() => {}))
-//         );
-//       }
-
-//       res.status(500).json({
-//         error: 'Failed to push changes',
-//         message: error.message
-//       });
-//     }
-//   });
-// };
 
 exports.pushProjectChanges = async (req, res) => {
   // Use multer middleware to handle file uploads
@@ -1463,8 +1020,8 @@ exports.pushProjectChanges = async (req, res) => {
           folders: []
         };
 
-        console.log('📂 Stored structure:', storedStructure);
-        console.log('📂 New structure:', newFileStructure);
+        console.log(' Stored structure:', storedStructure);
+        console.log(' New structure:', newFileStructure);
 
         // Determine which files are new/modified
         const filesToUpload = [];
@@ -1511,10 +1068,10 @@ exports.pushProjectChanges = async (req, res) => {
           });
         });
 
-        console.log(`📤 Files to upload: ${filesToUpload.length}`);
+        console.log(` Files to upload: ${filesToUpload.length}`);
         
         if (filesToUpload.length === 0) {
-          return res.status(400).json({ error: 'No modified files found to push' });
+          return res.status(400).json({ error: 'No modified files found to push / files already exist on github.'});
         }
 
         // Prepare file data for GitHub
@@ -1545,7 +1102,7 @@ exports.pushProjectChanges = async (req, res) => {
           commitMessage
         );
 
-        console.log('✅ Changed files pushed successfully');
+        console.log(' Changed files pushed successfully');
 
         // Update database with new file structure
         await connection.execute(
@@ -1630,7 +1187,7 @@ exports.deleteProject = async (req, res) => {
             repo: project.repo_name
           });
 
-          console.log(`✅ GitHub repository deleted: ${project.repo_name}`);
+          console.log(` GitHub repository deleted: ${project.repo_name}`);
         } catch (githubError) {
           console.error('Error deleting GitHub repo:', githubError.message);
           // Continue with database deletion even if GitHub deletion fails

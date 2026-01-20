@@ -242,7 +242,7 @@ exports.createProjectRepo = async (req, res) => {
           throw repoError;
         }
 
-        console.log('✅ Repository created:', githubRepo.name);
+        console.log(' Repository created:', githubRepo.name);
 
         // Wait longer for repo initialization - GitHub needs time to create the main branch
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -254,9 +254,9 @@ exports.createProjectRepo = async (req, res) => {
             repo: sanitizedProjectName,
             ref: 'heads/main'
           });
-          console.log('✅ Main branch verified');
+          console.log(' Main branch verified');
         } catch (branchError) {
-          console.log('⚠️ Main branch not found, trying master branch...');
+          console.log(' Main branch not found, trying master branch...');
           // Some repos might use 'master' instead
           try {
             await octokit.git.getRef({
@@ -264,7 +264,7 @@ exports.createProjectRepo = async (req, res) => {
               repo: sanitizedProjectName,
               ref: 'heads/master'
             });
-            console.log('✅ Master branch found');
+            console.log(' Master branch found');
           } catch (masterError) {
             throw new Error('Neither main nor master branch found. Repository might not be initialized yet.');
           }
@@ -304,7 +304,7 @@ exports.createProjectRepo = async (req, res) => {
           };
         });
 
-        console.log(`📋 Preparing to upload ${fileData.length} files`);
+        console.log(` Preparing to upload ${fileData.length} files`);
         console.log('File paths:', fileData.map(f => f.relativePath));
 
         await pushFilesToGitHub(
@@ -315,10 +315,10 @@ exports.createProjectRepo = async (req, res) => {
           'Initial project files'
         );
 
-        console.log('✅ Files pushed successfully');
+        console.log(' Files pushed successfully');
 
         // Step 3: Save project to database with file structure
-        console.log('📁 File structure:', fileStructure);
+        console.log(' File structure:', fileStructure);
 
         const [insertResult] = await connection.execute(
           `INSERT INTO projects 
@@ -334,6 +334,7 @@ exports.createProjectRepo = async (req, res) => {
             JSON.stringify(fileStructure)
           ]
         );
+       
 
         const projectId = insertResult.insertId;
 
@@ -982,14 +983,23 @@ exports.pushProjectChanges = async (req, res) => {
       try {
         // SIMPLE FIX: Just remove the user check - let anyone with the project ID push
         // This assumes your frontend already verified they have access via the collaborated projects list
+        // const [projects] = await connection.execute(
+        //   `SELECT p.*, u.id as user_id, gt.access_token, u.username as owner_username
+        //    FROM projects p
+        //    JOIN users u ON p.user_id = u.id
+        //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
+        //    WHERE p.id = ?`,
+        //   [projectId]
+        // );
         const [projects] = await connection.execute(
-          `SELECT p.*, u.id as user_id, gt.access_token, u.username as owner_username
-           FROM projects p
-           JOIN users u ON p.user_id = u.id
-           LEFT JOIN github_tokens gt ON u.id = gt.user_id
-           WHERE p.id = ?`,
+          `SELECT p.*, owner_u.id as user_id, owner_gt.access_token, owner_u.username as owner_username
+          FROM projects p
+          JOIN users owner_u ON p.user_id = owner_u.id
+          LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
+          WHERE p.id = ?`,
           [projectId]
         );
+     
 
         if (projects.length === 0) {
           return res.status(404).json({ error: 'Project not found' });
@@ -1598,14 +1608,23 @@ exports.checkRemoteChanges = async (req, res) => {
       }
 
       // Get project details
+      // const [projects] = await connection.execute(
+      //   `SELECT p.*, gt.access_token, p.last_pulled_at
+      //    FROM projects p
+      //    JOIN users u ON p.user_id = u.id
+      //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
+      //    WHERE p.id = ?`,
+      //   [projectId]
+      // );
       const [projects] = await connection.execute(
-        `SELECT p.*, gt.access_token, p.last_pulled_at
-         FROM projects p
-         JOIN users u ON p.user_id = u.id
-         LEFT JOIN github_tokens gt ON u.id = gt.user_id
-         WHERE p.id = ?`,
+        `SELECT p.*, owner_gt.access_token, p.last_pulled_at
+        FROM projects p
+        JOIN users owner_u ON p.user_id = owner_u.id
+        LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
+        WHERE p.id = ?`,
         [projectId]
       );
+       
 
       if (projects.length === 0) {
         return res.status(404).json({ error: 'Project not found' });
@@ -1696,14 +1715,24 @@ exports.pullChanges = async (req, res) => {
       }
 
       // Get project details
+      // const [projects] = await connection.execute(
+      //   `SELECT p.*, gt.access_token, p.last_pulled_at, p.file_paths
+      //    FROM projects p
+      //    JOIN users u ON p.user_id = u.id
+      //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
+      //    WHERE p.id = ?`,
+      //   [projectId]
+      // );
+      // Get project details - ALWAYS use owner's token
       const [projects] = await connection.execute(
-        `SELECT p.*, gt.access_token, p.last_pulled_at, p.file_paths
-         FROM projects p
-         JOIN users u ON p.user_id = u.id
-         LEFT JOIN github_tokens gt ON u.id = gt.user_id
-         WHERE p.id = ?`,
+        `SELECT p.*, owner_gt.access_token, p.last_pulled_at, p.file_paths
+        FROM projects p
+        JOIN users owner_u ON p.user_id = owner_u.id
+        LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
+        WHERE p.id = ?`,
         [projectId]
       );
+      
 
       if (projects.length === 0) {
         return res.status(404).json({ error: 'Project not found' });

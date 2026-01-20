@@ -468,13 +468,13 @@ ipcMain.handle('clear-oauth-session', async () => {
         // Clear cache
         await session.clearCache();
         
-        console.log('[AUTH] ✅ Session cleared for window');
+        console.log('[AUTH] Session cleared for window');
       }
     }
     
     return { success: true };
   } catch (error) {
-    console.error('[AUTH] ❌ Failed to clear session:', error);
+    console.error('[AUTH] Failed to clear session:', error);
     return { success: false, error: error.message };
   }
 });

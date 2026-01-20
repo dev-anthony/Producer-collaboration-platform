@@ -198,10 +198,14 @@ const handlePushChanges = async (projectId) => {
     // The backend expects: { individualFiles: [], folders: [{name, files}] }
     // But scanFolder returns: { files: [], folders: [] }
     
-    const storedStructure = project.file_paths;
+    // const storedStructure = project.file_paths;
     
-    // Check if the project was originally created with a folder structure
-    const hasFolderStructure = storedStructure.folders && storedStructure.folders.length > 0;
+    // // Check if the project was originally created with a folder structure
+    // const hasFolderStructure = storedStructure.folders && storedStructure.folders.length > 0;
+    const storedStructure = typeof project.file_paths === 'string' 
+  ? JSON.parse(project.file_paths) 
+  : project.file_paths;
+    const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
     
     let currentFileStructure;
     

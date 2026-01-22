@@ -20,40 +20,90 @@ function Dashboard({ onLogout, jwtToken }) {
   const [collaboratedProjects, setCollaboratedProjects] = useState([]);
   const [projectsWithChanges, setProjectsWithChanges] = useState(new Set());
   
+//   const ensureFolderPath = async (projectId) => {
+//   try {
+//     // Check if folder path exists
+//     const folderPath = await window.electronAPI.getFolderPath(projectId);
+    
+//     if (folderPath) {
+//       console.log(` Project ${projectId} already has path:`, folderPath);
+//       return folderPath;
+//     }
+    
+//     // No folder path - prompt user to select one
+//     console.log(` No folder path for project ${projectId}, prompting user...`);
+    
+//     const selectedPath = await window.electronAPI.selectFolder();
+    
+//     if (!selectedPath) {
+//       throw new Error('FOLDER_SELECTION_CANCELLED');
+//     }
+    
+//     // Save the folder path
+//     console.log(` Saving folder path for project ${projectId}:`, selectedPath);
+//     await window.electronAPI.saveFolderPath(projectId, selectedPath);
+    
+//     // Start watching the folder
+//     await window.electronAPI.startWatching(projectId, selectedPath);
+    
+//     console.log(` Folder path saved and watching started`);
+//     return selectedPath;
+    
+//   } catch (error) {
+//     console.error('[FOLDER] Error ensuring folder path:', error);
+//     throw error;
+//   }
+// };
+
   const ensureFolderPath = async (projectId) => {
-  try {
-    // Check if folder path exists
-    const folderPath = await window.electronAPI.getFolderPath(projectId);
-    
-    if (folderPath) {
-      console.log(` Project ${projectId} already has path:`, folderPath);
-      return folderPath;
+    try {
+      // First check if Electron API is available
+      if (!window.electronAPI?.getFolderPath) {
+        throw new Error('FOLDER_SELECTION_NOT_AVAILABLE');
+      }
+
+      // Check if folder path exists
+      const folderPath = await window.electronAPI.getFolderPath(projectId);
+      
+      if (folderPath) {
+        console.log(` Project ${projectId} already has path:`, folderPath);
+        return folderPath;
+      }
+      
+      // No folder path - prompt user to select one
+      console.log(` No folder path for project ${projectId}, prompting user...`);
+      
+      if (!window.electronAPI?.selectFolder) {
+        throw new Error('FOLDER_SELECTION_NOT_AVAILABLE');
+      }
+      
+      const selectedPath = await window.electronAPI.selectFolder();
+      
+      if (!selectedPath) {
+        throw new Error('FOLDER_SELECTION_CANCELLED');
+      }
+      
+      // Save the folder path
+      console.log(` Saving folder path for project ${projectId}:`, selectedPath);
+      await window.electronAPI.saveFolderPath(projectId, selectedPath);
+      
+      // Start watching the folder
+      await window.electronAPI.startWatching(projectId, selectedPath);
+      
+      console.log(` Folder path saved and watching started`);
+      return selectedPath;
+      
+    } catch (error) {
+      console.error('[FOLDER] Error ensuring folder path:', error);
+      
+      if (error.message === 'FOLDER_SELECTION_NOT_AVAILABLE') {
+        // More user-friendly error
+        throw new Error('Folder selection is not available in this environment. Please restart the app.');
+      }
+      
+      throw error;
     }
-    
-    // No folder path - prompt user to select one
-    console.log(` No folder path for project ${projectId}, prompting user...`);
-    
-    const selectedPath = await window.electronAPI.selectFolder();
-    
-    if (!selectedPath) {
-      throw new Error('FOLDER_SELECTION_CANCELLED');
-    }
-    
-    // Save the folder path
-    console.log(` Saving folder path for project ${projectId}:`, selectedPath);
-    await window.electronAPI.saveFolderPath(projectId, selectedPath);
-    
-    // Start watching the folder
-    await window.electronAPI.startWatching(projectId, selectedPath);
-    
-    console.log(` Folder path saved and watching started`);
-    return selectedPath;
-    
-  } catch (error) {
-    console.error('[FOLDER] Error ensuring folder path:', error);
-    throw error;
-  }
-};
+  };
  
   useEffect(() => {
     getUserData();
@@ -157,247 +207,290 @@ function Dashboard({ onLogout, jwtToken }) {
     }
   };
  
-const handlePushChanges = async (projectId) => {
-  try {
-    const project = projects.find(p => p.id === projectId) ||
-    collaboratedProjects.find(p => p.id === projectId);
-
-    if (!project) {
-      alert('Project not found');
-      return;
-    }
-
-    if (!project.hasUnpushedChanges) {
-      alert('No changes to push');
-      return;
-    }
-
-    console.log(`[PUSH] Starting push for project ${projectId}...`);
-
-    // STEP 1: Ensure folder path exists
-    let folderPath;
+  const handlePushChanges = async (projectId) => {
     try {
-      folderPath = await ensureFolderPath(projectId);
-    } catch (error) {
-      if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-        alert('Folder selection cancelled. Cannot push without selecting a folder.');
+      const project = projects.find(p => p.id === projectId) ||
+      collaboratedProjects.find(p => p.id === projectId);
+
+      if (!project) {
+        alert('Project not found');
         return;
       }
-      throw error;
-    }
 
-    console.log(`[PUSH] Using folder path:`, folderPath);
+      if (!project.hasUnpushedChanges) {
+        alert('No changes to push');
+        return;
+      }
 
-    // STEP 2: Scan the CURRENT folder structure
-    console.log('[PUSH] Scanning current folder structure...');
-    const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-    
-    console.log(`[PUSH] Scanned structure:`, scannedStructure);
+      console.log(`[PUSH] Starting push for project ${projectId}...`);
 
-    // STEP 3: Transform scanned structure to match backend format
-    // The backend expects: { individualFiles: [], folders: [{name, files}] }
-    // But scanFolder returns: { files: [], folders: [] }
-    
-    // const storedStructure = project.file_paths;
-    
-    // // Check if the project was originally created with a folder structure
-    // const hasFolderStructure = storedStructure.folders && storedStructure.folders.length > 0;
-    const storedStructure = typeof project.file_paths === 'string' 
-  ? JSON.parse(project.file_paths) 
-  : project.file_paths;
-    const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-    
-    let currentFileStructure;
-    
-    if (hasFolderStructure) {
-      // Project has folder structure - recreate it
-      const folderName = storedStructure.folders[0].name; // Use the original folder name
+      // STEP 1: Ensure folder path exists
+      let folderPath;
+      try {
+        folderPath = await ensureFolderPath(projectId);
+      } catch (error) {
+        if (error.message === 'FOLDER_SELECTION_CANCELLED') {
+          alert('Folder selection cancelled. Cannot push without selecting a folder.');
+          return;
+        }
+        throw error;
+      }
+
+      console.log(`[PUSH] Using folder path:`, folderPath);
+
+      // STEP 2: Scan the CURRENT folder structure
+      console.log('[PUSH] Scanning current folder structure...');
+      const scannedStructure = await window.electronAPI.scanFolder(folderPath);
       
-      currentFileStructure = {
-        individualFiles: [],
-        folders: [{
-          name: folderName,
-          files: scannedStructure.files.map(file => ({
+      console.log(`[PUSH] Scanned structure:`, scannedStructure);
+
+      // STEP 3: Transform scanned structure to match backend format
+      // The backend expects: { individualFiles: [], folders: [{name, files}] }
+      // But scanFolder returns: { files: [], folders: [] }
+      
+      // const storedStructure = project.file_paths;
+      
+      // // Check if the project was originally created with a folder structure
+      // const hasFolderStructure = storedStructure.folders && storedStructure.folders.length > 0;
+      const storedStructure = typeof project.file_paths === 'string' 
+    ? JSON.parse(project.file_paths) 
+    : project.file_paths;
+      const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
+      
+      let currentFileStructure;
+      
+      if (hasFolderStructure) {
+        // Project has folder structure - recreate it
+        const folderName = storedStructure.folders[0].name; // Use the original folder name
+        
+        currentFileStructure = {
+          individualFiles: [],
+          folders: [{
+            name: folderName,
+            files: scannedStructure.files.map(file => ({
+              name: file.name,
+              size: file.size,
+              relativePath: `${folderName}/${file.name}`,
+              lastModified: file.lastModified
+            }))
+          }]
+        };
+      } else {
+        // Project has flat structure (individual files)
+        currentFileStructure = {
+          individualFiles: scannedStructure.files.map(file => ({
             name: file.name,
             size: file.size,
-            relativePath: `${folderName}/${file.name}`,
+            relativePath: file.relativePath || file.name,
             lastModified: file.lastModified
-          }))
-        }]
-      };
-    } else {
-      // Project has flat structure (individual files)
-      currentFileStructure = {
-        individualFiles: scannedStructure.files.map(file => ({
-          name: file.name,
-          size: file.size,
-          relativePath: file.relativePath || file.name,
-          lastModified: file.lastModified
-        })),
-        folders: []
-      };
-    }
-    
-    console.log(`[PUSH] Transformed structure:`, currentFileStructure);
+          })),
+          folders: []
+        };
+      }
+      
+      console.log(`[PUSH] Transformed structure:`, currentFileStructure);
 
-    // STEP 4: Read files from disk
-    let filesFromDisk;
-    try {
-      filesFromDisk = await window.electronAPI.readProjectFiles({
-        projectId: projectId,
-        fileStructure: storedStructure // Use stored structure for reading
-      });
-    } catch (error) {
-      if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-        alert('Folder path error. Please try again.');
+      // STEP 4: Read files from disk
+      let filesFromDisk;
+      try {
+        filesFromDisk = await window.electronAPI.readProjectFiles({
+          projectId: projectId,
+          fileStructure: storedStructure // Use stored structure for reading
+        });
+      } catch (error) {
+        if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
+          alert('Folder path error. Please try again.');
+          return;
+        }
+        throw error;
+      }
+
+      console.log(`[PUSH] Files read from disk:`, filesFromDisk.length);
+
+      if (filesFromDisk.length === 0) {
+        alert('No matching files found in the selected folder.\n\nMake sure your local files match the project structure.');
         return;
       }
-      throw error;
-    }
 
-    console.log(`[PUSH] Files read from disk:`, filesFromDisk.length);
+      // STEP 5: Build FormData with TRANSFORMED structure
+      const formData = new FormData();
+      
+      // Send the transformed current structure (matches backend format)
+      formData.append('fileStructure', JSON.stringify(currentFileStructure));
 
-    if (filesFromDisk.length === 0) {
-      alert('No matching files found in the selected folder.\n\nMake sure your local files match the project structure.');
-      return;
-    }
-
-    // STEP 5: Build FormData with TRANSFORMED structure
-    const formData = new FormData();
-    
-    // Send the transformed current structure (matches backend format)
-    formData.append('fileStructure', JSON.stringify(currentFileStructure));
-
-    // Convert base64 files to actual File objects
-    for (const fileData of filesFromDisk) {
-      try {
-        // Decode base64 to binary
-        const binaryString = atob(fileData.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+      // Convert base64 files to actual File objects
+      for (const fileData of filesFromDisk) {
+        try {
+          // Decode base64 to binary
+          const binaryString = atob(fileData.content);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          // Create Blob from binary data
+          const blob = new Blob([bytes]);
+          
+          // Create File object with proper metadata
+          const file = new File([blob], fileData.name, {
+            type: 'application/octet-stream',
+            lastModified: fileData.lastModified || Date.now()
+          });
+          
+          // Append to FormData
+          formData.append('files', file);
+          
+          console.log(`[PUSH] Added file to FormData: ${fileData.name} (${file.size} bytes)`);
+        } catch (err) {
+          console.error(`[PUSH] Error processing file ${fileData.name}:`, err);
         }
-        
-        // Create Blob from binary data
-        const blob = new Blob([bytes]);
-        
-        // Create File object with proper metadata
-        const file = new File([blob], fileData.name, {
-          type: 'application/octet-stream',
-          lastModified: fileData.lastModified || Date.now()
-        });
-        
-        // Append to FormData
-        formData.append('files', file);
-        
-        console.log(`[PUSH] Added file to FormData: ${fileData.name} (${file.size} bytes)`);
-      } catch (err) {
-        console.error(`[PUSH] Error processing file ${fileData.name}:`, err);
       }
-    }
 
-    console.log(`[PUSH] Pushing ${filesFromDisk.length} files to server...`);
+      console.log(`[PUSH] Pushing ${filesFromDisk.length} files to server...`);
 
-    // STEP 6: Send to server using FormData
-    const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${jwtToken}`
-        // DON'T set Content-Type - let browser set it with boundary for FormData
-      },
-      body: formData
-    });
+      // STEP 6: Send to server using FormData
+      const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${jwtToken}`
+          // DON'T set Content-Type - let browser set it with boundary for FormData
+        },
+        body: formData
+      });
 
-    if (!pushRes.ok) {
-      const errorData = await pushRes.json();
-      throw new Error(errorData.error || errorData.message || 'Push failed');
-    }
-
-    const pushData = await pushRes.json();
-
-    console.log('[PUSH] Push successful:', pushData);
-
-    alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
-    
-    // Clear the unpushed changes flag
-    setProjectsWithChanges(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(String(projectId));
-      return newSet;
-    });
-    
-    // Refresh project lists
-    getProjects();
-    getCollaboratedProjects();
-
-  } catch (err) {
-    console.error('[PUSH] Failed:', err);
-    alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
-  }
-};
-
-const handleCheckChanges = async (projectId) => {
-  try {
-    const project = projects.find(p => p.id === projectId) || 
-                    collaboratedProjects.find(p => p.id === projectId);
-    
-    if (!project) {
-      alert('Project not found');
-      return;
-    }
-
-    console.log(`[CHECK] Checking changes for project ${projectId}...`);
-
-    // Ensure folder path exists
-    let folderPath;
-    try {
-      folderPath = await ensureFolderPath(projectId);
-    } catch (error) {
-      if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-        return; // User cancelled, silently exit
+      if (!pushRes.ok) {
+        const errorData = await pushRes.json();
+        throw new Error(errorData.error || errorData.message || 'Push failed');
       }
-      throw error;
-    }
 
-    console.log(`[CHECK] Scanning folder:`, folderPath);
+      const pushData = await pushRes.json();
 
-    // Scan the folder for current structure
-    const currentStructure = await window.electronAPI.scanFolder(folderPath);
+      console.log('[PUSH] Push successful:', pushData);
 
-    console.log(`[CHECK] Current structure:`, currentStructure);
-
-    // Compare with server
-    const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${jwtToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ currentFileStructure: currentStructure })
-    });
-
-    const data = await response.json();
+      alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
     
-    if (data.hasChanges) {
-      alert(`📝 Changes detected!\n\n${data.changeDetails.join('\n')}`);
-      setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
-    } else {
-      alert('✅ No changes detected.\n\nYour local files match the repository.');
+      
+      // Clear the unpushed changes flag locally
       setProjectsWithChanges(prev => {
         const newSet = new Set(prev);
         newSet.delete(String(projectId));
         return newSet;
       });
-    }
+      
+      // Refresh project lists
+      getProjects();
+      getCollaboratedProjects();
 
-    // Refresh project lists
-    getProjects();
-    getCollaboratedProjects();
-  } catch (err) {
-    console.error('[CHECK] Error checking changes:', err);
-    alert(`Failed to check for changes:\n\n${err.message}`);
-  }
-};
+    } catch (err) {
+      console.error('[PUSH] Failed:', err);
+      alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
+    }
+  };
+
+
+  const handleCheckChanges = async (projectId) => {
+    try {
+      const project = projects.find(p => p.id === projectId) || 
+        collaboratedProjects.find(p => p.id === projectId);
+      
+      if (!project) {
+        alert('Project not found');
+        return;
+      }
+
+      console.log(`[CHECK] Checking changes for project ${projectId}...`);
+
+      // Ensure folder path exists
+      let folderPath;
+      try {
+        folderPath = await ensureFolderPath(projectId);
+      } catch (error) {
+        if (error.message === 'FOLDER_SELECTION_CANCELLED') {
+          return; // User cancelled, silently exit
+        }
+        if (error.message.includes('FOLDER_SELECTION_NOT_AVAILABLE')) {
+          alert(' Folder selection is not available.\n\nPlease restart the application.');
+          return;
+        }
+        throw error;
+      }
+
+      console.log(`[CHECK] Scanning folder:`, folderPath);
+
+      // Scan the folder for current structure
+      const scannedStructure = await window.electronAPI.scanFolder(folderPath);
+      
+      // Transform scanned structure to match backend format
+      const storedStructure = typeof project.file_paths === 'string' 
+        ? JSON.parse(project.file_paths) 
+        : project.file_paths;
+      
+      const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
+      
+      let currentFileStructure;
+      
+      if (hasFolderStructure) {
+        const folderName = storedStructure.folders[0].name;
+        currentFileStructure = {
+          individualFiles: [],
+          folders: [{
+            name: folderName,
+            files: scannedStructure.files.map(file => ({
+              name: file.name,
+              size: file.size,
+              relativePath: `${folderName}/${file.name}`,
+              lastModified: file.lastModified
+            }))
+          }]
+        };
+      } else {
+        currentFileStructure = {
+          individualFiles: scannedStructure.files.map(file => ({
+            name: file.name,
+            size: file.size,
+            relativePath: file.relativePath || file.name,
+            lastModified: file.lastModified
+          })),
+          folders: []
+        };
+      }
+
+      console.log(`[CHECK] Transformed structure:`, currentFileStructure);
+
+      // Compare with server
+      const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentFileStructure })
+      });
+
+      const data = await response.json();
+      
+      if (data.hasChanges) {
+        alert(` Changes detected!\n\n${data.changeDetails.join('\n')}`);
+        setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
+      } else {
+        alert(' No changes detected.\n\nYour local files match the repository.');
+        //  CRITICAL FIX: Clear the flag when no changes
+        setProjectsWithChanges(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(String(projectId));
+          return newSet;
+        });
+      }
+
+      // Refresh project lists to sync with backend
+      await getProjects();
+      await getCollaboratedProjects();
+      
+    } catch (err) {
+      console.error('[CHECK] Error checking changes:', err);
+      alert(`❌ Failed to check for changes:\n\n${err.message}`);
+    }
+  };
   const handleDeleteProject = async (projectId) => {
     if (!confirm("Are you sure you want to delete this project?")) return;
     

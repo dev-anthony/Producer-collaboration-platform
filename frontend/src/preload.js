@@ -47,9 +47,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('file-changed');
   },
   
-  // Write files (for pull)
-  writeFiles: (folderPath, files) => 
-    ipcRenderer.invoke('write-files', { folderPath, files }),
+  // // Write files (for pull)
+  // writeFiles: (folderPath, files) => 
+  //   ipcRenderer.invoke('write-files', { folderPath, files }),
+   writeFiles: (data) => ipcRenderer.invoke('write-files', data),
 
   //logout / clear OAuth session
   clearOAuthSession: () => ipcRenderer.invoke('clear-oauth-session'),

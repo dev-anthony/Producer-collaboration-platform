@@ -27,6 +27,7 @@ router.patch('/:projectId/changes', projectController.markProjectChanges);
 router.post('/:projectId/detect-changes', projectController.detectFileChanges);
 router.post('/:projectId/push', projectController.pushProjectChanges);
 router.post('/:projectId/share', projectController.generateShareLink);
+// router.post('/:projectId/clear-changes', projectController.clearChangesFlag);
 router.delete('/:projectId', projectController.deleteProject);
 
 module.exports = router;

@@ -96,95 +96,187 @@ function ProjectCard({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePullFiles = async () => {
-    if (!confirm('Pull latest changes from GitHub?')) return;
-    setIsPulling(true);
+// UPDATED handlePullFiles in ProjectCard.jsx
+const handlePullFiles = async () => {
+  setIsPulling(true);
 
+  try {
+    const projectId = project.id;
+    
+    // STEP 1: Get folder path
+    let folderPath;
     try {
-      // Check for remote changes first
-      const changesRes = await fetch(`http://localhost:5000/api/projects/${project.id}/check-remote-changes`, {
-        headers: { 'Authorization': `Bearer ${jwtToken}` }
-      });
-      const changesData = await changesRes.json();
-
-      if (!changesRes.ok) throw new Error(changesData.error || 'Failed to check remote changes');
-      if (!changesData.hasChanges) {
-        alert('No new changes to pull. Your local folder is already up to date!');
-        return;
-      }
-
-      // Fetch only changed files
-      const pullRes = await fetch(`http://localhost:5000/api/projects/${project.id}/pull-changes`, {
-        headers: { 'Authorization': `Bearer ${jwtToken}` }
-      });
-      const data = await pullRes.json();
-
-      if (!pullRes.ok) throw new Error(data.error || 'Failed to pull changes');
-      if (data.changedFiles?.length === 0) {
-        alert('No files to download (remote is in sync).');
-        return;
-      }
-
-      // Folder selection logic
-      const storedPathKey = `folder_path_${project.id}`;
-      let folderPath = localStorage.getItem(storedPathKey);
-
+      folderPath = await window.electronAPI.getFolderPath(projectId);
+      
       if (!folderPath) {
-        if (!window.electron?.selectFolder) {
-          alert('Folder selection not available in this environment.');
+        console.log('[PULL] No folder path found, prompting user...');
+        
+        if (!window.electronAPI?.selectFolder) {
+          alert('❌ Folder selection not available in this environment.');
           return;
         }
 
-        folderPath = await window.electron.selectFolder();
+        folderPath = await window.electronAPI.selectFolder();
+        
         if (!folderPath) {
           alert('Folder selection cancelled.');
           return;
         }
 
-        localStorage.setItem(storedPathKey, folderPath);
-        console.log('Stored folder path:', folderPath);
-      }
-
-      // Optional: Validate folder name match
-      const selectedFolderName = folderPath.split(/[\\/]/).pop();
-      if (projectFolderName && !selectedFolderName.includes(projectFolderName)) {
-        if (!confirm(
-          `Warning: Selected folder "${selectedFolderName}" ` +
-          `does not seem to match expected project folder "${projectFolderName}"\n\nContinue anyway?`
-        )) {
-          return;
-        }
-      }
-
-      // Write files via Electron
-      if (window.electron?.writeFiles) {
-        const result = await window.electron.writeFiles({
-          folderPath,
-          files: data.changedFiles.map(file => ({
-            path: file.path,
-            content: file.content, // base64
-            size: file.size
-          }))
-        });
-
-        if (result.success) {
-          alert(`Successfully pulled and saved ${result.successCount} changed file(s)!`);
-        } else {
-          alert(
-            `Partial success: ${result.successCount} saved, ` +
-            `${result.failCount} failed.\n\nError: ${result.error || 'Unknown'}`
-          );
-        }
+        await window.electronAPI.saveFolderPath(projectId, folderPath);
+        console.log('[PULL] ✅ Folder path saved:', folderPath);
       } else {
-        alert('File writing not supported in this environment.');
+        console.log('[PULL] Using existing folder:', folderPath);
       }
-    } catch (error) {
-      console.error('Pull error:', error);
-      alert('Failed to pull changes: ' + (error.message || 'Unknown error'));
-    } finally {
-      setIsPulling(false);
+    } catch (pathError) {
+      console.error('[PULL] Error getting folder path:', pathError);
+      alert('Failed to get folder path. Please try again.');
+      return;
     }
-  };
+
+    // Optional: Validate folder name match
+    const selectedFolderName = folderPath.split(/[\\/]/).pop();
+    if (projectFolderName && !selectedFolderName.includes(projectFolderName)) {
+      if (!confirm(
+        `⚠️ Warning: Selected folder "${selectedFolderName}" ` +
+        `does not match expected project folder "${projectFolderName}"\n\nContinue anyway?`
+      )) {
+        return;
+      }
+    }
+
+    // STEP 2: Check if folder has files (to detect first-time pull)
+    let folderHasFiles = false;
+    try {
+      if (window.electronAPI?.checkFolderContents) {
+        folderHasFiles = await window.electronAPI.checkFolderContents(folderPath);
+        console.log('[PULL] Folder has files:', folderHasFiles);
+      }
+    } catch (err) {
+      console.warn('[PULL] Could not check folder contents:', err);
+    }
+
+    // STEP 3: Check for remote changes (with force flag if folder is empty)
+    const forceCheck = !folderHasFiles;
+    const changesRes = await fetch(
+      `http://localhost:5000/api/projects/${projectId}/check-remote-changes${forceCheck ? '?forceCheck=true' : ''}`,
+      { headers: { 'Authorization': `Bearer ${jwtToken}` } }
+    );
+    
+    const changesData = await changesRes.json();
+
+    if (!changesRes.ok) {
+      throw new Error(changesData.error || 'Failed to check remote changes');
+    }
+    
+    // If folder is empty, skip the "no changes" check
+    if (!forceCheck && !changesData.hasChanges) {
+      const shouldPullAnyway = confirm(
+        '📋 No new changes detected on GitHub.\n\n' +
+        'However, your local folder may be empty or incomplete.\n\n' +
+        'Would you like to pull all files anyway?'
+      );
+      
+      if (!shouldPullAnyway) {
+        alert('✅ Your local folder is already up to date!');
+        return;
+      }
+    }
+
+    console.log('[PULL] 📥 Remote changes detected, fetching files...');
+
+    // STEP 4: Fetch files
+    const pullRes = await fetch(
+      `http://localhost:5000/api/projects/${projectId}/pull-changes`,
+      { headers: { 'Authorization': `Bearer ${jwtToken}` } }
+    );
+    
+    const data = await pullRes.json();
+
+    if (!pullRes.ok) {
+      throw new Error(data.error || 'Failed to pull changes');
+    }
+    
+    if (!data.changedFiles || data.changedFiles.length === 0) {
+      alert('❌ No files to download (remote repository is empty).');
+      return;
+    }
+
+    console.log(`[PULL] 📦 Received ${data.changedFiles.length} files`);
+
+    // STEP 5: Write files via Electron API
+    if (!window.electronAPI?.writeFiles) {
+      alert('❌ File writing not supported in this environment.');
+      return;
+    }
+
+    // Validate that we have files and they have content
+    const validFiles = data.changedFiles.filter(file => {
+      if (!file.content) {
+        console.warn(`[PULL] ⚠️ File has no content: ${file.path}`);
+        return false;
+      }
+      if (!file.path) {
+        console.warn(`[PULL] ⚠️ File has no path:`, file);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      alert('❌ No valid files to write (all files missing content)');
+      return;
+    }
+
+    console.log(`[PULL] ✅ Writing ${validFiles.length} valid files...`);
+    console.log('[PULL] Sample file:', {
+      path: validFiles[0].path,
+      hasContent: !!validFiles[0].content,
+      contentLength: validFiles[0].content?.length,
+      size: validFiles[0].size
+    });
+
+    const writePayload = {
+      folderPath,
+      files: validFiles.map(file => ({
+        path: file.path,
+        content: file.content, // base64
+        size: file.size || 0
+      }))
+    };
+
+    console.log('[PULL] Write payload:', {
+      folderPath: writePayload.folderPath,
+      filesCount: writePayload.files.length,
+      firstFile: writePayload.files[0]
+    });
+
+    const result = await window.electronAPI.writeFiles(writePayload);
+
+    console.log('[PULL] Write result:', result);
+
+    if (result.success) {
+      alert(
+        `✅ Successfully pulled and saved ${result.successCount} file(s)!\n\n` +
+        `Files written to:\n${folderPath}\n\n` +
+        `You can now view and edit your files locally.`
+      );
+    } else {
+      alert(
+        `⚠️ Partial success:\n\n` +
+        `✅ ${result.successCount} files saved\n` +
+        `❌ ${result.failCount} files failed\n\n` +
+        `Error: ${result.error || 'Unknown'}`
+      );
+    }
+
+  } catch (error) {
+    console.error('[PULL] ❌ Error:', error);
+    alert(`❌ Failed to pull changes:\n\n${error.message || 'Unknown error'}`);
+  } finally {
+    setIsPulling(false);
+  }
+};
 
   return (
     <>
@@ -374,3 +466,343 @@ function ProjectCard({
 }
 
 export default ProjectCard;
+
+//ui redesign
+
+// import React, { useState } from 'react';
+// import { cn } from '@/lib/utils';
+// import {
+//   Github,
+//   Trash2,
+//   Upload,
+//   AlertTriangle,
+//   Lock,
+//   Globe,
+//   RefreshCw,
+//   Share2,
+//   Copy,
+//   Check,
+//   Download,
+//   X,
+//   Folder,
+//   Users
+// } from 'lucide-react';
+// import { Button } from '@/components/ui/button';
+
+// interface Project {
+//   id: string;
+//   name: string;
+//   description?: string;
+//   visibility?: 'private' | 'public';
+//   fileCount?: number;
+//   updatedAt?: string;
+//   file_paths?: string | object;
+//   localPath?: string;
+//   owner?: {
+//     username: string;
+//   };
+// }
+
+// interface ProjectCardProps {
+//   project: Project;
+//   hasUnpushedChanges?: boolean;
+//   onDelete?: () => void;
+//   onPushChanges?: () => void;
+//   onCheckChanges?: (projectId: string) => Promise<void>;
+//   jwtToken?: string;
+//   isCollaborator?: boolean;
+// }
+
+// const ProjectCard: React.FC<ProjectCardProps> = ({
+//   project,
+//   hasUnpushedChanges = false,
+//   onDelete,
+//   onPushChanges,
+//   onCheckChanges,
+//   jwtToken,
+//   isCollaborator = false
+// }) => {
+//   const [isChecking, setIsChecking] = useState(false);
+//   const [showShareModal, setShowShareModal] = useState(false);
+//   const [shareLink, setShareLink] = useState('');
+//   const [copied, setCopied] = useState(false);
+//   const [loadingShare, setLoadingShare] = useState(false);
+//   const [isPulling, setIsPulling] = useState(false);
+
+//   const getProjectFolderName = () => {
+//     if (!project.file_paths) return null;
+
+//     const filePaths = typeof project.file_paths === 'string'
+//       ? JSON.parse(project.file_paths)
+//       : project.file_paths;
+
+//     if (filePaths.folders?.length > 0) {
+//       const firstFolder = filePaths.folders[0].name;
+//       return firstFolder.split('/')[0];
+//     }
+
+//     if (filePaths.individualFiles?.length > 0) {
+//       const firstFile = filePaths.individualFiles[0];
+//       if (firstFile.relativePath) {
+//         const parts = firstFile.relativePath.split('/');
+//         if (parts.length > 1) return parts[0];
+//       }
+//     }
+
+//     return null;
+//   };
+
+//   const projectFolderName = getProjectFolderName();
+
+//   const handleCheckForChanges = async () => {
+//     if (!onCheckChanges) return;
+//     setIsChecking(true);
+//     try {
+//       await onCheckChanges(project.id);
+//     } finally {
+//       setIsChecking(false);
+//     }
+//   };
+
+//   const handleGenerateShareLink = async () => {
+//     setLoadingShare(true);
+//     try {
+//       const response = await fetch(`http://localhost:5000/api/projects/${project.id}/share`, {
+//         method: 'POST',
+//         headers: { 'Authorization': `Bearer ${jwtToken}` }
+//       });
+//       const data = await response.json();
+//       if (response.ok) {
+//         setShareLink(data.shareLink);
+//         setShowShareModal(true);
+//       } else {
+//         alert(data.error || 'Failed to generate share link');
+//       }
+//     } catch (error) {
+//       console.error('Error generating share link:', error);
+//       alert('Failed to generate share link');
+//     } finally {
+//       setLoadingShare(false);
+//     }
+//   };
+
+//   const handleCopyLink = () => {
+//     navigator.clipboard.writeText(shareLink);
+//     setCopied(true);
+//     setTimeout(() => setCopied(false), 2000);
+//   };
+
+//   const handlePullFiles = async () => {
+//     setIsPulling(true);
+//     // Implementation would go here
+//     setTimeout(() => setIsPulling(false), 1500);
+//   };
+
+//   return (
+//     <>
+//       <div
+//         className={cn(
+//           "group relative glass-strong rounded-2xl overflow-hidden transition-all duration-300",
+//           "hover:-translate-y-1",
+//           hasUnpushedChanges 
+//             ? "ring-2 ring-warning/50 glow-warning" 
+//             : "hover:glow-primary"
+//         )}
+//       >
+//         {/* Status Badges */}
+//         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+//           {hasUnpushedChanges && (
+//             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-warning text-warning-foreground animate-pulse-glow">
+//               <AlertTriangle className="w-3 h-3" />
+//               Changes
+//             </span>
+//           )}
+//           {isCollaborator && (
+//             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary/20 text-secondary border border-secondary/30">
+//               <Users className="w-3 h-3" />
+//               Collaborator
+//             </span>
+//           )}
+//         </div>
+
+//         {/* Card Content */}
+//         <div className="p-5">
+//           {/* Header */}
+//           <div className="flex items-start gap-4 mb-4">
+//             <div 
+//               className={cn(
+//                 "flex-shrink-0 p-3 rounded-xl transition-all duration-300",
+//                 isCollaborator 
+//                   ? "bg-secondary/15 text-secondary group-hover:bg-secondary/25" 
+//                   : "bg-primary/15 text-primary group-hover:bg-primary/25"
+//               )}
+//             >
+//               <Github className="w-5 h-5" />
+//             </div>
+            
+//             <div className="flex-1 min-w-0 pr-20">
+//               <h3 className="text-lg font-semibold text-foreground truncate mb-1">
+//                 {project.name}
+//               </h3>
+//               <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+//                 {project.description || 'No description provided'}
+//               </p>
+//               {isCollaborator && project.owner && (
+//                 <p className="text-xs text-muted-foreground/70 mt-1.5 flex items-center gap-1">
+//                   <span className="w-1 h-1 rounded-full bg-secondary" />
+//                   Owner: {project.owner.username}
+//                 </p>
+//               )}
+//             </div>
+//           </div>
+
+//           {/* Meta Info */}
+//           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
+//             <span className="inline-flex items-center gap-1.5">
+//               {project.visibility === 'private' ? (
+//                 <><Lock className="w-3.5 h-3.5" /> Private</>
+//               ) : (
+//                 <><Globe className="w-3.5 h-3.5" /> Public</>
+//               )}
+//             </span>
+//             <span className="w-1 h-1 rounded-full bg-border" />
+//             <span>{project.fileCount ?? 0} files</span>
+//             <span className="w-1 h-1 rounded-full bg-border" />
+//             <span>{project.updatedAt || 'Just now'}</span>
+//           </div>
+
+//           {/* Folder Info */}
+//           {projectFolderName && (
+//             <div className="mb-4 p-3 rounded-xl bg-muted/50 border border-border/50">
+//               <div className="flex items-center gap-2 text-sm">
+//                 <Folder className="w-4 h-4 text-primary" />
+//                 <span className="text-muted-foreground">Project folder:</span>
+//                 <code className="text-foreground font-mono text-xs bg-background/50 px-2 py-0.5 rounded">
+//                   {projectFolderName}
+//                 </code>
+//               </div>
+//             </div>
+//           )}
+
+//           {/* Actions */}
+//           <div className="flex flex-wrap gap-2">
+//             <Button
+//               variant="secondary"
+//               size="sm"
+//               onClick={handleCheckForChanges}
+//               disabled={isChecking}
+//               className="flex-1 min-w-[120px] bg-muted hover:bg-muted/80 text-foreground"
+//             >
+//               <RefreshCw className={cn("w-4 h-4 mr-2", isChecking && "animate-spin")} />
+//               {isChecking ? 'Checking...' : 'Check'}
+//             </Button>
+
+//             <Button
+//               variant={hasUnpushedChanges ? "default" : "secondary"}
+//               size="sm"
+//               onClick={onPushChanges}
+//               disabled={!hasUnpushedChanges}
+//               className={cn(
+//                 "flex-1 min-w-[120px]",
+//                 hasUnpushedChanges 
+//                   ? "bg-warning hover:bg-warning/90 text-warning-foreground" 
+//                   : "bg-muted text-muted-foreground cursor-not-allowed"
+//               )}
+//             >
+//               <Upload className="w-4 h-4 mr-2" />
+//               Push
+//             </Button>
+
+//             <Button
+//               variant="secondary"
+//               size="sm"
+//               onClick={handlePullFiles}
+//               disabled={isPulling}
+//               className="bg-success/15 hover:bg-success/25 text-success border border-success/30"
+//             >
+//               <Download className={cn("w-4 h-4", isPulling && "animate-bounce")} />
+//             </Button>
+
+//             {!isCollaborator && (
+//               <Button
+//                 variant="secondary"
+//                 size="sm"
+//                 onClick={handleGenerateShareLink}
+//                 disabled={loadingShare}
+//                 className="bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30"
+//               >
+//                 <Share2 className="w-4 h-4" />
+//               </Button>
+//             )}
+
+//             <Button
+//               variant="ghost"
+//               size="sm"
+//               onClick={onDelete}
+//               className="text-destructive hover:bg-destructive/15 hover:text-destructive"
+//             >
+//               <Trash2 className="w-4 h-4" />
+//             </Button>
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Share Modal */}
+//       {showShareModal && (
+//         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-up">
+//           <div className="glass-strong rounded-2xl shadow-2xl w-full max-w-md border border-border overflow-hidden">
+//             <div className="p-6">
+//               <div className="flex items-center justify-between mb-6">
+//                 <div className="flex items-center gap-3">
+//                   <div className="p-2 rounded-lg bg-primary/15 text-primary">
+//                     <Share2 className="w-5 h-5" />
+//                   </div>
+//                   <h3 className="text-xl font-semibold text-foreground">Share Project</h3>
+//                 </div>
+//                 <button
+//                   onClick={() => setShowShareModal(false)}
+//                   className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+//                 >
+//                   <X className="w-5 h-5" />
+//                 </button>
+//               </div>
+              
+//               <p className="text-muted-foreground text-sm mb-4">
+//                 Share this link with others to let them join as collaborators.
+//               </p>
+              
+//               <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50 mb-4">
+//                 <input
+//                   type="text"
+//                   value={shareLink}
+//                   readOnly
+//                   className="flex-1 bg-transparent text-foreground text-sm font-mono focus:outline-none"
+//                 />
+//                 <Button
+//                   size="sm"
+//                   onClick={handleCopyLink}
+//                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
+//                 >
+//                   {copied ? (
+//                     <><Check className="w-4 h-4 mr-1" /> Copied</>
+//                   ) : (
+//                     <><Copy className="w-4 h-4 mr-1" /> Copy</>
+//                   )}
+//                 </Button>
+//               </div>
+              
+//               <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+//                 <p className="text-primary text-xs flex items-start gap-2">
+//                   <span className="text-base">💡</span>
+//                   Anyone with this link can join and push changes to the project.
+//                 </p>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </>
+//   );
+// };
+
+// export default ProjectCard;

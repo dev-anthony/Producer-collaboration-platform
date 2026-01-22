@@ -377,33 +377,177 @@ ipcMain.handle('read-project-files', async (_, { projectId, fileStructure }) => 
 });
 
 // Write files
-ipcMain.handle('write-files', async (_, { folderPath, files }) => {
+// ipcMain.handle('write-files', async (_, { folderPath, files }) => {
+//   let successCount = 0;
+//   let failCount = 0;
+//   let lastError = null;
+
+//   for (const file of files) {
+//     try {
+//       const content = Buffer.from(file.content, 'base64');
+//       const fullPath = path.join(folderPath, file.path);
+//       await fs.mkdir(path.dirname(fullPath), { recursive: true });
+//       await fs.writeFile(fullPath, content);
+//       successCount++;
+//     } catch (err) {
+//       failCount++;
+//       lastError = err.message;
+//       console.error(`[WRITE] Failed to write ${file.path}:`, err);
+//     }
+//   }
+
+//   return { 
+//     success: failCount === 0, 
+//     successCount, 
+//     failCount, 
+//     error: lastError 
+//   };
+// });
+// In main.js
+// UPDATED write-files handler in main.js
+// UPDATED write-files handler in main.js
+ipcMain.handle('write-files', async (event, payload) => {
+  console.log('[WRITE] Raw payload received:', JSON.stringify(payload, null, 2).substring(0, 500));
+  console.log('[WRITE] Payload type:', typeof payload);
+  console.log('[WRITE] Payload keys:', payload ? Object.keys(payload) : 'null');
+  console.log('[WRITE] Received payload:', {
+    hasFolderPath: !!payload?.folderPath,
+    hasFiles: !!payload?.files,
+    filesType: typeof payload?.files,
+    filesIsArray: Array.isArray(payload?.files),
+    filesLength: payload?.files?.length,
+    folderPath: payload?.folderPath
+  });
+
+  // Validate payload
+  if (!payload) {
+    console.error('[WRITE] ❌ Payload is undefined');
+    return { 
+      success: false, 
+      successCount: 0, 
+      failCount: 0, 
+      error: 'Payload is undefined' 
+    };
+  }
+
+  const { folderPath, files } = payload;
+
+  if (!folderPath) {
+    console.error('[WRITE] ❌ No folderPath provided');
+    return { 
+      success: false, 
+      successCount: 0, 
+      failCount: 0, 
+      error: 'No folder path provided' 
+    };
+  }
+
+  if (!files) {
+    console.error('[WRITE] ❌ No files array provided');
+    return { 
+      success: false, 
+      successCount: 0, 
+      failCount: 0, 
+      error: 'No files array provided' 
+    };
+  }
+
+  if (!Array.isArray(files)) {
+    console.error('[WRITE] ❌ Files is not an array:', typeof files);
+    return { 
+      success: false, 
+      successCount: 0, 
+      failCount: 0, 
+      error: `Files must be an array, got ${typeof files}` 
+    };
+  }
+
+  if (files.length === 0) {
+    console.warn('[WRITE] ⚠️ Files array is empty');
+    return { 
+      success: true, 
+      successCount: 0, 
+      failCount: 0, 
+      error: null 
+    };
+  }
+
   let successCount = 0;
   let failCount = 0;
   let lastError = null;
 
-  for (const file of files) {
+  console.log(`[WRITE] 📝 Writing ${files.length} files to: ${folderPath}`);
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    
     try {
-      const content = Buffer.from(file.content, 'base64');
-      const fullPath = path.join(folderPath, file.path);
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      // Validate file object
+      if (!file) {
+        console.error(`[WRITE] ❌ File at index ${i} is undefined`);
+        failCount++;
+        lastError = `File at index ${i} is undefined`;
+        continue;
+      }
+
+      if (!file.path) {
+        console.error(`[WRITE] ❌ File missing path at index ${i}:`, file);
+        failCount++;
+        lastError = `File at index ${i} missing path`;
+        continue;
+      }
+
+      if (!file.content) {
+        console.error(`[WRITE] ❌ File missing content: ${file.path}`);
+        failCount++;
+        lastError = `File ${file.path} missing content`;
+        continue;
+      }
+
+      // Decode base64 content
+      let content;
+      try {
+        content = Buffer.from(file.content, 'base64');
+      } catch (decodeError) {
+        console.error(`[WRITE] ❌ Failed to decode base64 for ${file.path}:`, decodeError);
+        failCount++;
+        lastError = `Failed to decode ${file.path}: ${decodeError.message}`;
+        continue;
+      }
+
+      // Build full path (normalize path separators)
+      const normalizedPath = file.path.replace(/\\/g, '/');
+      const fullPath = path.join(folderPath, normalizedPath);
+      
+      console.log(`[WRITE] ${i + 1}/${files.length} Writing: ${fullPath} (${content.length} bytes)`);
+      
+      // Create directory if it doesn't exist
+      const dirPath = path.dirname(fullPath);
+      await fs.mkdir(dirPath, { recursive: true });
+      
+      // Write the file
       await fs.writeFile(fullPath, content);
+      
       successCount++;
+      console.log(`[WRITE] ✅ Success [${i + 1}/${files.length}]: ${file.path}`);
     } catch (err) {
       failCount++;
       lastError = err.message;
-      console.error(`[WRITE] Failed to write ${file.path}:`, err);
+      console.error(`[WRITE] ❌ Failed to write ${file.path}:`, err);
     }
   }
 
-  return { 
-    success: failCount === 0, 
-    successCount, 
-    failCount, 
-    error: lastError 
+  const result = {
+    success: failCount === 0,
+    successCount,
+    failCount,
+    error: lastError
   };
-});
 
+  console.log(`[WRITE] 🏁 Complete:`, result);
+
+  return result;
+});
 // Start watching
 ipcMain.handle('start-watching', async (_, { projectId, folderPath }) => {
   try {

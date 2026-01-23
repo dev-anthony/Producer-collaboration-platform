@@ -384,66 +384,6 @@ exports.createProjectRepo = async (req, res) => {
     }
   });
 };
-
-
-// exports.getUserProjects = async (req, res) => {
-//   try {
-//     const userId = req.userId;
-
-//     const connection = await pool.promise().getConnection();
-
-//     try {
-//       const [projects] = await connection.execute(
-//         `SELECT 
-//           id,
-//           repo_id,
-//           repo_name as name,
-//           repo_url as url,
-//           description,
-//           visibility,
-//           file_paths,
-//           has_changes,
-//           created_at,
-//           updated_at
-//          FROM projects
-//          WHERE user_id = ?
-//          ORDER BY updated_at DESC`,
-//         [userId]
-//       );
-
-//       res.json({
-//         projects: projects.map(p => {
-//           const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
-          
-//           // Calculate total file count from structure
-//           const individualFileCount = fileStructure.individualFiles?.length || 0;
-//           const folderFileCount = fileStructure.folders?.reduce((sum, folder) => sum + (folder.files?.length || 0), 0) || 0;
-//           const totalFileCount = individualFileCount + folderFileCount;
-          
-//           return {
-//             id: p.id,
-//             name: p.name,
-//             url: p.url,
-//             description: p.description,
-//             visibility: p.visibility,
-//             fileCount: totalFileCount,
-//             updatedAt: p.updated_at,
-//             hasUnpushedChanges: p.has_changes === 1,
-//             file_paths: fileStructure
-//           };
-//         })
-//       });
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error('getUserProjects error:', error);
-//     res.status(500).json({
-//       error: 'Failed to fetch projects',
-//       message: error.message
-//     });
-//   }
-// };
 exports.getUserProjects = async (req, res) => {
   try {
     const userId = req.userId;
@@ -502,7 +442,6 @@ exports.getUserProjects = async (req, res) => {
     });
   }
 };
-
 exports.getCollaboratedProjects = async (req, res) => {
   try {
     const userId = req.userId;
@@ -599,8 +538,6 @@ exports.markProjectChanges = async (req, res) => {
     });
   }
 };
-
-
 exports.detectFileChanges = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -743,10 +680,6 @@ res.json({ hasChanges, changeDetails });
     res.status(500).json({ error: 'Failed to detect changes', message: error.message });
   }
 };
-
-
-
-
 exports.pushProjectChanges = async (req, res) => {
   // Use multer middleware to handle file uploads
   upload.array('files', 100)(req, res, async (err) => {
@@ -945,7 +878,6 @@ exports.pushProjectChanges = async (req, res) => {
     }
   });
 };
-
 // Delete project
 exports.deleteProject = async (req, res) => {
   try {
@@ -955,50 +887,77 @@ exports.deleteProject = async (req, res) => {
     const connection = await pool.promise().getConnection();
 
     try {
-      // Get project details first
-      const [projects] = await connection.execute(
-        `SELECT p.*, gt.access_token
-         FROM projects p
-         JOIN users u ON p.user_id = u.id
-         LEFT JOIN github_tokens gt ON u.id = gt.user_id
-         WHERE p.id = ? AND p.user_id = ?`,
+      // Check if user is owner
+      const [ownerCheck] = await connection.execute(
+        'SELECT * FROM projects WHERE id = ? AND user_id = ?',
         [projectId, userId]
       );
 
-      if (projects.length === 0) {
-        return res.status(404).json({ error: 'Project not found' });
+      // Check if user is collaborator
+      const [collabCheck] = await connection.execute(
+        'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+        [projectId, userId]
+      );
+
+      if (ownerCheck.length === 0 && collabCheck.length === 0) {
+        return res.status(404).json({ error: 'Project not found or access denied' });
       }
 
-      const project = projects[0];
+      const isOwner = ownerCheck.length > 0;
 
-      // Delete from GitHub if token exists
-      if (project.access_token) {
-        try {
-          const octokit = new Octokit({
-            auth: project.access_token
-          });
+      if (isOwner) {
+        // OWNER: Delete entire project and GitHub repo
+        const project = ownerCheck[0];
+        
+        // Get access token
+        const [tokens] = await connection.execute(
+          'SELECT access_token FROM github_tokens WHERE user_id = ?',
+          [userId]
+        );
 
-          const { data: githubUser } = await octokit.users.getAuthenticated();
+        // Delete from GitHub if token exists
+        if (tokens.length > 0 && tokens[0].access_token) {
+          try {
+            const octokit = new Octokit({
+              auth: tokens[0].access_token
+            });
 
-          await octokit.repos.delete({
-            owner: githubUser.login,
-            repo: project.repo_name
-          });
+            const { data: githubUser } = await octokit.users.getAuthenticated();
 
-          console.log(` GitHub repository deleted: ${project.repo_name}`);
-        } catch (githubError) {
-          console.error('Error deleting GitHub repo:', githubError.message);
-          // Continue with database deletion even if GitHub deletion fails
+            await octokit.repos.delete({
+              owner: githubUser.login,
+              repo: project.repo_name
+            });
+
+            console.log(`GitHub repository deleted: ${project.repo_name}`);
+          } catch (githubError) {
+            console.error('Error deleting GitHub repo:', githubError.message);
+            // Continue with database deletion even if GitHub deletion fails
+          }
         }
+
+        // Delete from database (cascades to collaborators)
+        await connection.execute(
+          'DELETE FROM projects WHERE id = ?',
+          [projectId]
+        );
+
+        res.json({ 
+          message: 'Project deleted successfully',
+          deletedBy: 'owner'
+        });
+      } else {
+        // COLLABORATOR: Just remove from collaborators
+        await connection.execute(
+          'DELETE FROM project_collaborators WHERE project_id = ? AND user_id = ?',
+          [projectId, userId]
+        );
+
+        res.json({ 
+          message: 'Successfully left project',
+          deletedBy: 'collaborator'
+        });
       }
-
-      // Delete from database
-      await connection.execute(
-        'DELETE FROM projects WHERE id = ? AND user_id = ?',
-        [projectId, userId]
-      );
-
-      res.json({ message: 'Project deleted successfully' });
 
     } finally {
       connection.release();
@@ -1330,287 +1289,6 @@ exports.cloneProjectFiles = async (req, res) => {
     });
   }
 };
-
-// Helper function to recursively get all files from GitHub repo
-// async function getAllRepoFiles(octokit, owner, repo, path = '') {
-//   const files = [];
-  
-//   try {
-//     const { data: contents } = await octokit.repos.getContent({
-//       owner,
-//       repo,
-//       path
-//     });
-
-//     for (const item of contents) {
-//       if (item.type === 'file') {
-//         // Download file content
-//         const { data: fileData } = await octokit.repos.getContent({
-//           owner,
-//           repo,
-//           path: item.path
-//         });
-
-//         files.push({
-//           name: item.name,
-//           path: item.path,
-//           size: item.size,
-//           content: fileData.content, // base64 encoded
-//           encoding: fileData.encoding,
-//           downloadUrl: item.download_url
-//         });
-//       } else if (item.type === 'dir') {
-//         // Recursively get files from subdirectory
-//         const subFiles = await getAllRepoFiles(octokit, owner, repo, item.path);
-//         files.push(...subFiles);
-//       }
-//     }
-//   } catch (error) {
-//     console.error(`Error getting files from ${path}:`, error.message);
-//   }
-
-//   return files;
-// }
-// Check for remote changes
-// exports.checkRemoteChanges = async (req, res) => {
-//   try {
-//     const { projectId } = req.params;
-//     const userId = req.userId;
-
-//     const connection = await pool.promise().getConnection();
-
-//     try {
-//       // Check if user is owner or collaborator
-//       const [ownerCheck] = await connection.execute(
-//         'SELECT * FROM projects WHERE id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       const [collabCheck] = await connection.execute(
-//         'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       if (ownerCheck.length === 0 && collabCheck.length === 0) {
-//         return res.status(404).json({ error: 'Project not found or access denied' });
-//       }
-
-//       // Get project details
-//       // const [projects] = await connection.execute(
-//       //   `SELECT p.*, gt.access_token, p.last_pulled_at
-//       //    FROM projects p
-//       //    JOIN users u ON p.user_id = u.id
-//       //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
-//       //    WHERE p.id = ?`,
-//       //   [projectId]
-//       // );
-//       const [projects] = await connection.execute(
-//         `SELECT p.*, owner_gt.access_token, p.last_pulled_at
-//         FROM projects p
-//         JOIN users owner_u ON p.user_id = owner_u.id
-//         LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
-//         WHERE p.id = ?`,
-//         [projectId]
-//       );
-       
-
-//       if (projects.length === 0) {
-//         return res.status(404).json({ error: 'Project not found' });
-//       }
-
-//       const project = projects[0];
-
-//       if (!project.access_token) {
-//         return res.status(401).json({ error: 'GitHub token missing' });
-//       }
-
-//       // Initialize Octokit
-//       const octokit = new Octokit({
-//         auth: project.access_token
-//       });
-
-//       // Get repository details
-//       const repoUrl = project.repo_url;
-//       const urlParts = repoUrl.split('/');
-//       const repoOwner = urlParts[urlParts.length - 2];
-
-//       // Get latest commit from GitHub
-//       const { data: commits } = await octokit.repos.listCommits({
-//         owner: repoOwner,
-//         repo: project.repo_name,
-//         per_page: 1
-//       });
-
-//       if (commits.length === 0) {
-//         return res.json({ hasChanges: false });
-//       }
-
-//       const latestCommitDate = new Date(commits[0].commit.author.date);
-//       const lastPulledDate = project.last_pulled_at ? new Date(project.last_pulled_at) : null;
-
-//       // If never pulled before, there are changes
-//       if (!lastPulledDate) {
-//         return res.json({ 
-//           hasChanges: true,
-//           message: 'First-time pull required'
-//         });
-//       }
-
-//       // Check if latest commit is newer than last pull
-//       const hasChanges = latestCommitDate > lastPulledDate;
-
-//       res.json({ 
-//         hasChanges,
-//         latestCommit: commits[0].sha,
-//         latestCommitDate: latestCommitDate.toISOString(),
-//         lastPulledDate: lastPulledDate.toISOString()
-//       });
-
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error('checkRemoteChanges error:', error);
-//     res.status(500).json({
-//       error: 'Failed to check for changes',
-//       message: error.message
-//     });
-//   }
-// };
-
-// Pull only changed files
-// exports.pullChanges = async (req, res) => {
-//   try {
-//     const { projectId } = req.params;
-//     const userId = req.userId;
-
-//     const connection = await pool.promise().getConnection();
-
-//     try {
-//       // Check if user is owner or collaborator
-//       const [ownerCheck] = await connection.execute(
-//         'SELECT * FROM projects WHERE id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       const [collabCheck] = await connection.execute(
-//         'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       if (ownerCheck.length === 0 && collabCheck.length === 0) {
-//         return res.status(404).json({ error: 'Project not found or access denied' });
-//       }
-
-//       // Get project details
-//       // const [projects] = await connection.execute(
-//       //   `SELECT p.*, gt.access_token, p.last_pulled_at, p.file_paths
-//       //    FROM projects p
-//       //    JOIN users u ON p.user_id = u.id
-//       //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
-//       //    WHERE p.id = ?`,
-//       //   [projectId]
-//       // );
-//       // Get project details - ALWAYS use owner's token
-//       const [projects] = await connection.execute(
-//         `SELECT p.*, owner_gt.access_token, p.last_pulled_at, p.file_paths
-//         FROM projects p
-//         JOIN users owner_u ON p.user_id = owner_u.id
-//         LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
-//         WHERE p.id = ?`,
-//         [projectId]
-//       );
-      
-
-//       if (projects.length === 0) {
-//         return res.status(404).json({ error: 'Project not found' });
-//       }
-
-//       const project = projects[0];
-
-//       if (!project.access_token) {
-//         return res.status(401).json({ error: 'GitHub token missing' });
-//       }
-
-//       // Initialize Octokit
-//       const octokit = new Octokit({
-//         auth: project.access_token
-//       });
-
-//       // Get repository details
-//       const repoUrl = project.repo_url;
-//       const urlParts = repoUrl.split('/');
-//       const repoOwner = urlParts[urlParts.length - 2];
-
-//       // Get default branch
-//       const { data: repoData } = await octokit.repos.get({
-//         owner: repoOwner,
-//         repo: project.repo_name
-//       });
-
-//       const defaultBranch = repoData.default_branch || 'main';
-
-//       // Get all files from repository
-//       const allFiles = await getAllRepoFiles(octokit, repoOwner, project.repo_name, '', defaultBranch);
-
-//       // Get stored file structure
-//       const storedStructure = project.file_paths ? JSON.parse(project.file_paths) : { individualFiles: [], folders: [] };
-
-//       // Build a map of stored files with their metadata
-//       const storedFilesMap = {};
-      
-//       storedStructure.individualFiles?.forEach(file => {
-//         storedFilesMap[file.relativePath || file.name] = file;
-//       });
-
-//       storedStructure.folders?.forEach(folder => {
-//         folder.files?.forEach(file => {
-//           storedFilesMap[file.relativePath] = file;
-//         });
-//       });
-
-//       // Determine which files have changed
-//       const changedFiles = [];
-
-//       for (const file of allFiles) {
-//         const storedFile = storedFilesMap[file.path];
-
-//         // File is new or size changed (indicating modification)
-//         if (!storedFile || storedFile.size !== file.size) {
-//           changedFiles.push(file);
-//         }
-//       }
-
-//       console.log(`📥 Found ${changedFiles.length} changed file(s) out of ${allFiles.length} total files`);
-
-//       // Update last_pulled_at timestamp
-//       await connection.execute(
-//         'UPDATE projects SET last_pulled_at = NOW() WHERE id = ?',
-//         [projectId]
-//       );
-
-//       res.json({
-//         message: 'Changes fetched successfully',
-//         changedFiles: changedFiles,
-//         totalFiles: allFiles.length,
-//         changedCount: changedFiles.length
-//       });
-
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error('pullChanges error:', error);
-//     res.status(500).json({
-//       error: 'Failed to pull changes',
-//       message: error.message
-//     });
-//   }
-// };
-
-// Helper function to recursively get all files from GitHub repo
-// FIXED VERSION - This should replace your existing getAllRepoFiles function
-
 async function getAllRepoFiles(octokit, owner, repo, path = '', ref = 'main') {
   const files = [];
   
@@ -1621,26 +1299,136 @@ async function getAllRepoFiles(octokit, owner, repo, path = '', ref = 'main') {
       owner,
       repo,
       path,
-      ref // CRITICAL: Must pass the ref parameter
+      ref
     });
 
     // Handle both single file and array responses
     const items = Array.isArray(contents) ? contents : [contents];
 
     for (const item of items) {
+      // Skip README files in root - they're auto-generated by GitHub
+      if (item.name.toLowerCase() === 'readme.md' && path === '') {
+        console.log(` Skipping auto-generated README`);
+        continue;
+      }
+
       if (item.type === 'file') {
         try {
-          // IMPORTANT: Re-fetch with ref to get content
-          const { data: fileData } = await octokit.repos.getContent({
-            owner,
-            repo,
-            path: item.path,
-            ref // CRITICAL: Must pass ref here too
-          });
+          let fileContent = null;
+          
+          // CRITICAL FIX: Check file size
+          // GitHub Contents API has 1MB limit - use Blob API for larger files
+          if (item.size > 1048576) { // 1MB in bytes
+            console.log(`Large file detected (${(item.size / 1024 / 1024).toFixed(2)}MB): ${item.path}`);
+            console.log(`   SHA: ${item.sha}`);
+            console.log(`   Using Git Blob API for: ${item.path}`);
+            
+            try {
+              // Use Git Blob API for large files
+              const blobResponse = await octokit.git.getBlob({
+                owner,
+                repo,
+                file_sha: item.sha
+              });
+              
+              console.log(`   Blob API full response:`, blobResponse);
+              console.log(`   Response status:`, blobResponse.status);
+              console.log(`   Blob data keys:`, Object.keys(blobResponse.data || {}));
+              
+              const blobData = blobResponse.data;
+              
+              // Verify blob data exists
+              if (!blobData || !blobData.content) {
+                console.error(` Blob API returned no content for ${item.path}`);
+                console.error('Full response:', blobResponse);
+                
+                // Try using download_url as fallback
+                if (item.download_url) {
+                  console.log(`   Attempting direct download from: ${item.download_url}`);
+                  const downloadResponse = await fetch(item.download_url);
+                  const arrayBuffer = await downloadResponse.arrayBuffer();
+                  const base64 = btoa(
+                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                  );
+                  
+                  files.push({
+                    name: item.name,
+                    path: item.path,
+                    size: item.size,
+                    content: base64,
+                    encoding: 'base64',
+                    sha: item.sha,
+                    downloadUrl: item.download_url
+                  });
+                  
+                  console.log(` Fetched via download URL: ${item.path}`);
+                  continue;
+                }
+                
+                continue;
+              }
+              
+              fileContent = blobData.content.replace(/\n/g, ''); // Clean base64
+              console.log(`   Content length: ${fileContent.length} chars`);
+              
+            } catch (blobError) {
+              console.error(` Blob API error for ${item.path}:`, blobError);
+              console.error('Error details:', {
+                message: blobError.message,
+                status: blobError.status,
+                response: blobError.response
+              });
+              
+              // Try download URL as final fallback
+              if (item.download_url) {
+                try {
+                  console.log(`   Attempting direct download fallback: ${item.download_url}`);
+                  const downloadResponse = await fetch(item.download_url);
+                  const arrayBuffer = await downloadResponse.arrayBuffer();
+                  const base64 = btoa(
+                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                  );
+                  
+                  files.push({
+                    name: item.name,
+                    path: item.path,
+                    size: item.size,
+                    content: base64,
+                    encoding: 'base64',
+                    sha: item.sha,
+                    downloadUrl: item.download_url
+                  });
+                  
+                  console.log(`Fetched via download URL fallback: ${item.path}`);
+                  continue;
+                } catch (downloadError) {
+                  console.error(` Download URL also failed:`, downloadError);
+                }
+              }
+              
+              continue;
+            }
+            
+          } else {
+            // Use Contents API for smaller files
+            const { data: fileData } = await octokit.repos.getContent({
+              owner,
+              repo,
+              path: item.path,
+              ref
+            });
 
-          // Verify we got base64 content
-          if (!fileData.content) {
-            console.warn(`⚠️ No content for ${item.path}`);
+            // Verify we got content
+            if (!fileData.content) {
+              console.warn(` No content for ${item.path}`);
+              continue;
+            }
+
+            fileContent = fileData.content.replace(/\n/g, ''); // Clean base64
+          }
+
+          if (!fileContent) {
+            console.warn(` Failed to fetch content for ${item.path}`);
             continue;
           }
 
@@ -1648,26 +1436,60 @@ async function getAllRepoFiles(octokit, owner, repo, path = '', ref = 'main') {
             name: item.name,
             path: item.path,
             size: item.size,
-            content: fileData.content.replace(/\n/g, ''), // Remove newlines from base64
-            encoding: fileData.encoding || 'base64',
-            sha: fileData.sha,
+            content: fileContent,
+            encoding: 'base64',
+            sha: item.sha,
             downloadUrl: item.download_url
           });
 
-          console.log(`✅ Fetched: ${item.path} (${item.size} bytes)`);
+          console.log(`Fetched: ${item.path} (${(item.size / 1024).toFixed(2)}KB)`);
+          
         } catch (fileError) {
-          console.error(`❌ Error fetching ${item.path}:`, fileError.message);
-          // Continue with other files
+          console.error(` Error fetching ${item.path}:`, fileError.message);
+          
+          // If Contents API fails, try Blob API as fallback
+          if (fileError.status === 403 || fileError.message.includes('too large')) {
+            try {
+              console.log(`   Retrying with Blob API: ${item.path}`);
+              
+              const { data: blobData } = await octokit.git.getBlob({
+                owner,
+                repo,
+                file_sha: item.sha
+              });
+              
+              // Verify blob data
+              if (!blobData || !blobData.content) {
+                console.error(`Blob API returned no content for ${item.path}`);
+                continue;
+              }
+              
+              files.push({
+                name: item.name,
+                path: item.path,
+                size: item.size,
+                content: blobData.content.replace(/\n/g, ''),
+                encoding: blobData.encoding || 'base64',
+                sha: item.sha,
+                downloadUrl: item.download_url
+              });
+              
+              console.log(` Fetched via Blob API: ${item.path}`);
+              
+            } catch (blobError) {
+              console.error(`Blob API also failed for ${item.path}:`, blobError.message);
+            }
+          }
         }
       } else if (item.type === 'dir') {
         // Recursively get files from subdirectory
-        console.log(`📁 Entering directory: ${item.path}`);
+        console.log(` Entering directory: ${item.path}`);
         const subFiles = await getAllRepoFiles(octokit, owner, repo, item.path, ref);
         files.push(...subFiles);
       }
     }
   } catch (error) {
-    console.error(`❌ Error getting files from ${path}:`, error.message);
+    console.error(` Error getting files from ${path}:`, error.message);
     if (error.status === 404) {
       console.error(`Path not found: ${owner}/${repo}/${path}`);
     }
@@ -1675,144 +1497,6 @@ async function getAllRepoFiles(octokit, owner, repo, path = '', ref = 'main') {
 
   return files;
 }
-
-// ALSO UPDATE YOUR pullChanges FUNCTION:
-// exports.pullChanges = async (req, res) => {
-//   try {
-//     const { projectId } = req.params;
-//     const userId = req.userId;
-
-//     const connection = await pool.promise().getConnection();
-
-//     try {
-//       // Check if user is owner or collaborator
-//       const [ownerCheck] = await connection.execute(
-//         'SELECT * FROM projects WHERE id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       const [collabCheck] = await connection.execute(
-//         'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
-//         [projectId, userId]
-//       );
-
-//       if (ownerCheck.length === 0 && collabCheck.length === 0) {
-//         return res.status(404).json({ error: 'Project not found or access denied' });
-//       }
-
-//       // Get project details - ALWAYS use owner's token
-//       const [projects] = await connection.execute(
-//         `SELECT p.*, owner_gt.access_token, p.last_pulled_at, p.file_paths
-//         FROM projects p
-//         JOIN users owner_u ON p.user_id = owner_u.id
-//         LEFT JOIN github_tokens owner_gt ON owner_u.id = owner_gt.user_id
-//         WHERE p.id = ?`,
-//         [projectId]
-//       );
-      
-//       if (projects.length === 0) {
-//         return res.status(404).json({ error: 'Project not found' });
-//       }
-
-//       const project = projects[0];
-
-//       if (!project.access_token) {
-//         return res.status(401).json({ error: 'GitHub token missing' });
-//       }
-
-//       // Initialize Octokit
-//       const octokit = new Octokit({
-//         auth: project.access_token
-//       });
-
-//       // Get repository details
-//       const repoUrl = project.repo_url;
-//       const urlParts = repoUrl.split('/');
-//       const repoOwner = urlParts[urlParts.length - 2];
-
-//       console.log(`[PULL] Fetching from ${repoOwner}/${project.repo_name}`);
-
-//       // Get default branch
-//       const { data: repoData } = await octokit.repos.get({
-//         owner: repoOwner,
-//         repo: project.repo_name
-//       });
-
-//       const defaultBranch = repoData.default_branch || 'main';
-//       console.log(`[PULL] Using branch: ${defaultBranch}`);
-
-//       // Get all files from repository WITH CORRECT REF
-//       const allFiles = await getAllRepoFiles(
-//         octokit, 
-//         repoOwner, 
-//         project.repo_name, 
-//         '', 
-//         defaultBranch // CRITICAL: Pass the branch ref
-//       );
-
-//       console.log(`[PULL] Fetched ${allFiles.length} total files from GitHub`);
-
-//       // Get stored file structure
-//       const storedStructure = project.file_paths ? JSON.parse(project.file_paths) : { individualFiles: [], folders: [] };
-
-//       // Build a map of stored files with their metadata
-//       const storedFilesMap = {};
-      
-//       storedStructure.individualFiles?.forEach(file => {
-//         storedFilesMap[file.relativePath || file.name] = file;
-//       });
-
-//       storedStructure.folders?.forEach(folder => {
-//         folder.files?.forEach(file => {
-//           storedFilesMap[file.relativePath] = file;
-//         });
-//       });
-
-//       // Determine which files have changed
-//       const changedFiles = [];
-
-//       for (const file of allFiles) {
-//         const storedFile = storedFilesMap[file.path];
-
-//         // File is new or size changed (indicating modification)
-//         if (!storedFile || storedFile.size !== file.size) {
-//           console.log(`[PULL] Changed: ${file.path} (${storedFile ? 'modified' : 'new'})`);
-//           changedFiles.push(file);
-//         } else {
-//           console.log(`[PULL] Unchanged: ${file.path}`);
-//         }
-//       }
-
-//       console.log(`[PULL] Found ${changedFiles.length} changed file(s) out of ${allFiles.length} total files`);
-
-//       // Update last_pulled_at timestamp
-//       await connection.execute(
-//         'UPDATE projects SET last_pulled_at = NOW() WHERE id = ?',
-//         [projectId]
-//       );
-
-//       res.json({
-//         message: 'Changes fetched successfully',
-//         changedFiles: changedFiles,
-//         totalFiles: allFiles.length,
-//         changedCount: changedFiles.length
-//       });
-
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error('pullChanges error:', error);
-//     res.status(500).json({
-//       error: 'Failed to pull changes',
-//       message: error.message
-//     });
-//   }
-// };
-
-// projectController.js (or your controllers file)
-
-// Get single project by ID (for owner or collaborator)
 exports.getProjectById = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -1878,7 +1562,6 @@ exports.getProjectById = async (req, res) => {
     });
   }
 };
-
 // UPDATED checkRemoteChanges - More intelligent change detection
 exports.checkRemoteChanges = async (req, res) => {
   try {
@@ -1992,7 +1675,6 @@ exports.checkRemoteChanges = async (req, res) => {
     });
   }
 };
-
 // UPDATED pullChanges - Always fetch ALL files, let client decide what to write
 exports.pullChanges = async (req, res) => {
   try {
@@ -2114,11 +1796,11 @@ exports.pullChanges = async (req, res) => {
         [projectId]
       );
 
-      console.log(`[PULL] ✅ Returning ${filesWithCleanContent.length} valid files to client`);
+      console.log(`[PULL] Returning ${filesWithCleanContent.length} valid files to client`);
 
       res.json({
         message: 'Files fetched successfully',
-        changedFiles: filesWithCleanContent, // Return ALL files
+        changedFiles: filesWithCleanContent, 
         totalFiles: allFiles.length,
         changedCount: filesWithCleanContent.length
       });
@@ -2134,7 +1816,6 @@ exports.pullChanges = async (req, res) => {
     });
   }
 };
-
 module.exports = {
   createProjectRepo: exports.createProjectRepo,
   getUserProjects: exports.getUserProjects,

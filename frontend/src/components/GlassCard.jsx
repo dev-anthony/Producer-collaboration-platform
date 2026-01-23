@@ -1,17 +1,29 @@
 import React from "react";
+import { cn } from "@/lib/utils";
 
-const GlassCard = ({ children, className = "", hover = true, glow = "none", ...props }) => {
+const GlassCard = ({
+  children,
+  className = "",
+  hover = true,
+  glow = "none",
+  ...props
+}) => {
   const glowStyles = {
-    purple: "hover:shadow-[0_0_30px_hsl(270_95%_65%/0.3)]",
-    cyan: "hover:shadow-[0_0_30px_hsl(180_100%_50%/0.3)]",
+    primary: "hover:glow-primary",
+    secondary: "hover:glow-secondary",
+    warning: "hover:glow-warning",
+    success: "hover:glow-success",
     none: "",
   };
 
-  const hoverClass = hover ? "hover:-translate-y-1" : "";
-
   return (
     <div
-      className={`glass rounded-2xl p-6 transition-all duration-300 ${hoverClass} ${glowStyles[glow]} ${className}`}
+      className={cn(
+        "glass rounded-2xl p-6 transition-all duration-300",
+        hover && "hover:-translate-y-1",
+        glowStyles[glow],
+        className
+      )}
       {...props}
     >
       {children}

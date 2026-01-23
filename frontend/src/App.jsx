@@ -1,9 +1,10 @@
 
 
 import React, { useEffect, useState } from 'react';
-import LoginPage from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import LoadingSpinner from './components/LoadingSpinner';
+import LoginPage from './pages/Login.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import LoadingSpinner from './components/LoadingSpinner.jsx';
+import Toast from './components/Toast.jsx';
 
 const Client_Id = "Ov23li5uzPwPHy58STiN";
 
@@ -12,6 +13,7 @@ function App() {
   const [jwtToken, setJwtToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -34,14 +36,14 @@ function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     
-    console.log('[APP] Current URL:', window.location.href);
+    // console.log('[APP] Current URL:', window.location.href);
     // console.log('[APP] OAuth code in URL:', code);
 
     if (code) {
       // console.log('[APP] Processing OAuth code...');
       await handleOAuthCallback(code);
     } else {
-      console.log('[APP] No token or code found, showing login');
+      // console.log('[APP] No token or code found, showing login');
       setIsLoading(false);
     }
   };
@@ -49,7 +51,7 @@ function App() {
   const handleOAuthCallback = async (code) => {
     try {
       setIsLoading(true);
-      console.log('[APP] 📡 Exchanging OAuth code for JWT...');
+      // console.log('[APP] 📡 Exchanging OAuth code for JWT...');
 
       const response = await fetch(
         `http://localhost:5000/api/auth/getAccessToken?code=${code}`
@@ -60,158 +62,151 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('[APP] 📦 Backend response:', data);
+      // console.log('[APP] Backend response:', data);
 
       if (data.token) {
-        console.log('[APP] ✅ JWT received, saving...');
-        
+        // console.log('[APP] JWT received, saving...'); 
         // Save token
         localStorage.setItem('jwtToken', data.token);
         setJwtToken(data.token);
         setIsAuthenticated(true);
-
         // Save user info if provided
         if (data.user) {
           localStorage.setItem('userInfo', JSON.stringify(data.user));
         }
-
         // Clean URL (remove ?code=...)
         window.history.replaceState({}, document.title, window.location.pathname);
-        console.log('[APP] ✅ Authentication complete!');
+        console.log('[APP]  Authentication complete!');
       } else {
         throw new Error(data.error || 'No token received from server');
       }
     } catch (err) {
-      console.error('[APP] ❌ OAuth error:', err);
+      // console.error('[APP]  OAuth error:', err);
+      setToast({
+        type: 'error',
+        message: "Authentication failed. Please try again."
+      })
       setError(err.message || 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // const handleLogout = async () => {
-  //   console.log('[APP] 👋 Logging out...');
-    
-  //   try {
-  //     const token = localStorage.getItem('jwtToken');
-      
-  //     if (token) {
-  //       const response = await fetch('http://localhost:5000/api/auth/logout', {
-  //         method: 'POST',
-  //         headers: {
-  //           'Authorization': `Bearer ${token}`,
-  //           'Content-Type': 'application/json'
-  //         }
-  //       });
-
-  //       if (response.ok) {
-  //         console.log('[APP] ✅ Server session revoked');
-  //       } else {
-  //         console.warn('[APP] ⚠️ Server logout failed, continuing anyway');
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error('[APP] ❌ Logout error:', error);
-  //   } finally {
-  //     // Always clear local data
-  //     localStorage.clear();
-  //     sessionStorage.clear();
-      
-  //     // Clear cookies
-  //     document.cookie.split(";").forEach((c) => {
-  //       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-  //     });
-      
-  //     setIsAuthenticated(false);
-  //     setJwtToken(null);
-      
-  //     console.log('[APP] ✅ Logged out successfully');
-  //   }
-  // };
-  const handleLogout = async () => {
-  console.log(' Logging out...');
+//   const handleLogout = async () => {
   
+//   try {
+//     const token = localStorage.getItem('jwtToken');
+    
+//     // STEP 1: Revoke server session
+//     if (token) {
+//       try {
+//         const response = await fetch('http://localhost:5000/api/auth/logout', {
+//           method: 'POST',
+//           headers: {
+//             'Authorization': `Bearer ${token}`,
+//             'Content-Type': 'application/json'
+//           }
+//         });
+
+//         if (response.ok) {
+//           // console.log('Server session revoked');
+//           return;
+//         } 
+//       } catch (error) {
+//         console.error(' Server logout error:', error);
+//         // Continue with logout anyway
+//       }
+//     }
+    
+//     // STEP 2: Clear Electron OAuth session (GitHub cookies)
+//     if (window.electronAPI?.clearOAuthSession) {
+//       // console.log('[APP] Clearing Electron OAuth session...');
+//       const result = await window.electronAPI.clearOAuthSession();
+      
+//       if (result.success) {
+//         // console.log('Electron session cleared');
+//         return;
+//       } else {
+//         console.warn(' Session clear failed:', result.error);
+//       }
+//     }
+//     localStorage.clear();
+//     sessionStorage.clear();
+//     setIsAuthenticated(false);
+//     setJwtToken(null);
+    
+//     // console.log(' Logged out successfully - GitHub session cleared');
+//      setToast({
+//         type: 'success',
+//         message: "Logged out successfully"
+//       });
+    
+//   } catch (error) {
+//     console.error(' Logout error:', error);
+//     localStorage.clear();
+//     sessionStorage.clear();
+//     setIsAuthenticated(false);
+//     setJwtToken(null);
+//   }
+// };
+const handleLogout = async () => {
   try {
     const token = localStorage.getItem('jwtToken');
-    
-    // STEP 1: Revoke server session
+
     if (token) {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/logout', {
+        await fetch('http://localhost:5000/api/auth/logout', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-
-        if (response.ok) {
-          console.log('Server session revoked');
-        } else {
-          console.warn('Server logout failed, continuing anyway');
-        }
       } catch (error) {
-        console.error(' Server logout error:', error);
-        // Continue with logout anyway
+        console.error('Server logout error:', error);
       }
     }
-    
-    // STEP 2: Clear Electron OAuth session (GitHub cookies)
+
     if (window.electronAPI?.clearOAuthSession) {
-      console.log('[APP] Clearing Electron OAuth session...');
-      const result = await window.electronAPI.clearOAuthSession();
-      
-      if (result.success) {
-        console.log('Electron session cleared');
-      } else {
-        console.warn(' Session clear failed:', result.error);
-      }
+      await window.electronAPI.clearOAuthSession();
     }
-    
-    // STEP 3: Clear local storage
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // STEP 4: Update state
-    setIsAuthenticated(false);
-    setJwtToken(null);
-    
-    console.log(' Logged out successfully - GitHub session cleared');
-    
+
   } catch (error) {
-    console.error(' Logout error:', error);
-    
-    // Even if something fails, clear local state
+    console.error('Logout error:', error);
+  } finally {
+
     localStorage.clear();
     sessionStorage.clear();
-    setIsAuthenticated(false);
     setJwtToken(null);
+    setIsAuthenticated(false);
+    
+    setToast({
+      type: 'success',
+      message: "Logged out successfully"
+    });
   }
 };
 
   // Loading state
   if (isLoading) {
     return (
-      // <div className="min-h-screen bg-background flex items-center justify-center">
-      //   <div className="text-center animate-fade-in">
-      //     <div className="relative w-20 h-20 mx-auto mb-6">
-      //       <div className="absolute inset-0 rounded-full border-2 border-muted"></div>
-      //       <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-      //       <div className="absolute inset-2 rounded-full border-2 border-secondary/50 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-      //     </div>
-      //     <p className="text-foreground text-lg font-medium tracking-wide">Initializing...</p>
-      //     <p className="text-muted-foreground text-sm mt-1">Setting up your session</p>
-      //   </div>
-      // </div>
       <LoadingSpinner/>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full glass rounded-2xl p-8 text-center animate-scale-in border border-destructive/30">
+          
+           {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              duration={5000}
+              onClose={() => setToast(null)}
+            />
+          )}
           <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-destructive/10 flex items-center justify-center">
             <svg className="w-8 h-8 text-destructive" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
@@ -233,7 +228,6 @@ function App() {
     );
   }
 
-  // Main app
   return isAuthenticated ? (
     <Dashboard onLogout={handleLogout} jwtToken={jwtToken} />
   ) : (

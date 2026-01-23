@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatsCard from '../components/StatsCard';
@@ -8,7 +5,8 @@ import ProjectCard from '../components/ProjectCard';
 import { Plus, Users } from 'lucide-react';
 import Modal from '../components/Modal';
 import JoinProjectModal from '../components/JoinProjectModal';
-import LoadingSpinner from '../components/LoadingSpinner'
+import LoadingSpinner from '../components/LoadingSpinner';
+import Toast from '../components/Toast';
 
 function Dashboard({ onLogout, jwtToken }) {
   const [user, setUser] = useState(null);
@@ -19,42 +17,8 @@ function Dashboard({ onLogout, jwtToken }) {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [collaboratedProjects, setCollaboratedProjects] = useState([]);
   const [projectsWithChanges, setProjectsWithChanges] = useState(new Set());
+  const [toast, setToast] = useState(null);
   
-//   const ensureFolderPath = async (projectId) => {
-//   try {
-//     // Check if folder path exists
-//     const folderPath = await window.electronAPI.getFolderPath(projectId);
-    
-//     if (folderPath) {
-//       console.log(` Project ${projectId} already has path:`, folderPath);
-//       return folderPath;
-//     }
-    
-//     // No folder path - prompt user to select one
-//     console.log(` No folder path for project ${projectId}, prompting user...`);
-    
-//     const selectedPath = await window.electronAPI.selectFolder();
-    
-//     if (!selectedPath) {
-//       throw new Error('FOLDER_SELECTION_CANCELLED');
-//     }
-    
-//     // Save the folder path
-//     console.log(` Saving folder path for project ${projectId}:`, selectedPath);
-//     await window.electronAPI.saveFolderPath(projectId, selectedPath);
-    
-//     // Start watching the folder
-//     await window.electronAPI.startWatching(projectId, selectedPath);
-    
-//     console.log(` Folder path saved and watching started`);
-//     return selectedPath;
-    
-//   } catch (error) {
-//     console.error('[FOLDER] Error ensuring folder path:', error);
-//     throw error;
-//   }
-// };
-
   const ensureFolderPath = async (projectId) => {
     try {
       // First check if Electron API is available
@@ -66,12 +30,12 @@ function Dashboard({ onLogout, jwtToken }) {
       const folderPath = await window.electronAPI.getFolderPath(projectId);
       
       if (folderPath) {
-        console.log(` Project ${projectId} already has path:`, folderPath);
+        // console.log(` Project ${projectId} already has path:`, folderPath);
         return folderPath;
       }
       
       // No folder path - prompt user to select one
-      console.log(` No folder path for project ${projectId}, prompting user...`);
+      // console.log(` No folder path for project ${projectId}, prompting user...`);
       
       if (!window.electronAPI?.selectFolder) {
         throw new Error('FOLDER_SELECTION_NOT_AVAILABLE');
@@ -84,23 +48,30 @@ function Dashboard({ onLogout, jwtToken }) {
       }
       
       // Save the folder path
-      console.log(` Saving folder path for project ${projectId}:`, selectedPath);
+      // console.log(` Saving folder path for project ${projectId}:`, selectedPath);
       await window.electronAPI.saveFolderPath(projectId, selectedPath);
       
       // Start watching the folder
       await window.electronAPI.startWatching(projectId, selectedPath);
       
-      console.log(` Folder path saved and watching started`);
+      // console.log(` Folder path saved and watching started`);
       return selectedPath;
       
     } catch (error) {
-      console.error('[FOLDER] Error ensuring folder path:', error);
+      // console.error('[FOLDER] Error ensuring folder path:', error);
+      setToast({
+          type: 'error',
+          message: error
+        });
       
       if (error.message === 'FOLDER_SELECTION_NOT_AVAILABLE') {
         // More user-friendly error
         throw new Error('Folder selection is not available in this environment. Please restart the app.');
       }
-      
+      setToast({
+        type: 'error',
+        message: error
+      });
       throw error;
     }
   };
@@ -127,7 +98,7 @@ function Dashboard({ onLogout, jwtToken }) {
   }, []);
 
   const handleFileChange = (projectId, event, filePath) => {
-    console.log(`[DASHBOARD] Change detected in project ${projectId}: ${event} - ${filePath}`);
+    // console.log(`[DASHBOARD] Change detected in project ${projectId}: ${event} - ${filePath}`);
     
     // Mark project as having unpushed changes
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
@@ -150,6 +121,10 @@ function Dashboard({ onLogout, jwtToken }) {
     if (!jwtToken) {
       setError("Missing authentication token");
       setLoading(false);
+      setToast({
+          type: 'error',
+          message: "Missing authentication token"
+        });
       return;
     }
 
@@ -166,6 +141,10 @@ function Dashboard({ onLogout, jwtToken }) {
       }
     } catch (err) {
       setError(err.message);
+      setToast({
+         type: 'error',
+         message: err.message
+       });
     } finally {
       setLoading(false);
     }
@@ -185,6 +164,10 @@ function Dashboard({ onLogout, jwtToken }) {
         setProjects(projectsWithWatchStatus);
       }
     } catch (err) {
+       setToast({
+          type: 'error',
+          message: "Error fetching projects:", err
+        });
       console.error("Error fetching projects:", err);
     }
   };
@@ -203,6 +186,10 @@ function Dashboard({ onLogout, jwtToken }) {
         setCollaboratedProjects(projectsWithWatchStatus);
       }
     } catch (err) {
+      setToast({
+          type: 'error',
+          message: "Error fetching projects:", err
+        });
       console.error("Error fetching collaborated projects:", err);
     }
   };
@@ -213,16 +200,22 @@ function Dashboard({ onLogout, jwtToken }) {
       collaboratedProjects.find(p => p.id === projectId);
 
       if (!project) {
-        alert('Project not found');
+        setToast({
+          type: 'error',
+          message: "Project not found"
+        });
         return;
       }
 
       if (!project.hasUnpushedChanges) {
-        alert('No changes to push');
+        setToast({
+          type: 'info',
+          message: "No changes to push"
+        });
         return;
       }
 
-      console.log(`[PUSH] Starting push for project ${projectId}...`);
+      // console.log(`[PUSH] Starting push for project ${projectId}...`);
 
       // STEP 1: Ensure folder path exists
       let folderPath;
@@ -230,28 +223,25 @@ function Dashboard({ onLogout, jwtToken }) {
         folderPath = await ensureFolderPath(projectId);
       } catch (error) {
         if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-          alert('Folder selection cancelled. Cannot push without selecting a folder.');
+          // alert('Folder selection cancelled. Cannot push without selecting a folder.');
+          setToast({
+          type: 'warning',
+          message: "Folder selection cancelled. Cannot push without selecting a folder."
+        });
           return;
         }
         throw error;
       }
 
-      console.log(`[PUSH] Using folder path:`, folderPath);
+      // console.log(`[PUSH] Using folder path:`, folderPath);
 
       // STEP 2: Scan the CURRENT folder structure
-      console.log('[PUSH] Scanning current folder structure...');
+      // console.log('[PUSH] Scanning current folder structure...');
       const scannedStructure = await window.electronAPI.scanFolder(folderPath);
       
-      console.log(`[PUSH] Scanned structure:`, scannedStructure);
+      // console.log(`[PUSH] Scanned structure:`, scannedStructure);
 
       // STEP 3: Transform scanned structure to match backend format
-      // The backend expects: { individualFiles: [], folders: [{name, files}] }
-      // But scanFolder returns: { files: [], folders: [] }
-      
-      // const storedStructure = project.file_paths;
-      
-      // // Check if the project was originally created with a folder structure
-      // const hasFolderStructure = storedStructure.folders && storedStructure.folders.length > 0;
       const storedStructure = typeof project.file_paths === 'string' 
     ? JSON.parse(project.file_paths) 
     : project.file_paths;
@@ -288,7 +278,7 @@ function Dashboard({ onLogout, jwtToken }) {
         };
       }
       
-      console.log(`[PUSH] Transformed structure:`, currentFileStructure);
+      // console.log(`[PUSH] Transformed structure:`, currentFileStructure);
 
       // STEP 4: Read files from disk
       let filesFromDisk;
@@ -299,16 +289,24 @@ function Dashboard({ onLogout, jwtToken }) {
         });
       } catch (error) {
         if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-          alert('Folder path error. Please try again.');
+          // alert('Folder path error. Please try again.');
+          setToast({
+          type: 'error',
+          message: 'Folder path error. Please try again.'
+        });
           return;
         }
         throw error;
       }
 
-      console.log(`[PUSH] Files read from disk:`, filesFromDisk.length);
+      // console.log(`[PUSH] Files read from disk:`, filesFromDisk.length);
 
       if (filesFromDisk.length === 0) {
-        alert('No matching files found in the selected folder.\n\nMake sure your local files match the project structure.');
+        // alert('No matching files found in the selected folder.\n\nMake sure your local files match the project structure.');
+         setToast({
+          type: 'error',
+          message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
+        });
         return;
       }
 
@@ -340,13 +338,17 @@ function Dashboard({ onLogout, jwtToken }) {
           // Append to FormData
           formData.append('files', file);
           
-          console.log(`[PUSH] Added file to FormData: ${fileData.name} (${file.size} bytes)`);
+          // console.log(`[PUSH] Added file to FormData: ${fileData.name} (${file.size} bytes)`);
         } catch (err) {
-          console.error(`[PUSH] Error processing file ${fileData.name}:`, err);
+          // console.error(`[PUSH] Error processing file ${fileData.name}:`, err);
+          setToast({
+            type: 'error',
+            message: `Error processing file ${fileData.name}:`, err
+          });
         }
       }
 
-      console.log(`[PUSH] Pushing ${filesFromDisk.length} files to server...`);
+      // console.log(`[PUSH] Pushing ${filesFromDisk.length} files to server...`);
 
       // STEP 6: Send to server using FormData
       const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
@@ -365,12 +367,22 @@ function Dashboard({ onLogout, jwtToken }) {
 
       const pushData = await pushRes.json();
 
-      console.log('[PUSH] Push successful:', pushData);
+      // console.log('[PUSH] Push successful:', pushData);
+      setToast({
+          type: 'success',
+          message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
+        });
 
-      alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
+      // alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
     
+      setProjects(prev => prev.map(p => 
+        p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
+      ));
       
-      // Clear the unpushed changes flag locally
+      setCollaboratedProjects(prev => prev.map(p => 
+        p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
+      ));
+
       setProjectsWithChanges(prev => {
         const newSet = new Set(prev);
         newSet.delete(String(projectId));
@@ -383,10 +395,13 @@ function Dashboard({ onLogout, jwtToken }) {
 
     } catch (err) {
       console.error('[PUSH] Failed:', err);
-      alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
+      // alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
+       setToast({
+        type: 'error',
+        message: 'Failed to push changes.'
+      });
     }
   };
-
 
   const handleCheckChanges = async (projectId) => {
     try {
@@ -394,11 +409,15 @@ function Dashboard({ onLogout, jwtToken }) {
         collaboratedProjects.find(p => p.id === projectId);
       
       if (!project) {
-        alert('Project not found');
+        // alert('Project not found');
+         setToast({
+          type: 'error',
+          message: 'Project not found'
+        });
         return;
       }
 
-      console.log(`[CHECK] Checking changes for project ${projectId}...`);
+      // console.log(`[CHECK] Checking changes for project ${projectId}...`);
 
       // Ensure folder path exists
       let folderPath;
@@ -406,16 +425,23 @@ function Dashboard({ onLogout, jwtToken }) {
         folderPath = await ensureFolderPath(projectId);
       } catch (error) {
         if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-          return; // User cancelled, silently exit
+            setToast({
+              type: 'error',
+              message: 'FOLDER_SELECTION_CANCELLED'
+            });
+          return; 
         }
         if (error.message.includes('FOLDER_SELECTION_NOT_AVAILABLE')) {
-          alert(' Folder selection is not available.\n\nPlease restart the application.');
+           setToast({
+            type: 'warning',
+            message: 'Folder selection is not available.\n\nPlease restart the application.'
+          });
           return;
         }
         throw error;
       }
 
-      console.log(`[CHECK] Scanning folder:`, folderPath);
+      // console.log(`[CHECK] Scanning folder:`, folderPath);
 
       // Scan the folder for current structure
       const scannedStructure = await window.electronAPI.scanFolder(folderPath);
@@ -455,7 +481,7 @@ function Dashboard({ onLogout, jwtToken }) {
         };
       }
 
-      console.log(`[CHECK] Transformed structure:`, currentFileStructure);
+      // console.log(`[CHECK] Transformed structure:`, currentFileStructure);
 
       // Compare with server
       const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
@@ -470,11 +496,18 @@ function Dashboard({ onLogout, jwtToken }) {
       const data = await response.json();
       
       if (data.hasChanges) {
-        alert(` Changes detected!\n\n${data.changeDetails.join('\n')}`);
+        // alert(` Changes detected!\n\n${data.changeDetails.join('\n')}`);
+         setToast({
+        type: 'info',
+        message: ` Changes detected!\n\n${data.changeDetails.join('\n')}`
+      });
         setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
       } else {
-        alert(' No changes detected.\n\nYour local files match the repository.');
-        //  CRITICAL FIX: Clear the flag when no changes
+        // alert(' No changes detected.\n\nYour local files match the repository.');
+        setToast({
+        type: 'info',
+        message: ' No changes detected.\n\nYour local files match the repository.'
+      });
         setProjectsWithChanges(prev => {
           const newSet = new Set(prev);
           newSet.delete(String(projectId));
@@ -487,8 +520,12 @@ function Dashboard({ onLogout, jwtToken }) {
       await getCollaboratedProjects();
       
     } catch (err) {
-      console.error('[CHECK] Error checking changes:', err);
-      alert(`❌ Failed to check for changes:\n\n${err.message}`);
+      // console.error('[CHECK] Error checking changes:', err);
+      // alert(`Failed to check for changes:\n\n${err.message}`);
+      setToast({
+        type: 'error',
+        message: `Failed to check for changes:\n\n${err.message}`
+      });
     }
   };
   const handleDeleteProject = async (projectId) => {
@@ -515,32 +552,37 @@ function Dashboard({ onLogout, jwtToken }) {
           return newSet;
         });
         
-        alert("Project deleted successfully");
+        setToast({
+          type: 'success',
+          message: 'Deleted succesfully'
+        });
       }
     } catch (err) {
-      alert("Error deleting project");
+      // alert("Error deleting project");
+      setToast({
+        type: 'error',
+        message: "Error deleting project"
+      });
     }
   };
 
   if (loading) return (
-      // <div className="min-h-screen bg-background flex items-center justify-center">
-      //   <div className="text-center animate-fade-in">
-      //     <div className="relative w-20 h-20 mx-auto mb-6">
-      //       <div className="absolute inset-0 rounded-full border-2 border-muted"></div>
-      //       <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-      //       <div className="absolute inset-2 rounded-full border-2 border-secondary/50 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-      //     </div>
-      //     <p className="text-foreground text-lg font-medium tracking-wide">Loading...</p>
-      //     <p className="text-muted-foreground text-sm mt-1">Getting your data.</p>
-      //   </div>
-      // </div>
       <LoadingSpinner/>
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden bg-grid-pattern">
       <Sidebar onLogout={onLogout} user={user} />
       <div className="flex-1 overflow-y-auto">
+         
+         {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={5000}
+          onClose={() => setToast(null)}
+        />
+      )}
         {/* Header */}
         <div className="sticky top-0 z-10 glass-strong border-b border-border px-8 py-6">
           <div className="flex items-center justify-between">

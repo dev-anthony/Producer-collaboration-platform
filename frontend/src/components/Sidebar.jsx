@@ -14,7 +14,7 @@ const navItems = [
 
 const Sidebar = ({ onLogout, user }) => {
   return (
-    <div className="w-64 glass-strong border-r border-white/5 flex flex-col animate-slide-in-left">
+    <div className="w-64  glass-strong border-r border-white/5 flex flex-col animate-slide-in-left">
       {/* Logo */}
       <div className="p-6 border-b border-white/5">
         <div className="flex items-center gap-3">

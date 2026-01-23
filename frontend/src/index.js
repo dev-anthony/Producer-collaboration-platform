@@ -137,6 +137,59 @@ function createWindow(sessionName = 'default', xOffset = 0) {
 // ──────────────────────────────────────────────────────────────────────────────
 // File Watching System
 // ──────────────────────────────────────────────────────────────────────────────
+// function startWatching(projectId, folderPath) {
+//   const pid = String(projectId);
+
+//   // Stop existing watcher if any
+//   if (watchers.has(pid)) {
+//     watchers.get(pid).close();
+//     watchers.delete(pid);
+//     console.log(`[WATCHER] Stopped existing watcher for ${pid}`);
+//   }
+
+//   const watcher = chokidar.watch(folderPath, {
+//    ignored: [
+//     /(^|[\/\\])\../,                    // keep ignoring dotfiles at root
+//     /(^|[\/\\])\.git($|[\/\\])/,       // ← NEW: ignore everything inside .git folder
+//     /(^|[\/\\])\.git$/                 // ← also ignore the .git folder itself
+//   ],
+//     ignoreInitial: true, // Don't trigger for existing files
+//     persistent: true,
+//     awaitWriteFinish: {
+//       stabilityThreshold: 2000, // Wait 2s after last change
+//       pollInterval: 100
+//     },
+//     depth: 99, // Watch all subdirectories
+//   });
+
+//   watcher
+//     .on('add', (filePath) => {
+//       console.log(`[WATCHER] File added: ${filePath}`);
+//       notifyAll('file-changed', { projectId: pid, event: 'add', path: filePath });
+//     })
+//     .on('change', (filePath) => {
+//       console.log(`[WATCHER] File changed: ${filePath}`);
+//       notifyAll('file-changed', { projectId: pid, event: 'change', path: filePath });
+//     })
+//     .on('unlink', (filePath) => {
+//       console.log(`[WATCHER] File deleted: ${filePath}`);
+//       notifyAll('file-changed', { projectId: pid, event: 'unlink', path: filePath });
+//     })
+//     .on('addDir', (dirPath) => {
+//       console.log(`[WATCHER] Folder added: ${dirPath}`);
+//       notifyAll('file-changed', { projectId: pid, event: 'addDir', path: dirPath });
+//     })
+//     .on('unlinkDir', (dirPath) => {
+//       console.log(`[WATCHER] Folder deleted: ${dirPath}`);
+//       notifyAll('file-changed', { projectId: pid, event: 'unlinkDir', path: dirPath });
+//     })
+//     .on('error', (error) => {
+//       console.error(`[WATCHER] Error for ${pid}:`, error);
+//     });
+
+//   watchers.set(pid, watcher);
+//   console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
+// }
 function startWatching(projectId, folderPath) {
   const pid = String(projectId);
 
@@ -148,14 +201,21 @@ function startWatching(projectId, folderPath) {
   }
 
   const watcher = chokidar.watch(folderPath, {
-    ignored: /(^|[\/\\])\../, // Ignore dotfiles
-    ignoreInitial: true, // Don't trigger for existing files
+  ignored: [
+    /(^|[\/\\])\../,                          // dotfiles at root
+    /(^|[\/\\])\.git($|[\/\\])/,              // entire .git folder
+    /(^|[\/\\])\.gitignore$/,                 // ← add: .gitignore file
+    /(^|[\/\\])COMMIT_EDITMSG$/,              // ← git temp commit message
+    /(^|[\/\\])index.lock$/,                  // ← git lock file during operations
+    /\.(tmp|temp|bak|~)$/                     // ← common temp/backup files
+  ],
+    ignoreInitial: true,
     persistent: true,
     awaitWriteFinish: {
-      stabilityThreshold: 2000, // Wait 2s after last change
+      stabilityThreshold: 4000,
       pollInterval: 100
     },
-    depth: 99, // Watch all subdirectories
+    depth: 99,
   });
 
   watcher

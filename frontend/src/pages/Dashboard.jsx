@@ -389,9 +389,11 @@ function Dashboard({ onLogout, jwtToken }) {
         return newSet;
       });
       
-      // Refresh project lists
-      getProjects();
-      getCollaboratedProjects();
+      // // Refresh project lists
+      // getProjects();
+      // getCollaboratedProjects();
+      await getProjects();
+      await getCollaboratedProjects();
 
     } catch (err) {
       console.error('[PUSH] Failed:', err);

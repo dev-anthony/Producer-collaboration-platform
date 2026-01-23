@@ -702,16 +702,6 @@ exports.pushProjectChanges = async (req, res) => {
       const connection = await pool.promise().getConnection();
 
       try {
-        // SIMPLE FIX: Just remove the user check - let anyone with the project ID push
-        // This assumes your frontend already verified they have access via the collaborated projects list
-        // const [projects] = await connection.execute(
-        //   `SELECT p.*, u.id as user_id, gt.access_token, u.username as owner_username
-        //    FROM projects p
-        //    JOIN users u ON p.user_id = u.id
-        //    LEFT JOIN github_tokens gt ON u.id = gt.user_id
-        //    WHERE p.id = ?`,
-        //   [projectId]
-        // );
         const [projects] = await connection.execute(
           `SELECT p.*, owner_u.id as user_id, owner_gt.access_token, owner_u.username as owner_username
           FROM projects p
@@ -801,8 +791,11 @@ exports.pushProjectChanges = async (req, res) => {
 
         console.log(` Files to upload: ${filesToUpload.length}`);
         
+        // if (filesToUpload.length === 0) {
+        //   return res.status(400).json({ error: 'No modified files found to push / files already exist on github.'});
+        // }
         if (filesToUpload.length === 0) {
-          return res.status(400).json({ error: 'No modified files found to push / files already exist on github.'});
+          console.log('[PUSH] No changed files detected — clearing flag anyway');
         }
 
         // Prepare file data for GitHub

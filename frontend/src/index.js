@@ -247,14 +247,15 @@ function startWatching(projectId, folderPath) {
   console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
 }
 
-function stopWatching(projectId) {
-  const pid = String(projectId);
-  if (watchers.has(pid)) {
-    watchers.get(pid).close();
-    watchers.delete(pid);
-    console.log(`[WATCHER] Stopped watching ${pid}`);
+  function stopWatching(projectId) {
+    const pid = String(projectId);
+    if (watchers.has(pid)) {
+      watchers.get(pid).close();
+      watchers.delete(pid);
+      console.log(`[WATCHER] Stopped watching ${pid}`);
+    }
   }
-}
+
 
 function restoreAllWatchers() {
   console.log('[MAIN] Restoring watchers from persistent storage...');
@@ -351,7 +352,7 @@ ipcMain.handle('select-folder', async () => {
   return canceled ? null : filePaths[0];
 });
 
-// Save folder path (persistent)
+//Save folder path (persistent)
 ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
   if (!projectId || !folderPath) {
     throw new Error('Missing projectId or folderPath');
@@ -369,6 +370,7 @@ ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
 
   return true;
 });
+
 
 // Get folder path
 ipcMain.handle('get-folder-path', async (_, projectId) => {

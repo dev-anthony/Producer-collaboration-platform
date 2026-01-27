@@ -87,7 +87,7 @@ exports.verifyToken = (req, res, next) => {
 
   // Check token structure (JWT should have 3 parts)
   const tokenParts = token.split('.');
-  console.log(' Token Parts:', tokenParts.length, '(should be 3)');
+  // console.log(' Token Parts:', tokenParts.length, '(should be 3)');
   
   if (tokenParts.length !== 3) {
     console.error('Token does not have 3 parts (header.payload.signature)');
@@ -112,7 +112,7 @@ exports.verifyToken = (req, res, next) => {
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // console.log(' Token verified successfully!');
-    console.log(' Decoded payload:', JSON.stringify(decoded, null, 2));
+    // console.log(' Decoded payload:', JSON.stringify(decoded, null, 2));
     
     // Attach user info to request
     req.userId = decoded.userId;
@@ -124,7 +124,7 @@ exports.verifyToken = (req, res, next) => {
       githubId: req.githubId,
       username: req.username
     });
-    console.log('🔍 === END TOKEN VERIFICATION ===\n');
+    // console.log('🔍 === END TOKEN VERIFICATION ===\n');
     
     next();
   } catch (error) {

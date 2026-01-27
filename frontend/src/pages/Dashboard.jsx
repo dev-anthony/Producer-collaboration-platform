@@ -8,6 +8,9 @@ import JoinProjectModal from '../components/JoinProjectModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 
+
+//use the window.location.reload after a successful push..to reload the window to clear the changes flag
+
 function Dashboard({ onLogout, jwtToken }) {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -75,7 +78,6 @@ function Dashboard({ onLogout, jwtToken }) {
       throw error;
     }
   };
- 
   useEffect(() => {
     getUserData();
     getProjects();
@@ -96,7 +98,6 @@ function Dashboard({ onLogout, jwtToken }) {
       }
     };
   }, []);
-
   const handleFileChange = (projectId, event, filePath) => {
     // console.log(`[DASHBOARD] Change detected in project ${projectId}: ${event} - ${filePath}`);
     
@@ -112,11 +113,9 @@ function Dashboard({ onLogout, jwtToken }) {
       p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
     ));
   };
-
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };
-
   const getUserData = async () => {
     if (!jwtToken) {
       setError("Missing authentication token");
@@ -149,7 +148,6 @@ function Dashboard({ onLogout, jwtToken }) {
       setLoading(false);
     }
   };
-
   const getProjects = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/projects", {
@@ -171,7 +169,6 @@ function Dashboard({ onLogout, jwtToken }) {
       console.error("Error fetching projects:", err);
     }
   };
-
   const getCollaboratedProjects = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/projects/collaborated", {
@@ -193,7 +190,6 @@ function Dashboard({ onLogout, jwtToken }) {
       console.error("Error fetching collaborated projects:", err);
     }
   };
- 
   const handlePushChanges = async (projectId) => {
     try {
       const project = projects.find(p => p.id === projectId) ||
@@ -348,7 +344,10 @@ function Dashboard({ onLogout, jwtToken }) {
         }
       }
 
-      // console.log(`[PUSH] Pushing ${filesFromDisk.length} files to server...`);
+      setToast({
+        type: 'info',
+        message:'Pushing changes'
+      })
 
       // STEP 6: Send to server using FormData
       const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
@@ -359,42 +358,44 @@ function Dashboard({ onLogout, jwtToken }) {
         },
         body: formData
       });
-
-      if (!pushRes.ok) {
-        const errorData = await pushRes.json();
-        throw new Error(errorData.error || errorData.message || 'Push failed');
-      }
-
+      
       const pushData = await pushRes.json();
 
-      // console.log('[PUSH] Push successful:', pushData);
-      setToast({
+      if(pushRes.ok){
+        setProjects(prev => prev.map(p => 
+          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
+        ));
+      
+        setCollaboratedProjects(prev => prev.map(p => 
+          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
+        ));
+
+        setProjectsWithChanges(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(String(projectId));
+          return newSet;
+        });
+
+        setTimeout(()=>{
+          setToast({
           type: 'success',
           message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
         });
+        window.location.reload();
+        }, 1000)
 
-      // alert(` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`);
-    
-      setProjects(prev => prev.map(p => 
-        p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-      ));
-      
-      setCollaboratedProjects(prev => prev.map(p => 
-        p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-      ));
-
-      setProjectsWithChanges(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(String(projectId));
-        return newSet;
-      });
-      
+      }else{
+        const errorData = await pushRes.json();
+        throw new Error(errorData.error || errorData.message || 'Push failed');
+      }
       // // Refresh project lists
       // getProjects();
       // getCollaboratedProjects();
-      await getProjects();
-      await getCollaboratedProjects();
-
+      // await Promise.all([
+      //       getUserData(),
+      //       getProjects(),
+      //       getCollaboratedProjects()
+      //     ]);
     } catch (err) {
       console.error('[PUSH] Failed:', err);
       // alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
@@ -404,7 +405,6 @@ function Dashboard({ onLogout, jwtToken }) {
       });
     }
   };
-
   const handleCheckChanges = async (projectId) => {
     try {
       const project = projects.find(p => p.id === projectId) || 

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, Upload, FolderOpen, Github, Music, Film, FileAudio, Folder } from 'lucide-react';
-
+import Toast from '../components/Toast';
 function Modal({ toggleModal }) {
   const [formData, setFormData] = useState({
     projectName: '',
@@ -15,6 +15,7 @@ function Modal({ toggleModal }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progress, setProgress] = useState([]);
   const [showProgress, setShowProgress] = useState(false);
+  const [toast, setToast] = useState(null)
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -47,7 +48,7 @@ function Modal({ toggleModal }) {
       if (systemFiles.includes(name)) return false;
       
       const allowedExtensions = [
-        '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', 
+        '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
         '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
       ];
       const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
@@ -58,7 +59,11 @@ function Modal({ toggleModal }) {
     });
 
     if (filteredFiles.length === 0) {
-      alert('No valid media files found. Please select audio/video files.');
+      // alert('No valid media files found. Please select audio/video files.');
+      setToast({
+        type: 'info',
+        message: 'No valid media files found. Please select audio/video files.'
+      })
       return;
     }
 
@@ -171,7 +176,11 @@ function Modal({ toggleModal }) {
     e.preventDefault();
     
     if (!formData.projectName.trim()) {
-      alert('Please enter a project name');
+       setToast({
+        type: 'info',
+        message: 'Input project name please.'
+      })
+      
       return;
     }
 
@@ -245,7 +254,11 @@ function Modal({ toggleModal }) {
         ]);
         
         setTimeout(() => {
-          alert(`Project "${formData.projectName}" created successfully on GitHub!`);
+          // alert(`Project "${formData.projectName}" created successfully on GitHub!`);
+           setToast({
+            type: 'success',
+            message: `Project "${formData.projectName}" created successfully on GitHub!`
+          })
           toggleModal();
           window.location.reload();
         }, 1500);
@@ -255,7 +268,12 @@ function Modal({ toggleModal }) {
           { step: ` Error: ${data.message || data.error}`, status: 'error' }
         ]);
         setTimeout(() => {
-          alert(`Error: ${data.error || 'Failed to create project'}`);
+          // alert(`Error: ${data.error || 'Failed to create project'}`);
+           setToast({
+            type: 'error',
+            message: `Error: ${data.error || 'Failed to create project'}`
+          })
+          
           setIsSubmitting(false);
           setShowProgress(false);
           setProgress([]);
@@ -268,7 +286,11 @@ function Modal({ toggleModal }) {
         { step: ' Failed to create project', status: 'error' }
       ]);
       setTimeout(() => {
-        alert('Failed to create project. Please try again.');
+        // alert('Failed to create project. Please try again.');
+        setToast({
+          type: 'error',
+          message: `'Failed to create project. Please try again.'`
+        })
         setIsSubmitting(false);
         setShowProgress(false);
         setProgress([]);
@@ -281,6 +303,14 @@ function Modal({ toggleModal }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
+         {toast && (
+              <Toast
+                message={toast.message}
+                type={toast.type}
+                duration={5000}
+                onClose={() => setToast(null)}
+              />
+            )}
       <div 
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={toggleModal}

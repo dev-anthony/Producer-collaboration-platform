@@ -12,6 +12,7 @@ module.exports = {
     extensions: ['.js', '.jsx', '.json', '.css'],
   },
   devServer: {
+    
     host: 'localhost',  // ADD THIS
     port: 3000,
     hot: true,

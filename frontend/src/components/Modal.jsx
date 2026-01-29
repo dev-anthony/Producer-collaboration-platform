@@ -32,6 +32,14 @@ function Modal({ toggleModal }) {
 
   const handleFolderSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
+
+      if (selectedFiles.length === 0) {
+        setToast({
+          type: 'info',
+          message: 'This folder is empty. Please add files to the folder before uploading.'
+        });
+        return;
+      }
     addFiles(selectedFiles, true);
   };
 
@@ -186,7 +194,10 @@ function Modal({ toggleModal }) {
 
     const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
     if (totalFiles === 0) {
-      alert('Please upload at least one file or folder');
+        setToast({
+          type: 'info',
+          message: 'An empty project folder cannot be used. Please add at least one valid file before creating the project.'
+        });
       return;
     }
 
@@ -286,10 +297,10 @@ function Modal({ toggleModal }) {
         { step: ' Failed to create project', status: 'error' }
       ]);
       setTimeout(() => {
-        // alert('Failed to create project. Please try again.');
+        
         setToast({
           type: 'error',
-          message: `'Failed to create project. Please try again.'`
+          message: 'Failed to create project. Please try again.'
         })
         setIsSubmitting(false);
         setShowProgress(false);
@@ -597,3 +608,4 @@ function Modal({ toggleModal }) {
 }
 
 export default Modal;
+

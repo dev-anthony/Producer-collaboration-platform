@@ -2,6 +2,17 @@
 module.exports = {
   packagerConfig: {
     asar: true,
+     extraResource: ['../server'],
+    protocols: [
+      {
+        name: 'ProdCollab',
+        schemes: ['prodcollab']
+      }
+    ],
+    ignore: [
+      /^\/\.git/,
+      /^\/node_modules\/.*\.md$/
+    ]
   },
   makers: [
     {

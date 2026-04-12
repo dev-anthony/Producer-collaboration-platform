@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
+let serverProcess = null; 
 
 // Initialize persistent storage for folder paths
 const store = new Store({ name: 'project-folders' });
@@ -13,6 +14,78 @@ console.log('[MAIN] Store initialized →', store.path);
 
 const windows = [];
 const watchers = new Map(); // projectId -> watcher instance
+// ──────────────────────────────────────────────────────────────────────────────
+// OAUTH PROTOCOL HANDLER (for production)
+// ──────────────────────────────────────────────────────────────────────────────
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('prodcollab', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('prodcollab');
+}
+
+// Handle the protocol URL when app is already running (macOS)
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  console.log('[OAUTH] Protocol URL received:', url);
+  
+  if (url.startsWith('prodcollab://')) {
+    try {
+      const urlObj = new URL(url);
+      const code = urlObj.searchParams.get('code');
+      
+      if (code) {
+        console.log('[OAUTH] ✅ Code from protocol:', code);
+        
+        // Send to all windows
+        windows.forEach(win => {
+          if (!win.isDestroyed()) {
+            win.webContents.send('oauth-code', code);
+          }
+        });
+      }
+    } catch (err) {
+      console.error('[OAUTH] Protocol parsing error:', err);
+    }
+  }
+});
+
+// Handle second instance (Windows/Linux)
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    if (windows.length > 0) {
+      const win = windows[0];
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+
+    // Check for protocol URL in command line (Windows)
+    const url = commandLine.find(arg => arg.startsWith('prodcollab://'));
+    if (url) {
+      console.log('[OAUTH] Second instance protocol URL:', url);
+      try {
+        const urlObj = new URL(url);
+        const code = urlObj.searchParams.get('code');
+        
+        if (code) {
+          windows.forEach(win => {
+            if (!win.isDestroyed()) {
+              win.webContents.send('oauth-code', code);
+            }
+          });
+        }
+      } catch (err) {
+        console.error('[OAUTH] Second instance parsing error:', err);
+      }
+    }
+  });
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Window Creation
@@ -50,20 +123,89 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   // OAUTH HANDLING - Intercept GitHub OAuth Callback
   // ============================================================================
   
+  // win.webContents.on('will-navigate', (event, url) => {
+  //   console.log('[OAUTH] will-navigate →', url);
+    
+  //   // If this is the OAuth callback with code parameter
+  //   if (url.includes('?code=')) {
+  //     event.preventDefault(); // CRITICAL: Stop default navigation
+      
+  //     try {
+  //       const urlObj = new URL(url);
+  //       const code = urlObj.searchParams.get('code');
+        
+  //       if (code) {
+  //         console.log('[OAUTH] ✅ Code captured:', code);
+  //         // Redirect to webpack dev server with the code
+  //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
+  //         console.log('[OAUTH] Loading app with code:', targetUrl);
+  //         win.loadURL(targetUrl);
+  //       } else {
+  //         console.log('[OAUTH] No code found, loading main app');
+  //         win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] URL parsing error:', err);
+  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //     }
+  //   }
+  // });
+
+  // // Backup: Handle navigation after it happens (safety net)
+  // win.webContents.on('did-navigate', (event, url) => {
+  //   console.log('[OAUTH] did-navigate →', url);
+    
+  //   // If we somehow navigated to a URL with code that isn't our webpack server
+  //   if (url.includes('?code=') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
+  //     try {
+  //       const urlObj = new URL(url);
+  //       const code = urlObj.searchParams.get('code');
+  //       if (code) {
+  //         console.log('[OAUTH] ✅ Late capture - redirecting with code');
+  //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] Navigation handling error:', err);
+  //     }
+  //   }
+  // });
+
+  // // Handle failed loads (404 recovery)
+  // win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  //   console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
+    
+  //   // If load failed but URL contains OAuth code, extract and retry
+  //   if (validatedURL.includes('?code=')) {
+  //     try {
+  //       const urlObj = new URL(validatedURL);
+  //       const code = urlObj.searchParams.get('code');
+  //       if (code) {
+  //         console.log('[OAUTH] ✅ Recovery - loading with code from failed URL');
+  //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] Recovery error:', err);
+  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //     }
+  //   }
+  // });
+  // ============================================================================
+  // OAUTH HANDLING - Development (localhost) + Production (protocol)
+  // ============================================================================
+  
   win.webContents.on('will-navigate', (event, url) => {
     console.log('[OAUTH] will-navigate →', url);
     
-    // If this is the OAuth callback with code parameter
-    if (url.includes('?code=')) {
-      event.preventDefault(); // CRITICAL: Stop default navigation
+    // Handle localhost OAuth callback (development)
+    if (url.includes('localhost') && url.includes('?code=')) {
+      event.preventDefault();
       
       try {
         const urlObj = new URL(url);
         const code = urlObj.searchParams.get('code');
         
         if (code) {
-          console.log('[OAUTH] ✅ Code captured:', code);
-          // Redirect to webpack dev server with the code
+          console.log('[OAUTH] ✅ Code captured (dev):', code);
           const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
           console.log('[OAUTH] Loading app with code:', targetUrl);
           win.loadURL(targetUrl);
@@ -83,7 +225,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
     console.log('[OAUTH] did-navigate →', url);
     
     // If we somehow navigated to a URL with code that isn't our webpack server
-    if (url.includes('?code=') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
+    if (url.includes('?code=') && url.includes('localhost') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
       try {
         const urlObj = new URL(url);
         const code = urlObj.searchParams.get('code');
@@ -102,7 +244,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
     console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
     
     // If load failed but URL contains OAuth code, extract and retry
-    if (validatedURL.includes('?code=')) {
+    if (validatedURL.includes('?code=') && validatedURL.includes('localhost')) {
       try {
         const urlObj = new URL(validatedURL);
         const code = urlObj.searchParams.get('code');
@@ -116,6 +258,10 @@ function createWindow(sessionName = 'default', xOffset = 0) {
       }
     }
   });
+
+  // ============================================================================
+  // END OAUTH HANDLING
+  // ============================================================================
 
   // ============================================================================
   // END OAUTH HANDLING
@@ -689,6 +835,16 @@ ipcMain.handle('clear-oauth-session', async () => {
 // App Lifecycle
 // ──────────────────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+    const serverPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'server', 'server.js')
+    : path.join(__dirname, '../../server/server.js');
+
+  serverProcess = spawn('node', [serverPath], {
+    env: { ...process.env }
+  });
+  serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
+  serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
+  
   createWindow('Account-A', 0);
   createWindow('Account-B', 850);
 
@@ -716,6 +872,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+    if (serverProcess) serverProcess.kill();
   // Clean up watchers before quitting
   watchers.forEach(w => w.close());
   watchers.clear();

@@ -1737,7 +1737,7 @@ exports.pullChanges = async (req, res) => {
         defaultBranch
       );
 
-      console.log(`[PULL] ✅ Fetched ${allFiles.length} total files from GitHub`);
+      console.log(`[PULL]   Fetched ${allFiles.length} total files from GitHub`);
 
       // IMPORTANT: Return ALL files, not just changed ones
       // Let the frontend/Electron decide what to write based on local folder state
@@ -1777,7 +1777,7 @@ exports.pullChanges = async (req, res) => {
         console.warn(`[PULL] ⚠️ Suspiciously short content for ${firstFile.path}: ${firstFile.content.length} chars`);
       }
 
-      console.log(`[PULL] ✅ Sample file check - ${firstFile.path}:`, {
+      console.log(`[PULL]   Sample file check - ${firstFile.path}:`, {
         hasContent: !!firstFile.content,
         contentLength: firstFile.content.length,
         contentPreview: firstFile.content.substring(0, 50) + '...'

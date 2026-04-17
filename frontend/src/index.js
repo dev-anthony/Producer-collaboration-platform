@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
+const { spawn } = require('child_process');
 let serverProcess = null; 
 
 // Initialize persistent storage for folder paths
@@ -36,7 +37,7 @@ app.on('open-url', (event, url) => {
       const code = urlObj.searchParams.get('code');
       
       if (code) {
-        console.log('[OAUTH] ✅ Code from protocol:', code);
+        console.log('[OAUTH]   Code from protocol:', code);
         
         // Send to all windows
         windows.forEach(win => {
@@ -135,7 +136,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   //       const code = urlObj.searchParams.get('code');
         
   //       if (code) {
-  //         console.log('[OAUTH] ✅ Code captured:', code);
+  //         console.log('[OAUTH]   Code captured:', code);
   //         // Redirect to webpack dev server with the code
   //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
   //         console.log('[OAUTH] Loading app with code:', targetUrl);
@@ -161,7 +162,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   //       const urlObj = new URL(url);
   //       const code = urlObj.searchParams.get('code');
   //       if (code) {
-  //         console.log('[OAUTH] ✅ Late capture - redirecting with code');
+  //         console.log('[OAUTH]   Late capture - redirecting with code');
   //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
   //       }
   //     } catch (err) {
@@ -180,7 +181,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   //       const urlObj = new URL(validatedURL);
   //       const code = urlObj.searchParams.get('code');
   //       if (code) {
-  //         console.log('[OAUTH] ✅ Recovery - loading with code from failed URL');
+  //         console.log('[OAUTH]   Recovery - loading with code from failed URL');
   //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
   //       }
   //     } catch (err) {
@@ -205,7 +206,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
         const code = urlObj.searchParams.get('code');
         
         if (code) {
-          console.log('[OAUTH] ✅ Code captured (dev):', code);
+          console.log('[OAUTH]   Code captured (dev):', code);
           const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
           console.log('[OAUTH] Loading app with code:', targetUrl);
           win.loadURL(targetUrl);
@@ -230,7 +231,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
         const urlObj = new URL(url);
         const code = urlObj.searchParams.get('code');
         if (code) {
-          console.log('[OAUTH] ✅ Late capture - redirecting with code');
+          console.log('[OAUTH]   Late capture - redirecting with code');
           win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
         }
       } catch (err) {
@@ -249,7 +250,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
         const urlObj = new URL(validatedURL);
         const code = urlObj.searchParams.get('code');
         if (code) {
-          console.log('[OAUTH] ✅ Recovery - loading with code from failed URL');
+          console.log('[OAUTH]   Recovery - loading with code from failed URL');
           win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
         }
       } catch (err) {
@@ -629,7 +630,7 @@ ipcMain.handle('write-files', async (event, payload) => {
 
   // Validate payload
   if (!payload) {
-    console.error('[WRITE] ❌ Payload is undefined');
+    console.error('[WRITE]   Payload is undefined');
     return { 
       success: false, 
       successCount: 0, 
@@ -641,7 +642,7 @@ ipcMain.handle('write-files', async (event, payload) => {
   const { folderPath, files } = payload;
 
   if (!folderPath) {
-    console.error('[WRITE] ❌ No folderPath provided');
+    console.error('[WRITE]   No folderPath provided');
     return { 
       success: false, 
       successCount: 0, 
@@ -651,7 +652,7 @@ ipcMain.handle('write-files', async (event, payload) => {
   }
 
   if (!files) {
-    console.error('[WRITE] ❌ No files array provided');
+    console.error('[WRITE]   No files array provided');
     return { 
       success: false, 
       successCount: 0, 
@@ -661,7 +662,7 @@ ipcMain.handle('write-files', async (event, payload) => {
   }
 
   if (!Array.isArray(files)) {
-    console.error('[WRITE] ❌ Files is not an array:', typeof files);
+    console.error('[WRITE]   Files is not an array:', typeof files);
     return { 
       success: false, 
       successCount: 0, 
@@ -692,21 +693,21 @@ ipcMain.handle('write-files', async (event, payload) => {
     try {
       // Validate file object
       if (!file) {
-        console.error(`[WRITE] ❌ File at index ${i} is undefined`);
+        console.error(`[WRITE]   File at index ${i} is undefined`);
         failCount++;
         lastError = `File at index ${i} is undefined`;
         continue;
       }
 
       if (!file.path) {
-        console.error(`[WRITE] ❌ File missing path at index ${i}:`, file);
+        console.error(`[WRITE]   File missing path at index ${i}:`, file);
         failCount++;
         lastError = `File at index ${i} missing path`;
         continue;
       }
 
       if (!file.content) {
-        console.error(`[WRITE] ❌ File missing content: ${file.path}`);
+        console.error(`[WRITE]   File missing content: ${file.path}`);
         failCount++;
         lastError = `File ${file.path} missing content`;
         continue;
@@ -717,7 +718,7 @@ ipcMain.handle('write-files', async (event, payload) => {
       try {
         content = Buffer.from(file.content, 'base64');
       } catch (decodeError) {
-        console.error(`[WRITE] ❌ Failed to decode base64 for ${file.path}:`, decodeError);
+        console.error(`[WRITE]   Failed to decode base64 for ${file.path}:`, decodeError);
         failCount++;
         lastError = `Failed to decode ${file.path}: ${decodeError.message}`;
         continue;
@@ -737,11 +738,11 @@ ipcMain.handle('write-files', async (event, payload) => {
       await fs.writeFile(fullPath, content);
       
       successCount++;
-      console.log(`[WRITE] ✅ Success [${i + 1}/${files.length}]: ${file.path}`);
+      console.log(`[WRITE]   Success [${i + 1}/${files.length}]: ${file.path}`);
     } catch (err) {
       failCount++;
       lastError = err.message;
-      console.error(`[WRITE] ❌ Failed to write ${file.path}:`, err);
+      console.error(`[WRITE]   Failed to write ${file.path}:`, err);
     }
   }
 
@@ -752,7 +753,7 @@ ipcMain.handle('write-files', async (event, payload) => {
     error: lastError
   };
 
-  console.log(`[WRITE] 🏁 Complete:`, result);
+  console.log(`[WRITE] Complete:`, result);
 
   return result;
 });
@@ -846,7 +847,7 @@ app.whenReady().then(() => {
   serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
   
   createWindow('Account-A', 0);
-  createWindow('Account-B', 850);
+  // createWindow('Account-B', 850);
 
   // Restore watchers after a brief delay to ensure windows are ready
   setTimeout(() => {

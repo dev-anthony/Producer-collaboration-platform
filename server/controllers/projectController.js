@@ -25,11 +25,75 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB per file
   },
   fileFilter: (req, file, cb) => {
-    const allowedExtensions = [
-      '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
-      '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
-    ];
-    
+    // const allowedExtensions = [
+    //   '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
+    //   '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
+    // ];
+    const allowed = [
+  // Audio - Lossless & High Quality
+  '.wav', '.flac', '.aiff', '.aif', '.aifc', '.w64', '.rf64', '.caf',
+  '.dsd', '.dsf', '.dff', '.mqa',
+
+  // Audio - Compressed
+  '.mp3', '.mp4', '.m4a', '.aac', '.ogg', '.oga', '.opus',
+  '.wma', '.ape', '.ac3', '.dts', '.amr', '.au', '.snd',
+
+  // Audio - Video Containers
+  '.mpeg', '.mpg', '.avi', '.mov', '.flv', '.mkv', '.webm',
+  '.mxf', '.m2v', '.m2ts', '.ts',
+
+  // MIDI & Notation
+  '.midi', '.mid', '.smf', '.mxl', '.musicxml', '.xml', '.nwc',
+  '.sib', '.mus', '.musx', '.mscz', '.mscx', '.capx',
+
+  // Ableton Live
+  '.als', '.alp', '.adv', '.adg', '.asd',
+
+  // FL Studio
+  '.flp', '.fsc', '.fst', '.fnv',
+
+  // Logic Pro / GarageBand
+  '.logicx', '.band', '.aup3',
+
+  // Pro Tools
+  '.ptx', '.ptf', '.pts', '.pte', '.ptxt',
+  '.sdii', '.sd2',
+
+  // Cubase / Nuendo (Steinberg)
+  '.cpr', '.npr', '.bak', '.vstpreset', '.fxb', '.fxp',
+
+  // Bitwig Studio
+  '.bwproject', '.bwpreset', '.bwdevice', '.bwmodule', '.bwclip',
+
+  // Studio One (PreSonus)
+  '.song', '.multitrack', '.instrument', '.preset',
+
+  // Reaper
+  '.rpp', '.rpp-bak', '.rtrack', '.rfx',
+
+  // Reason Studios
+  '.reason', '.rns', '.rsb', '.rx2', '.rcy',
+
+  // Cockos / Other DAWs
+  '.ptxt', '.session',
+
+  // Plugins & Presets
+  '.vst', '.vst3', '.au', '.aax', '.rtas', '.lv2',
+
+  // Samples & Loops
+  '.rex', '.rx2', '.rex2', '.acidwav', '.loop',
+  '.sf2', '.sfz', '.exs', '.nki', '.nkx', '.nkm',
+  '.kontakt', '.gig', '.dls',
+
+  // Stems & Mastering
+  '.stem', '.stem.mp4', '.atmos', '.adm',
+
+  // Project Archives / Exchange
+  '.omf', '.aaf', '.edl', '.xml', '.dawproject',
+
+  // Text & Docs
+  '.txt', '.pdf', '.rtf',
+];
     const fileName = file.originalname.toLowerCase();
     const ext = path.extname(fileName);
     

@@ -627,7 +627,7 @@ exports.getAccessToken = async (req, res) => {
     }
 
     const data = await response.json();
-    console.log('GitHub token response:', data);
+    // console.log('GitHub token response:', data);
 
     if (!data.access_token) {
       return res.status(400).json({
@@ -650,7 +650,7 @@ exports.getAccessToken = async (req, res) => {
     }
 
     const userData = await userResponse.json();
-    console.log('GitHub user data:', userData);
+    // console.log('GitHub user data:', userData);
 
     // Save/Update user and token in database
     const connection = await pool.promise().getConnection();
@@ -681,7 +681,7 @@ exports.getAccessToken = async (req, res) => {
             userData.id,
           ]
         );
-        console.log('Updated existing user:', userId);
+        // console.log('Updated existing user:', userId);
       } else {
         // Insert new user
         const [result] = await connection.execute(
@@ -698,7 +698,7 @@ exports.getAccessToken = async (req, res) => {
           ]
         );
         userId = result.insertId;
-        console.log('Created new user:', userId);
+        // console.log('Created new user:', userId);
       }
 
       // Save/Update GitHub token
@@ -714,7 +714,7 @@ exports.getAccessToken = async (req, res) => {
            WHERE user_id = ?`,
           [data.access_token, data.token_type, data.scope, userId]
         );
-        console.log('Updated GitHub token for user:', userId);
+        // console.log('Updated GitHub token for user:', userId);
       } else {
         await connection.execute(
           `INSERT INTO github_tokens 
@@ -722,7 +722,7 @@ exports.getAccessToken = async (req, res) => {
            VALUES (?, ?, ?, ?, NOW(), NOW())`,
           [userId, data.access_token, data.token_type, data.scope]
         );
-        console.log('Saved new GitHub token for user:', userId);
+        // console.log('Saved new GitHub token for user:', userId);
       }
 
       await connection.commit();

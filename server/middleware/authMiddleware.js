@@ -53,7 +53,7 @@ exports.verifyToken = (req, res, next) => {
   // console.log(' All Headers:', JSON.stringify(req.headers, null, 2));
   
   const authHeader = req.get('Authorization');
-  console.log(' Authorization Header:', authHeader);
+  // console.log(' Authorization Header:', authHeader);
   
   if (!authHeader) {
     console.error(' No Authorization header found!');
@@ -74,8 +74,8 @@ exports.verifyToken = (req, res, next) => {
 
   // Extract token
   const token = authHeader.split(' ')[1];
-  console.log(' Extracted Token:', token ? `${token.substring(0, 30)}...` : 'EMPTY');
-  console.log(' Token Length:', token?.length);
+  // console.log(' Extracted Token:', token ? `${token.substring(0, 30)}...` : 'EMPTY');
+  // console.log(' Token Length:', token?.length);
   
   if (!token) {
     console.error(' Token is empty after extraction');
@@ -119,11 +119,11 @@ exports.verifyToken = (req, res, next) => {
     req.githubId = decoded.githubId;
     req.username = decoded.username;
     
-    console.log(' User authenticated:', {
-      userId: req.userId,
-      githubId: req.githubId,
-      username: req.username
-    });
+    // console.log(' User authenticated:', {
+    //   userId: req.userId,
+    //   githubId: req.githubId,
+    //   username: req.username
+    // });
     // console.log('🔍 === END TOKEN VERIFICATION ===\n');
     
     next();

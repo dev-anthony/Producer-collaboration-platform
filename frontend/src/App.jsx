@@ -219,7 +219,7 @@ function App() {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <LoginPage clientId={Client_Id} />
+              <LoginPage clientId={productionClientId} />
             )
           } 
         />

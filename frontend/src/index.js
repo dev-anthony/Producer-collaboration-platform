@@ -108,16 +108,30 @@ function createWindow(sessionName = 'default', xOffset = 0) {
 
   // CSP for security
   win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          process.env.NODE_ENV === 'development'
-            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-            : "default-src 'self'; script-src 'self'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-        ]
-      }
-    });
+      const isGitHub = details.url.includes('github.com') ||
+                   details.url.includes('githubusercontent.com');
+    // callback({
+    //   responseHeaders: {
+    //     ...details.responseHeaders,
+    //     'Content-Security-Policy': [
+    //       process.env.NODE_ENV === 'development'
+    //         ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+    //         : "default-src 'self'; script-src 'self'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+    //     ]
+    //   }
+    // });
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      'Content-Security-Policy': isGitHub ? [
+        "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+      ] : [
+        process.env.NODE_ENV === 'development'
+          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+          : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+      ]
+    }
+  });
   });
 
   // ============================================================================
@@ -196,6 +210,30 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   
   win.webContents.on('will-navigate', (event, url) => {
     console.log('[OAUTH] will-navigate →', url);
+
+   
+if (url.startsWith('prodcollab://')) {
+  event.preventDefault();
+
+  try {
+    const urlObj = new URL(url);
+    const code = urlObj.searchParams.get('code');
+
+    if (code) {
+      console.log('[OAUTH] Code captured (production):', code);
+      const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
+      console.log('[OAUTH] Loading app with code:', targetUrl);
+      win.loadURL(targetUrl);
+    } else {
+      console.log('[OAUTH] No code found, loading main app');
+      win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+    }
+  } catch (err) {
+    console.error('[OAUTH] URL parsing error:', err);
+    win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  }
+  return;
+}
     
     // Handle localhost OAuth callback (development)
     if (url.includes('localhost') && url.includes('?code=')) {

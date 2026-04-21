@@ -8,7 +8,7 @@ import Toast from './components/Toast.jsx';
 import Collaboration from './pages/Collaboration.jsx';
 import Projects from './pages/Projects.jsx';
 
-const productionClientId = process.env.CLIENT_ID;
+const productionClientId = process.env.GITHUB_CLIENT_ID;
 // Helper function to refresh token
 const refreshAccessToken = async (refreshToken) => {
   try {

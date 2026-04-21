@@ -8,8 +8,7 @@ import Toast from './components/Toast.jsx';
 import Collaboration from './pages/Collaboration.jsx';
 import Projects from './pages/Projects.jsx';
 
-const Client_Id = "Ov23li5uzPwPHy58STiN";
-const productionClientId = "Ov23lij8bfuWsIYfIpQP";
+const productionClientId = process.env.CLIENT_ID;
 // Helper function to refresh token
 const refreshAccessToken = async (refreshToken) => {
   try {

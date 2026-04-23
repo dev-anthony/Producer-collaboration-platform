@@ -29,7 +29,7 @@ const upload = multer({
     //   '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
     //   '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
     // ];
-    const allowed = [
+    const allowedExtensions = [
   // Audio - Lossless & High Quality
   '.wav', '.flac', '.aiff', '.aif', '.aifc', '.w64', '.rf64', '.caf',
   '.dsd', '.dsf', '.dff', '.mqa',

@@ -1,4 +1,6 @@
 
+if (require('electron-squirrel-startup')) app.quit();
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
@@ -95,6 +97,7 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, '../assets/icon.ico'),
     x: xOffset,
     y: 100,
     webPreferences: {

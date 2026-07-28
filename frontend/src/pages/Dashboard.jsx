@@ -192,7 +192,8 @@ function Dashboard({ onLogout, jwtToken }) {
   };
   const handlePushChanges = async (projectId) => {
     try {
-      const project = projects.find(p => p.id === projectId) ||
+      
+      const project = projects.find(p => String(p.id) === String(projectId)) ||
       collaboratedProjects.find(p => p.id === projectId);
 
       if (!project) {
@@ -407,7 +408,8 @@ function Dashboard({ onLogout, jwtToken }) {
   };
   const handleCheckChanges = async (projectId) => {
     try {
-      const project = projects.find(p => p.id === projectId) || 
+      
+const project = projects.find(p => String(p.id) === String(projectId)) || 
         collaboratedProjects.find(p => p.id === projectId);
       
       if (!project) {

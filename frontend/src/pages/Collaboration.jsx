@@ -136,7 +136,7 @@ function Collaboration({ onLogout, jwtToken }) {
 
   const handlePushChanges = async (projectId) => {
     try {
-      const project = collaboratedProjects.find(p => p.id === projectId);
+      collaboratedProjects.find(p => String(p.id) === String(projectId));
 
       if (!project) {
         setToast({
@@ -302,7 +302,7 @@ function Collaboration({ onLogout, jwtToken }) {
 
   const handleCheckChanges = async (projectId) => {
     try {
-      const project = collaboratedProjects.find(p => p.id === projectId);
+      collaboratedProjects.find(p => String(p.id) === String(projectId));
       
       if (!project) {
         setToast({

@@ -36,9 +36,12 @@ function Collaboration({ onLogout, jwtToken }) {
 
   const handleFileChange = (projectId, event, filePath) => {
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
-    setCollaboratedProjects(prev => prev.map(p => 
-      p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
-    ));
+    // setCollaboratedProjects(prev => prev.map(p => 
+    //   p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
+    // ));
+    setCollaboratedProjects(prev => prev.map(p =>
+     String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
+    ))
   };
 
   const getUserData = async () => {
@@ -136,7 +139,7 @@ function Collaboration({ onLogout, jwtToken }) {
 
   const handlePushChanges = async (projectId) => {
     try {
-      collaboratedProjects.find(p => String(p.id) === String(projectId));
+      const project = collaboratedProjects.find(p => String(p.id) === String(projectId));
 
       if (!project) {
         setToast({
@@ -270,9 +273,9 @@ function Collaboration({ onLogout, jwtToken }) {
       const pushData = await pushRes.json();
 
       if(pushRes.ok){
-        setCollaboratedProjects(prev => prev.map(p => 
-          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-        ));
+       setCollaboratedProjects(prev => prev.map(p =>
+        p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
+      ))
 
         setProjectsWithChanges(prev => {
           const newSet = new Set(prev);
@@ -302,7 +305,7 @@ function Collaboration({ onLogout, jwtToken }) {
 
   const handleCheckChanges = async (projectId) => {
     try {
-      collaboratedProjects.find(p => String(p.id) === String(projectId));
+      const project = collaboratedProjects.find(p => String(p.id) === String(projectId));
       
       if (!project) {
         setToast({

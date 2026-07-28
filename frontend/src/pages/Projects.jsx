@@ -37,7 +37,7 @@ function Projects({ onLogout, jwtToken }) {
   const handleFileChange = (projectId, event, filePath) => {
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
     setProjects(prev => prev.map(p => 
-      p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
+     String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
     ));
   };
 
@@ -141,7 +141,7 @@ function Projects({ onLogout, jwtToken }) {
   const handlePushChanges = async (projectId) => {
     try {
       
-const project = projects.find(p => String(p.id) === String(projectId));
+    const project = projects.find(p => String(p.id) === String(projectId));
 
       if (!project) {
         setToast({
@@ -308,7 +308,7 @@ const project = projects.find(p => String(p.id) === String(projectId));
   const handleCheckChanges = async (projectId) => {
     try {
       
-const project = projects.find(p => String(p.id) === String(projectId));
+      const project = projects.find(p => String(p.id) === String(projectId));
       
       if (!project) {
         setToast({

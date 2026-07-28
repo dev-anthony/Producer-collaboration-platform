@@ -109,9 +109,9 @@ function Dashboard({ onLogout, jwtToken }) {
       p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
     ));
     
-    setCollaboratedProjects(prev => prev.map(p =>
-      p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
-    ));
+   setCollaboratedProjects(prev => prev.map(p =>
+      String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
+    ))
   };
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
@@ -193,8 +193,10 @@ function Dashboard({ onLogout, jwtToken }) {
   const handlePushChanges = async (projectId) => {
     try {
       
+      // const project = projects.find(p => String(p.id) === String(projectId)) ||
+      // collaboratedProjects.find(p => p.id === projectId);
       const project = projects.find(p => String(p.id) === String(projectId)) ||
-      collaboratedProjects.find(p => p.id === projectId);
+                      collaboratedProjects.find(p => String(p.id) === String(projectId))
 
       if (!project) {
         setToast({
@@ -367,9 +369,9 @@ function Dashboard({ onLogout, jwtToken }) {
           p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
         ));
       
-        setCollaboratedProjects(prev => prev.map(p => 
-          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-        ));
+       setCollaboratedProjects(prev => prev.map(p =>
+        p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
+      ))
 
         setProjectsWithChanges(prev => {
           const newSet = new Set(prev);
@@ -409,8 +411,8 @@ function Dashboard({ onLogout, jwtToken }) {
   const handleCheckChanges = async (projectId) => {
     try {
       
-const project = projects.find(p => String(p.id) === String(projectId)) || 
-        collaboratedProjects.find(p => p.id === projectId);
+const project = projects.find(p => String(p.id) === String(projectId)) ||
+                collaboratedProjects.find(p => String(p.id) === String(projectId))
       
       if (!project) {
         // alert('Project not found');

@@ -138,172 +138,303 @@ function Projects({ onLogout, jwtToken }) {
     }
   };
 
-  const handlePushChanges = async (projectId) => {
-    try {
+  // const handlePushChanges = async (projectId) => {
+  //   try {
       
+  //   const project = projects.find(p => String(p.id) === String(projectId));
+
+  //     if (!project) {
+  //       setToast({
+  //         type: 'error',
+  //         message: "Project not found"
+  //       });
+  //       return;
+  //     }
+
+  //     if (!project.hasUnpushedChanges) {
+  //       setToast({
+  //         type: 'info',
+  //         message: "No changes to push"
+  //       });
+  //       return;
+  //     }
+
+  //     let folderPath;
+  //     try {
+  //       folderPath = await ensureFolderPath(projectId);
+  //     } catch (error) {
+  //       if (error.message === 'FOLDER_SELECTION_CANCELLED') {
+  //         setToast({
+  //           type: 'warning',
+  //           message: "Folder selection cancelled. Cannot push without selecting a folder."
+  //         });
+  //         return;
+  //       }
+  //       throw error;
+  //     }
+
+  //     const scannedStructure = await window.electronAPI.scanFolder(folderPath);
+      
+  //     const storedStructure = typeof project.file_paths === 'string' 
+  //       ? JSON.parse(project.file_paths) 
+  //       : project.file_paths;
+  //     const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
+      
+  //     let currentFileStructure;
+      
+  //     if (hasFolderStructure) {
+  //       const folderName = storedStructure.folders[0].name;
+  //       currentFileStructure = {
+  //         individualFiles: [],
+  //         folders: [{
+  //           name: folderName,
+  //           files: scannedStructure.files.map(file => ({
+  //             name: file.name,
+  //             size: file.size,
+  //             relativePath: `${folderName}/${file.name}`,
+  //             lastModified: file.lastModified
+  //           }))
+  //         }]
+  //       };
+  //     } else {
+  //       currentFileStructure = {
+  //         individualFiles: scannedStructure.files.map(file => ({
+  //           name: file.name,
+  //           size: file.size,
+  //           relativePath: file.relativePath || file.name,
+  //           lastModified: file.lastModified
+  //         })),
+  //         folders: []
+  //       };
+  //     }
+
+  //     let filesFromDisk;
+  //     try {
+  //       filesFromDisk = await window.electronAPI.readProjectFiles({
+  //         projectId: projectId,
+  //         fileStructure: storedStructure
+  //       });
+  //     } catch (error) {
+  //       if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
+  //         setToast({
+  //           type: 'error',
+  //           message: 'Folder path error. Please try again.'
+  //         });
+  //         return;
+  //       }
+  //       throw error;
+  //     }
+
+  //     if (filesFromDisk.length === 0) {
+  //       setToast({
+  //         type: 'error',
+  //         message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
+  //       });
+  //       return;
+  //     }
+
+  //     const formData = new FormData();
+  //     formData.append('fileStructure', JSON.stringify(currentFileStructure));
+
+  //     for (const fileData of filesFromDisk) {
+  //       try {
+  //         const binaryString = atob(fileData.content);
+  //         const bytes = new Uint8Array(binaryString.length);
+  //         for (let i = 0; i < binaryString.length; i++) {
+  //           bytes[i] = binaryString.charCodeAt(i);
+  //         }
+          
+  //         const blob = new Blob([bytes]);
+  //         const file = new File([blob], fileData.name, {
+  //           type: 'application/octet-stream',
+  //           lastModified: fileData.lastModified || Date.now()
+  //         });
+          
+  //         formData.append('files', file);
+  //       } catch (err) {
+  //         setToast({
+  //           type: 'error',
+  //           message: `Error processing file ${fileData.name}`
+  //         });
+  //       }
+  //     }
+
+  //     setToast({
+  //       type: 'info',
+  //       message: 'Pushing changes'
+  //     });
+
+  //     const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
+  //       method: 'POST',
+  //       headers: { 
+  //         'Authorization': `Bearer ${jwtToken}`
+  //       },
+  //       body: formData
+  //     });
+      
+  //     const pushData = await pushRes.json();
+
+  //     if(pushRes.ok){
+  //       setProjects(prev => prev.map(p => 
+  //         p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
+  //       ));
+
+  //       setProjectsWithChanges(prev => {
+  //         const newSet = new Set(prev);
+  //         newSet.delete(String(projectId));
+  //         return newSet;
+  //       });
+
+  //       setTimeout(()=>{
+  //         setToast({
+  //           type: 'success',
+  //           message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
+  //         });
+  //         window.location.reload();
+  //       }, 1000);
+  //     }else{
+  //       const errorData = await pushRes.json();
+  //       throw new Error(errorData.error || errorData.message || 'Push failed');
+  //     }
+  //   } catch (err) {
+  //     console.error('[PUSH] Failed:', err);
+  //     setToast({
+  //       type: 'error',
+  //       message: 'Failed to push changes.'
+  //     });
+  //   }
+  // };
+  const handlePushChanges = async (projectId) => {
+  try {
     const project = projects.find(p => String(p.id) === String(projectId));
 
-      if (!project) {
-        setToast({
-          type: 'error',
-          message: "Project not found"
-        });
+    if (!project) {
+      setToast({ type: 'error', message: "Project not found" });
+      return;
+    }
+
+    if (!project.hasUnpushedChanges) {
+      setToast({ type: 'info', message: "No changes to push" });
+      return;
+    }
+
+    let folderPath;
+    try {
+      folderPath = await ensureFolderPath(projectId);
+    } catch (error) {
+      if (error.message === 'FOLDER_SELECTION_CANCELLED') {
+        setToast({ type: 'warning', message: "Folder selection cancelled. Cannot push without selecting a folder." });
         return;
       }
+      throw error;
+    }
 
-      if (!project.hasUnpushedChanges) {
-        setToast({
-          type: 'info',
-          message: "No changes to push"
-        });
-        return;
-      }
-
-      let folderPath;
-      try {
-        folderPath = await ensureFolderPath(projectId);
-      } catch (error) {
-        if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-          setToast({
-            type: 'warning',
-            message: "Folder selection cancelled. Cannot push without selecting a folder."
-          });
-          return;
-        }
-        throw error;
-      }
-
-      const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-      
-      const storedStructure = typeof project.file_paths === 'string' 
-        ? JSON.parse(project.file_paths) 
-        : project.file_paths;
-      const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-      
-      let currentFileStructure;
-      
-      if (hasFolderStructure) {
-        const folderName = storedStructure.folders[0].name;
-        currentFileStructure = {
-          individualFiles: [],
-          folders: [{
-            name: folderName,
-            files: scannedStructure.files.map(file => ({
-              name: file.name,
-              size: file.size,
-              relativePath: `${folderName}/${file.name}`,
-              lastModified: file.lastModified
-            }))
-          }]
-        };
-      } else {
-        currentFileStructure = {
-          individualFiles: scannedStructure.files.map(file => ({
+    const scannedStructure = await window.electronAPI.scanFolder(folderPath);
+    
+    const storedStructure = typeof project.file_paths === 'string' 
+      ? JSON.parse(project.file_paths) 
+      : project.file_paths;
+    const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
+    
+    let currentFileStructure;
+    
+    if (hasFolderStructure) {
+      const folderName = storedStructure.folders[0].name;
+      currentFileStructure = {
+        individualFiles: [],
+        folders: [{
+          name: folderName,
+          files: scannedStructure.files.map(file => ({
             name: file.name,
             size: file.size,
-            relativePath: file.relativePath || file.name,
+            relativePath: `${folderName}/${file.name}`,
             lastModified: file.lastModified
-          })),
-          folders: []
-        };
-      }
+          }))
+        }]
+      };
+    } else {
+      currentFileStructure = {
+        individualFiles: scannedStructure.files.map(file => ({
+          name: file.name,
+          size: file.size,
+          relativePath: file.relativePath || file.name,
+          lastModified: file.lastModified
+        })),
+        folders: []
+      };
+    }
 
-      let filesFromDisk;
-      try {
-        filesFromDisk = await window.electronAPI.readProjectFiles({
-          projectId: projectId,
-          fileStructure: storedStructure
-        });
-      } catch (error) {
-        if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-          setToast({
-            type: 'error',
-            message: 'Folder path error. Please try again.'
-          });
-          return;
-        }
-        throw error;
-      }
-
-      if (filesFromDisk.length === 0) {
-        setToast({
-          type: 'error',
-          message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
-        });
+    let filesFromDisk;
+    try {
+      filesFromDisk = await window.electronAPI.readProjectFiles({
+        projectId: projectId,
+        fileStructure: storedStructure
+      });
+    } catch (error) {
+      if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
+        setToast({ type: 'error', message: 'Folder path error. Please try again.' });
         return;
       }
-
-      const formData = new FormData();
-      formData.append('fileStructure', JSON.stringify(currentFileStructure));
-
-      for (const fileData of filesFromDisk) {
-        try {
-          const binaryString = atob(fileData.content);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          
-          const blob = new Blob([bytes]);
-          const file = new File([blob], fileData.name, {
-            type: 'application/octet-stream',
-            lastModified: fileData.lastModified || Date.now()
-          });
-          
-          formData.append('files', file);
-        } catch (err) {
-          setToast({
-            type: 'error',
-            message: `Error processing file ${fileData.name}`
-          });
-        }
-      }
-
-      setToast({
-        type: 'info',
-        message: 'Pushing changes'
-      });
-
-      const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${jwtToken}`
-        },
-        body: formData
-      });
-      
-      const pushData = await pushRes.json();
-
-      if(pushRes.ok){
-        setProjects(prev => prev.map(p => 
-          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-        ));
-
-        setProjectsWithChanges(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(projectId));
-          return newSet;
-        });
-
-        setTimeout(()=>{
-          setToast({
-            type: 'success',
-            message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
-          });
-          window.location.reload();
-        }, 1000);
-      }else{
-        const errorData = await pushRes.json();
-        throw new Error(errorData.error || errorData.message || 'Push failed');
-      }
-    } catch (err) {
-      console.error('[PUSH] Failed:', err);
-      setToast({
-        type: 'error',
-        message: 'Failed to push changes.'
-      });
+      throw error;
     }
-  };
+
+    if (filesFromDisk.length === 0) {
+      setToast({ type: 'error', message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.' });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('fileStructure', JSON.stringify(currentFileStructure));
+
+    for (const fileData of filesFromDisk) {
+      try {
+        const binaryString = atob(fileData.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes]);
+        const file = new File([blob], fileData.name, {
+          type: 'application/octet-stream',
+          lastModified: fileData.lastModified || Date.now()
+        });
+        formData.append('files', file);
+      } catch (err) {
+        setToast({ type: 'error', message: `Error processing file ${fileData.name}` });
+      }
+    }
+
+    setToast({ type: 'info', message: 'Pushing changes' });
+
+    const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${jwtToken}` },
+      body: formData
+    });
+
+    const pushData = await pushRes.json();
+
+    if (pushRes.ok) {
+      setProjects(prev => prev.map(p =>
+        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
+      ));
+      setProjectsWithChanges(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(String(projectId));
+        return newSet;
+      });
+      setTimeout(() => {
+        setToast({ type: 'success', message: `Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.` });
+        window.location.reload();
+      }, 1000);
+    } else {
+      throw new Error(pushData.error || pushData.message || 'Push failed');
+    }
+  } catch (err) {
+    console.error('[PUSH] Failed:', err);
+    setToast({ type: 'error', message: 'Failed to push changes.' });
+  }
+};
 
   const handleCheckChanges = async (projectId) => {
     try {
@@ -413,40 +544,66 @@ function Projects({ onLogout, jwtToken }) {
     }
   };
 
-  const handleDeleteProject = async (projectId) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+  // const handleDeleteProject = async (projectId) => {
+  //   if (!confirm("Are you sure you want to delete this project?")) return;
     
-    try {
-      const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
-        method: 'DELETE',
-        headers: { "Authorization": `Bearer ${jwtToken}` }
-      });
+  //   try {
+  //     const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
+  //       method: 'DELETE',
+  //       headers: { "Authorization": `Bearer ${jwtToken}` }
+  //     });
       
-      if (response.ok) {
-        if (window.electronAPI) {
-          await window.electronAPI.stopWatching(projectId);
-          await window.electronAPI.deleteFolderPath(projectId);
-        }
+  //     if (response.ok) {
+  //       if (window.electronAPI) {
+  //         await window.electronAPI.stopWatching(projectId);
+  //         await window.electronAPI.deleteFolderPath(projectId);
+  //       }
         
-        setProjects(projects.filter(p => p.id !== projectId));
-        setProjectsWithChanges(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(projectId));
-          return newSet;
-        });
+  //       setProjects(projects.filter(p => p.id !== projectId));
+  //       setProjectsWithChanges(prev => {
+  //         const newSet = new Set(prev);
+  //         newSet.delete(String(projectId));
+  //         return newSet;
+  //       });
         
-        setToast({
-          type: 'success',
-          message: 'Deleted successfully'
-        });
+  //       setToast({
+  //         type: 'success',
+  //         message: 'Deleted successfully'
+  //       });
+  //     }
+  //   } catch (err) {
+  //     setToast({
+  //       type: 'error',
+  //       message: "Error deleting project"
+  //     });
+  //   }
+  // };
+  const handleDeleteProject = async (projectId) => {
+  if (!confirm("Are you sure you want to delete this project?")) return;
+  
+  try {
+    const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: { "Authorization": `Bearer ${jwtToken}` }
+    });
+    
+    if (response.ok) {
+      if (window.electronAPI) {
+        await window.electronAPI.stopWatching(projectId);
+        await window.electronAPI.deleteFolderPath(projectId);
       }
-    } catch (err) {
-      setToast({
-        type: 'error',
-        message: "Error deleting project"
+      setProjects(projects.filter(p => String(p.id) !== String(projectId)));
+      setProjectsWithChanges(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(String(projectId));
+        return newSet;
       });
+      setToast({ type: 'success', message: 'Deleted successfully' });
     }
-  };
+  } catch (err) {
+    setToast({ type: 'error', message: "Error deleting project" });
+  }
+};
 
   if (loading) return <LoadingSpinner />;
 

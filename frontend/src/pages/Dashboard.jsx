@@ -106,8 +106,8 @@ function Dashboard({ onLogout, jwtToken }) {
     
     // Update project lists to reflect changes
     setProjects(prev => prev.map(p => 
-      p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
-    ));
+      String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
+    ))
     
    setCollaboratedProjects(prev => prev.map(p =>
       String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
@@ -365,12 +365,12 @@ function Dashboard({ onLogout, jwtToken }) {
       const pushData = await pushRes.json();
 
       if(pushRes.ok){
-        setProjects(prev => prev.map(p => 
-          p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-        ));
-      
-       setCollaboratedProjects(prev => prev.map(p =>
-        p.id === projectId ? { ...p, hasUnpushedChanges: true } : p
+
+      setProjects(prev => prev.map(p => 
+        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
+      ))
+      setCollaboratedProjects(prev => prev.map(p =>
+        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
       ))
 
         setProjectsWithChanges(prev => {
@@ -388,8 +388,7 @@ function Dashboard({ onLogout, jwtToken }) {
         }, 1000)
 
       }else{
-        const errorData = await pushRes.json();
-        throw new Error(errorData.error || errorData.message || 'Push failed');
+       throw new Error(pushData.error || pushData.message || 'Push failed')
       }
       // // Refresh project lists
       // getProjects();
@@ -401,7 +400,6 @@ function Dashboard({ onLogout, jwtToken }) {
       //     ]);
     } catch (err) {
       console.error('[PUSH] Failed:', err);
-      // alert(`Failed to push changes:\n\n${err.message || 'Unknown error'}`);
        setToast({
         type: 'error',
         message: 'Failed to push changes.'
@@ -550,8 +548,8 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
           await window.electronAPI.deleteFolderPath(projectId);
         }
         
-        setProjects(projects.filter(p => p.id !== projectId));
-        setCollaboratedProjects(collaboratedProjects.filter(p => p.id !== projectId));
+        setProjects(projects.filter(p => String(p.id) !== String(projectId)))
+        setCollaboratedProjects(collaboratedProjects.filter(p => String(p.id) !== String(projectId)))
         setProjectsWithChanges(prev => {
           const newSet = new Set(prev);
           newSet.delete(String(projectId));

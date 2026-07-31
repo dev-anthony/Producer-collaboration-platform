@@ -506,73 +506,73 @@ exports.getUserProjects = async (req, res) => {
     });
   }
 };
-exports.getCollaboratedProjects = async (req, res) => {
-  try {
-    const userId = req.userId;
+// exports.getCollaboratedProjects = async (req, res) => {
+//   try {
+//     const userId = req.userId;
 
-    const connection = await pool.promise().getConnection();
+//     const connection = await pool.promise().getConnection();
 
-    try {
-      const [projects] = await connection.execute(
-        `SELECT 
-          p.id,
-          p.repo_name as name,
-          p.repo_url as url,
-          p.description,
-          p.visibility,
-          p.file_paths,
-          p.has_changes,
-          p.updated_at,
-          pc.role,
-          pc.local_path,
-          u.username as owner_username,
-          u.avatar_url as owner_avatar
-         FROM project_collaborators pc
-         JOIN projects p ON pc.project_id = p.id
-         JOIN users u ON p.user_id = u.id
-         WHERE pc.user_id = ? AND p.user_id != ?
-         ORDER BY pc.joined_at DESC`,
-        [userId, userId]
-      );
+//     try {
+//       const [projects] = await connection.execute(
+//         `SELECT 
+//           p.id,
+//           p.repo_name as name,
+//           p.repo_url as url,
+//           p.description,
+//           p.visibility,
+//           p.file_paths,
+//           p.has_changes,
+//           p.updated_at,
+//           pc.role,
+//           pc.local_path,
+//           u.username as owner_username,
+//           u.avatar_url as owner_avatar
+//          FROM project_collaborators pc
+//          JOIN projects p ON pc.project_id = p.id
+//          JOIN users u ON p.user_id = u.id
+//          WHERE pc.user_id = ? AND p.user_id != ?
+//          ORDER BY pc.joined_at DESC`,
+//         [userId, userId]
+//       );
 
-      const formattedProjects = projects.map(p => {
-        const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
-        const totalFileCount = (fileStructure.individualFiles?.length || 0) + 
-                               fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0);
+//       const formattedProjects = projects.map(p => {
+//         const fileStructure = p.file_paths ? JSON.parse(p.file_paths) : { individualFiles: [], folders: [] };
+//         const totalFileCount = (fileStructure.individualFiles?.length || 0) + 
+//                                fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0);
 
-        return {
-          id: p.id,
-          name: p.name,
-          url: p.url,
-          description: p.description,
-          visibility: p.visibility,
-          fileCount: totalFileCount,
-          updatedAt: p.updated_at,
-          hasUnpushedChanges: p.has_changes === 1,
-          role: p.role,
-          localPath: p.local_path,
-          owner: {
-            username: p.owner_username,
-            avatar: p.owner_avatar
-          },
-          isCollaborator: true,
-          file_paths: fileStructure  // Include this for frontend to extract folder name
-        };
-      });
+//         return {
+//           id: p.id,
+//           name: p.name,
+//           url: p.url,
+//           description: p.description,
+//           visibility: p.visibility,
+//           fileCount: totalFileCount,
+//           updatedAt: p.updated_at,
+//           hasUnpushedChanges: p.has_changes === 1,
+//           role: p.role,
+//           localPath: p.local_path,
+//           owner: {
+//             username: p.owner_username,
+//             avatar: p.owner_avatar
+//           },
+//           isCollaborator: true,
+//           file_paths: fileStructure  // Include this for frontend to extract folder name
+//         };
+//       });
 
-      res.json({ projects: formattedProjects });
+//       res.json({ projects: formattedProjects });
 
-    } finally {
-      connection.release();
-    }
-  } catch (error) {
-    console.error('getCollaboratedProjects error:', error);
-    res.status(500).json({
-      error: 'Failed to fetch collaborated projects',
-      message: error.message
-    });
-  }
-};
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error('getCollaboratedProjects error:', error);
+//     res.status(500).json({
+//       error: 'Failed to fetch collaborated projects',
+//       message: error.message
+//     });
+//   }
+// };
 // Mark project as having changes
 exports.markProjectChanges = async (req, res) => {
   try {

@@ -11,10 +11,14 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 app.use(cors({
-  origin: [process.env.ORIGIN || 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:9000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:9000'
+  ],
   credentials: true
 }));
-
 
 
 const port = process.env.PORT || 5000;

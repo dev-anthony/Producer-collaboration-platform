@@ -51,8 +51,7 @@ function Dashboard({ onLogout, jwtToken }) {
       }
       
       // Save the folder path
-      // console.log(` Saving folder path for project ${projectId}:`, selectedPath);
-      await window.electronAPI.saveFolderPath(projectId, selectedPath);
+        await window.electronAPI.saveFolderPath(projectId, selectedPath);
       
       // Start watching the folder
       await window.electronAPI.startWatching(projectId, selectedPath);

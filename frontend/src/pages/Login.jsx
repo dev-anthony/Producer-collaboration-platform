@@ -9,7 +9,7 @@ function LoginPage({ clientId }) {
     // const redirectUri = isProduction 
     //   ? 'prodcollab://callback' 
     //   : 'http://localhost:9000/';
-    const redirectUri = 'prodcollab://callback';
+    const redirectUri = 'http://localhost:9000/';
 
     const authUrl = `https://github.com/login/oauth/authorize?` +
       `client_id=${clientId}&` +

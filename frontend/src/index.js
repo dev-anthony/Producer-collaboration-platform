@@ -878,7 +878,7 @@ ipcMain.handle('clear-oauth-session', async () => {
 app.whenReady().then(() => {
     const serverPath = app.isPackaged
     ? path.join(process.resourcesPath, 'server', 'server.js')
-    : path.join(__dirname, '../../server/server.js');
+    : path.join(process.cwd(), '..', 'server', 'server.js');
 
   serverProcess = spawn('node', [serverPath], {
     env: { ...process.env }

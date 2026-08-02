@@ -125,8 +125,8 @@ function ProjectCard({
             setToast({ type: 'info', message: 'Folder selection cancelled.'});
             return;
           }
-
-          await window.electronAPI.saveFolderPath(projectId, folderPath);
+ await window.electronAPI.saveFolderPath(projectId, folderPath);
+          // await window.electronAPI.saveFolderPath(projectId, folderPath);
           // console.log('[PULL] Folder path saved:', folderPath);
         } else {
           // console.log('[PULL] Using existing folder:', folderPath);

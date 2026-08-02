@@ -611,12 +611,10 @@ exports.detectFileChanges = async (req, res) => {
     const connection = await pool.promise().getConnection();
 
     try {
-      // Check if user is owner or collaborator
-    const [ownerCheck] = await connection.execute(
+      const [ownerCheck] = await connection.execute(
         'SELECT * FROM projects WHERE id = ? AND user_id = ?',
         [projectId, userId]
       );
-
       const [collabCheck] = await connection.execute(
         'SELECT * FROM project_collaborators WHERE project_id = ? AND user_id = ?',
         [projectId, userId]
@@ -626,8 +624,7 @@ exports.detectFileChanges = async (req, res) => {
         return res.status(404).json({ error: 'Project not found or access denied' });
       }
 
-      // Get project file structure
-     const [projects] = await connection.execute(
+      const [projects] = await connection.execute(
         'SELECT file_paths FROM projects WHERE id = ?',
         [projectId]
       );
@@ -637,15 +634,10 @@ exports.detectFileChanges = async (req, res) => {
       }
 
       const storedStructure = JSON.parse(projects[0].file_paths);
-      
-      console.log(' Stored structure:', storedStructure);
-      console.log(' Current structure:', currentFileStructure);
 
-      // Check for changes by comparing the entire structure
-  let hasChanges = false;
+      let hasChanges = false;
       const changeDetails = [];
 
-      // Compare individual files
       const storedIndividual = storedStructure.individualFiles || [];
       const currentIndividual = currentFileStructure.individualFiles || [];
 
@@ -654,19 +646,17 @@ exports.detectFileChanges = async (req, res) => {
         changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
       }
 
-      // Check each individual file (additions/modifications)
       currentIndividual.forEach(currentFile => {
         const storedFile = storedIndividual.find(f => f.name === currentFile.name);
         if (!storedFile) {
           hasChanges = true;
           changeDetails.push(`New file added: ${currentFile.name}`);
-        } else if (storedFile.size !== currentFile.size || storedFile.lastModified !== currentFile.lastModified) {
+        } else if (storedFile.size !== currentFile.size) {
           hasChanges = true;
           changeDetails.push(`File modified: ${currentFile.name}`);
         }
       });
 
-      // Check for deleted individual files
       storedIndividual.forEach(storedFile => {
         if (!currentIndividual.find(f => f.name === storedFile.name)) {
           hasChanges = true;
@@ -674,7 +664,6 @@ exports.detectFileChanges = async (req, res) => {
         }
       });
 
-      // Compare folders
       const storedFolders = storedStructure.folders || [];
       const currentFolders = currentFileStructure.folders || [];
 
@@ -683,14 +672,12 @@ exports.detectFileChanges = async (req, res) => {
         changeDetails.push(`Folder count changed: ${storedFolders.length} → ${currentFolders.length}`);
       }
 
-      // Check each folder and its files
       currentFolders.forEach(currentFolder => {
         const storedFolder = storedFolders.find(f => f.name === currentFolder.name);
         if (!storedFolder) {
           hasChanges = true;
           changeDetails.push(`New folder added: ${currentFolder.name}`);
         } else {
-          // Compare files in folder (additions/modifications)
           const storedFolderFiles = storedFolder.files || [];
           const currentFolderFiles = currentFolder.files || [];
 
@@ -704,13 +691,12 @@ exports.detectFileChanges = async (req, res) => {
             if (!storedFile) {
               hasChanges = true;
               changeDetails.push(`New file added in folder "${currentFolder.name}": ${currentFile.name}`);
-            } else if (storedFile.size !== currentFile.size || storedFile.lastModified !== currentFile.lastModified) {
+            } else if (storedFile.size !== currentFile.size) {
               hasChanges = true;
               changeDetails.push(`File modified in folder "${currentFolder.name}": ${currentFile.name}`);
             }
           });
 
-          // Check for deleted files in folder
           storedFolderFiles.forEach(storedFile => {
             if (!currentFolderFiles.find(f => f.name === storedFile.name)) {
               hasChanges = true;
@@ -720,7 +706,6 @@ exports.detectFileChanges = async (req, res) => {
         }
       });
 
-      // Check for deleted folders
       storedFolders.forEach(storedFolder => {
         if (!currentFolders.find(f => f.name === storedFolder.name)) {
           hasChanges = true;
@@ -728,14 +713,12 @@ exports.detectFileChanges = async (req, res) => {
         }
       });
 
-     console.log(' Change details:', changeDetails);
+      await connection.execute(
+        'UPDATE projects SET has_changes = ?, updated_at = NOW() WHERE id = ?',
+        [hasChanges ? 1 : 0, projectId]
+      );
 
-    await connection.execute(
-      'UPDATE projects SET has_changes = ?, updated_at = NOW() WHERE id = ?',
-      [hasChanges ? 1 : 0, projectId]  // This will set to 0 when no changes
-    );
-
-res.json({ hasChanges, changeDetails });
+      res.json({ hasChanges, changeDetails });
     } finally {
       connection.release();
     }
@@ -812,47 +795,83 @@ exports.pushProjectChanges = async (req, res) => {
         const filesToUpload = [];
         
         // Check individual files
-        newFileStructure.individualFiles.forEach(newFile => {
-          const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
+        // newFileStructure.individualFiles.forEach(newFile => {
+        //   const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
           
-          if (!storedFile || 
-              storedFile.size !== newFile.size || 
-              storedFile.lastModified !== newFile.lastModified) {
-            // File is new or modified
-            const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-            if (uploadedFile) {
-              filesToUpload.push({
-                file: uploadedFile,
-                relativePath: newFile.relativePath,
-                isNew: !storedFile
-              });
-            }
-          }
-        });
+        //   if (!storedFile || 
+        //       storedFile.size !== newFile.size || 
+        //       storedFile.lastModified !== newFile.lastModified) {
+        //     // File is new or modified
+        //     const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+        //     if (uploadedFile) {
+        //       filesToUpload.push({
+        //         file: uploadedFile,
+        //         relativePath: newFile.relativePath,
+        //         isNew: !storedFile
+        //       });
+        //     }
+        //   }
+        // });
 
-        // Check files in folders
-        newFileStructure.folders.forEach(newFolder => {
-          const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
+        // // Check files in folders
+        // newFileStructure.folders.forEach(newFolder => {
+        //   const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
           
-          newFolder.files.forEach(newFile => {
-            const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
+        //   newFolder.files.forEach(newFile => {
+        //     const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
             
-            if (!storedFile || 
-                storedFile.size !== newFile.size || 
-                storedFile.lastModified !== newFile.lastModified) {
-              // File is new or modified
-              const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-              if (uploadedFile) {
-                filesToUpload.push({
-                  file: uploadedFile,
-                  relativePath: newFile.relativePath,
-                  isNew: !storedFile
-                });
-              }
-            }
-          });
-        });
+        //     if (!storedFile || 
+        //         storedFile.size !== newFile.size || 
+        //         storedFile.lastModified !== newFile.lastModified) {
+        //       // File is new or modified
+        //       const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+        //       if (uploadedFile) {
+        //         filesToUpload.push({
+        //           file: uploadedFile,
+        //           relativePath: newFile.relativePath,
+        //           isNew: !storedFile
+        //         });
+        //       }
+        //     }
+        //   });
+        // });
 
+
+        // Check individual files
+newFileStructure.individualFiles.forEach(newFile => {
+  const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
+
+  if (!storedFile || storedFile.size !== newFile.size) {
+    const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+    if (uploadedFile) {
+      filesToUpload.push({
+        file: uploadedFile,
+        relativePath: newFile.relativePath,
+        isNew: !storedFile
+      });
+    }
+  }
+});
+
+// Check files in folders
+newFileStructure.folders.forEach(newFolder => {
+  const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
+
+  newFolder.files.forEach(newFile => {
+    const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
+
+    if (!storedFile || storedFile.size !== newFile.size) {
+      const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
+      if (uploadedFile) {
+        filesToUpload.push({
+          file: uploadedFile,
+          relativePath: newFile.relativePath,
+          isNew: !storedFile
+        });
+      }
+    }
+  });
+});
         console.log(` Files to upload: ${filesToUpload.length}`);
         
         // if (filesToUpload.length === 0) {

@@ -1,7 +1,9 @@
 
+
 import React, { useState } from 'react';
 import { X, Upload, FolderOpen, Github, Music, Film, FileAudio, Folder } from 'lucide-react';
 import Toast from '../components/Toast';
+
 function Modal({ toggleModal }) {
   const [formData, setFormData] = useState({
     projectName: '',
@@ -15,7 +17,14 @@ function Modal({ toggleModal }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progress, setProgress] = useState([]);
   const [showProgress, setShowProgress] = useState(false);
-  const [toast, setToast] = useState(null)
+  const [toast, setToast] = useState(null);
+  const [localFolderPath, setLocalFolderPath] = useState(null);
+
+  const handleSelectLocalFolder = async () => {
+  if (!window.electronAPI?.selectFolder) return;
+  const path = await window.electronAPI.selectFolder();
+  if (path) setLocalFolderPath(path);
+};
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -33,13 +42,13 @@ function Modal({ toggleModal }) {
   const handleFolderSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
 
-      if (selectedFiles.length === 0) {
-        setToast({
-          type: 'info',
-          message: 'This folder is empty. Please add files to the folder before uploading.'
-        });
-        return;
-      }
+    if (selectedFiles.length === 0) {
+      setToast({
+        type: 'info',
+        message: 'This folder is empty. Please add files to the folder before uploading.'
+      });
+      return;
+    }
     addFiles(selectedFiles, true);
   };
 
@@ -67,11 +76,10 @@ function Modal({ toggleModal }) {
     });
 
     if (filteredFiles.length === 0) {
-      // alert('No valid media files found. Please select audio/video files.');
       setToast({
         type: 'info',
         message: 'No valid media files found. Please select audio/video files.'
-      })
+      });
       return;
     }
 
@@ -184,20 +192,19 @@ function Modal({ toggleModal }) {
     e.preventDefault();
     
     if (!formData.projectName.trim()) {
-       setToast({
+      setToast({
         type: 'info',
         message: 'Input project name please.'
-      })
-      
+      });
       return;
     }
 
     const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
     if (totalFiles === 0) {
-        setToast({
-          type: 'info',
-          message: 'An empty project folder cannot be used. Please add at least one valid file before creating the project.'
-        });
+      setToast({
+        type: 'info',
+        message: 'An empty project folder cannot be used. Please add at least one valid file before creating the project.'
+      });
       return;
     }
 
@@ -257,19 +264,31 @@ function Modal({ toggleModal }) {
       const data = await response.json();
 
       if (response.ok) {
+        const projectId = data.project?.id ?? data.id ?? data.projectId;
+
+        if (projectId && localFolderPath) {
+          try {
+            await window.electronAPI.saveFolderPath(projectId, localFolderPath);
+            await window.electronAPI.startWatching(projectId, localFolderPath);
+          } catch (err) {
+            console.warn('Could not save folder path after create:', err);
+          }
+        }
+
         setProgress(prev => [
           ...prev,
-          { step: ' Repository created successfully!', status: 'success' },
-          { step: ' Files uploaded to GitHub!', status: 'success' }
-          // { step: ' Project saved to database!', status: 'success' }
+          { step: 'Repository created successfully!', status: 'success' },
+          { step: 'Files uploaded to GitHub!', status: 'success' },
+          ...(localFolderPath
+            ? [{ step: 'Local folder linked & watching started', status: 'success' }]
+            : [])
         ]);
-        
+
         setTimeout(() => {
-          // alert(`Project "${formData.projectName}" created successfully on GitHub!`);
-           setToast({
+          setToast({
             type: 'success',
             message: `Project "${formData.projectName}" created successfully on GitHub!`
-          })
+          });
           toggleModal();
           window.location.reload();
         }, 1500);
@@ -279,11 +298,10 @@ function Modal({ toggleModal }) {
           { step: ` Error: ${data.message || data.error}`, status: 'error' }
         ]);
         setTimeout(() => {
-          // alert(`Error: ${data.error || 'Failed to create project'}`);
-           setToast({
+          setToast({
             type: 'error',
             message: `Error: ${data.error || 'Failed to create project'}`
-          })
+          });
           
           setIsSubmitting(false);
           setShowProgress(false);
@@ -297,31 +315,31 @@ function Modal({ toggleModal }) {
         { step: ' Failed to create project', status: 'error' }
       ]);
       setTimeout(() => {
-        
         setToast({
           type: 'error',
           message: 'Failed to create project. Please try again.'
-        })
+        });
         setIsSubmitting(false);
         setShowProgress(false);
         setProgress([]);
       }, 2000);
     }
   };
+  
 
   const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-         {toast && (
-              <Toast
-                message={toast.message}
-                type={toast.type}
-                duration={5000}
-                onClose={() => setToast(null)}
-              />
-            )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={5000}
+          onClose={() => setToast(null)}
+        />
+      )}
       <div 
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={toggleModal}
@@ -409,6 +427,21 @@ function Modal({ toggleModal }) {
                 <span className="text-foreground">Public</span>
               </label>
             </div>
+          </div>
+
+            {/* Local Sync Folder — ADD THIS BLOCK HERE */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Local Sync Folder <span className="text-destructive">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleSelectLocalFolder}
+              className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground hover:bg-accent transition-all flex items-center justify-center gap-2"
+            >
+              <Folder className="w-5 h-5" />
+              {localFolderPath ? localFolderPath : 'Select Local Sync Folder'}
+            </button>
           </div>
 
           {/* File Upload Area */}
@@ -608,4 +641,3 @@ function Modal({ toggleModal }) {
 }
 
 export default Modal;
-

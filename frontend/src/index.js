@@ -538,7 +538,11 @@ ipcMain.handle('select-folder', async () => {
   });
   return canceled ? null : filePaths[0];
 });
-
+// Read all files from an arbitrary folder path (used by Modal's native folder browse)
+ipcMain.handle('read-folder-files', async (_, folderPath) => {
+  console.log(`[READ-FOLDER] Reading: ${folderPath}`);
+  return await readFolderFiles(folderPath);
+});
 //Save folder path (persistent)
 ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
   if (!projectId || !folderPath) {

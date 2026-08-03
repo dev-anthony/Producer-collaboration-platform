@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { X, Upload, FolderOpen, Github, Music, Film, FileAudio, Folder } from 'lucide-react';
 import Toast from '../components/Toast';
@@ -10,7 +8,7 @@ function Modal({ toggleModal }) {
     description: '',
     visibility: 'private'
   });
-  
+
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -20,18 +18,9 @@ function Modal({ toggleModal }) {
   const [toast, setToast] = useState(null);
   const [localFolderPath, setLocalFolderPath] = useState(null);
 
-  const handleSelectLocalFolder = async () => {
-  if (!window.electronAPI?.selectFolder) return;
-  const path = await window.electronAPI.selectFolder();
-  if (path) setLocalFolderPath(path);
-};
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFileSelect = (e) => {
@@ -39,39 +28,56 @@ function Modal({ toggleModal }) {
     addFiles(selectedFiles, false);
   };
 
-  const handleFolderSelect = (e) => {
-    const selectedFiles = Array.from(e.target.files);
+const handleFolderSelect = (e) => {
+  const selectedFiles = Array.from(e.target.files);
 
-    if (selectedFiles.length === 0) {
-      setToast({
-        type: 'info',
-        message: 'This folder is empty. Please add files to the folder before uploading.'
-      });
-      return;
+  if (selectedFiles.length === 0) {
+    setToast({
+      type: 'info',
+      message: 'This folder is empty. Please add files to the folder before uploading.'
+    });
+    return;
+  }
+
+  addFiles(selectedFiles, true);
+
+  // Resolve the real absolute root folder path via webUtils (file.path removed in Electron 32+)
+  const firstFile = selectedFiles[0];
+  try {
+    const absoluteFilePath = window.electronAPI?.getPathForFile?.(firstFile);
+    if (absoluteFilePath) {
+      const relParts = firstFile.webkitRelativePath.split('/'); // e.g. ["MyFolder","sub","song.wav"]
+      const sep = absoluteFilePath.includes('\\') ? '\\' : '/';
+      const absParts = absoluteFilePath.split(/[\\/]/);
+      const rootParts = absParts.slice(0, absParts.length - relParts.length + 1);
+      const rootPath = rootParts.join(sep);
+      setLocalFolderPath(rootPath);
+    } else {
+      console.warn('Could not resolve absolute path for selected folder');
     }
-    addFiles(selectedFiles, true);
-  };
+  } catch (err) {
+    console.warn('getPathForFile failed:', err);
+  }
+};
 
   const addFiles = (newFiles, isFolder) => {
-    // Filter out hidden files, git files, and system files
     const filteredFiles = newFiles.filter(file => {
       const name = file.name.toLowerCase();
       const path = file.webkitRelativePath || file.name;
-      
+
       if (name.startsWith('.')) return false;
       if (path.includes('/.git/') || path.includes('\\.git\\')) return false;
-      
+
       const systemFiles = ['thumbs.db', 'desktop.ini', '.ds_store'];
       if (systemFiles.includes(name)) return false;
-      
+
       const allowedExtensions = [
         '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
         '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
       ];
       const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
-      
+
       if (!allowedExtensions.includes(ext)) return false;
-      
       return true;
     });
 
@@ -86,7 +92,7 @@ function Modal({ toggleModal }) {
     const filesWithMetadata = filteredFiles.map(file => {
       const relativePath = file.webkitRelativePath || file.name;
       const folderPath = isFolder ? relativePath.split('/').slice(0, -1).join('/') : '';
-      
+
       return {
         file,
         name: file.name,
@@ -103,9 +109,7 @@ function Modal({ toggleModal }) {
     if (isFolder) {
       const folderGroups = {};
       filesWithMetadata.forEach(file => {
-        if (!folderGroups[file.folderPath]) {
-          folderGroups[file.folderPath] = [];
-        }
+        if (!folderGroups[file.folderPath]) folderGroups[file.folderPath] = [];
         folderGroups[file.folderPath].push(file);
       });
 
@@ -122,21 +126,14 @@ function Modal({ toggleModal }) {
     }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
     const droppedItems = Array.from(e.dataTransfer.items);
-    
+
     droppedItems.forEach(item => {
       const entry = item.webkitGetAsEntry();
       if (entry) {
@@ -157,22 +154,15 @@ function Modal({ toggleModal }) {
         if (entry.isFile) {
           entry.file(file => {
             files.push(file);
-            if (files.length === entries.length) {
-              addFiles(files, true);
-            }
+            if (files.length === entries.length) addFiles(files, true);
           });
         }
       });
     });
   };
 
-  const removeFile = (id) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
-  };
-
-  const removeFolder = (id) => {
-    setFolders(prev => prev.filter(f => f.id !== id));
-  };
+  const removeFile = (id) => setFiles(prev => prev.filter(f => f.id !== id));
+  const removeFolder = (id) => setFolders(prev => prev.filter(f => f.id !== id));
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -190,12 +180,9 @@ function Modal({ toggleModal }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.projectName.trim()) {
-      setToast({
-        type: 'info',
-        message: 'Input project name please.'
-      });
+      setToast({ type: 'info', message: 'Input project name please.' });
       return;
     }
 
@@ -217,47 +204,31 @@ function Modal({ toggleModal }) {
       apiFormData.append('projectName', formData.projectName);
       apiFormData.append('description', formData.description);
       apiFormData.append('visibility', formData.visibility);
-      
+
       const fileStructure = {
         individualFiles: files.map(f => ({
-          name: f.name,
-          size: f.size,
-          lastModified: f.lastModified,
-          relativePath: f.relativePath
+          name: f.name, size: f.size, lastModified: f.lastModified, relativePath: f.relativePath
         })),
         folders: folders.map(folder => ({
           name: folder.name,
           files: folder.files.map(f => ({
-            name: f.name,
-            size: f.size,
-            lastModified: f.lastModified,
-            relativePath: f.relativePath
+            name: f.name, size: f.size, lastModified: f.lastModified, relativePath: f.relativePath
           }))
         }))
       };
 
       apiFormData.append('fileStructure', JSON.stringify(fileStructure));
-      
-      files.forEach((fileData) => {
-        apiFormData.append('files', fileData.file);
-      });
 
+      files.forEach((fileData) => apiFormData.append('files', fileData.file));
       folders.forEach(folder => {
-        folder.files.forEach(fileData => {
-          apiFormData.append('files', fileData.file);
-        });
+        folder.files.forEach(fileData => apiFormData.append('files', fileData.file));
       });
 
-      setProgress(prev => [
-        ...prev,
-        { step: 'Creating GitHub repository...', status: 'loading' }
-      ]);
+      setProgress(prev => [...prev, { step: 'Creating GitHub repository...', status: 'loading' }]);
 
       const response = await fetch('http://localhost:5000/api/projects/create', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
-        },
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}` },
         body: apiFormData
       });
 
@@ -293,16 +264,9 @@ function Modal({ toggleModal }) {
           window.location.reload();
         }, 1500);
       } else {
-        setProgress(prev => [
-          ...prev,
-          { step: ` Error: ${data.message || data.error}`, status: 'error' }
-        ]);
+        setProgress(prev => [...prev, { step: ` Error: ${data.message || data.error}`, status: 'error' }]);
         setTimeout(() => {
-          setToast({
-            type: 'error',
-            message: `Error: ${data.error || 'Failed to create project'}`
-          });
-          
+          setToast({ type: 'error', message: `Error: ${data.error || 'Failed to create project'}` });
           setIsSubmitting(false);
           setShowProgress(false);
           setProgress([]);
@@ -310,43 +274,26 @@ function Modal({ toggleModal }) {
       }
     } catch (error) {
       console.error('Error creating project:', error);
-      setProgress(prev => [
-        ...prev,
-        { step: ' Failed to create project', status: 'error' }
-      ]);
+      setProgress(prev => [...prev, { step: ' Failed to create project', status: 'error' }]);
       setTimeout(() => {
-        setToast({
-          type: 'error',
-          message: 'Failed to create project. Please try again.'
-        });
+        setToast({ type: 'error', message: 'Failed to create project. Please try again.' });
         setIsSubmitting(false);
         setShowProgress(false);
         setProgress([]);
       }, 2000);
     }
   };
-  
 
   const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          duration={5000}
-          onClose={() => setToast(null)}
-        />
+        <Toast message={toast.message} type={toast.type} duration={5000} onClose={() => setToast(null)} />
       )}
-      <div 
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={toggleModal}
-      />
-      {/* Modal */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={toggleModal} />
+
       <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto glass-strong rounded-2xl animate-scale-in border border-border">
-        {/* Header */}
         <div className="sticky top-0 glass-strong border-b border-border px-6 py-4 flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
             <div className="bg-primary p-2 rounded-lg glow-primary">
@@ -357,17 +304,12 @@ function Modal({ toggleModal }) {
               <p className="text-sm text-muted-foreground">Create a GitHub repository for your project</p>
             </div>
           </div>
-          <button
-            onClick={toggleModal}
-            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={toggleModal} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Form Content */}
         <div className="p-6 space-y-6">
-          {/* Project Name */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Project Name <span className="text-destructive">*</span>
@@ -383,11 +325,8 @@ function Modal({ toggleModal }) {
             <p className="text-xs text-muted-foreground mt-1">This will be your GitHub repository name</p>
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Description</label>
             <textarea
               name="description"
               value={formData.description}
@@ -398,53 +337,20 @@ function Modal({ toggleModal }) {
             />
           </div>
 
-          {/* Visibility */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Repository Visibility
-            </label>
+            <label className="block text-sm font-medium text-foreground mb-2">Repository Visibility</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="private"
-                  checked={formData.visibility === 'private'}
-                  onChange={handleInputChange}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
+                <input type="radio" name="visibility" value="private" checked={formData.visibility === 'private'} onChange={handleInputChange} className="w-4 h-4 text-primary focus:ring-primary" />
                 <span className="text-foreground">Private</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="public"
-                  checked={formData.visibility === 'public'}
-                  onChange={handleInputChange}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
+                <input type="radio" name="visibility" value="public" checked={formData.visibility === 'public'} onChange={handleInputChange} className="w-4 h-4 text-primary focus:ring-primary" />
                 <span className="text-foreground">Public</span>
               </label>
             </div>
           </div>
 
-            {/* Local Sync Folder — ADD THIS BLOCK HERE */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Local Sync Folder <span className="text-destructive">*</span>
-            </label>
-            <button
-              type="button"
-              onClick={handleSelectLocalFolder}
-              className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground hover:bg-accent transition-all flex items-center justify-center gap-2"
-            >
-              <Folder className="w-5 h-5" />
-              {localFolderPath ? localFolderPath : 'Select Local Sync Folder'}
-            </button>
-          </div>
-
-          {/* File Upload Area */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Upload Files & Folders <span className="text-destructive">*</span>
@@ -454,9 +360,7 @@ function Modal({ toggleModal }) {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                isDragging
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border glass'
+                isDragging ? 'border-primary bg-primary/10' : 'border-border glass'
               }`}
             >
               <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -489,37 +393,28 @@ function Modal({ toggleModal }) {
               <p className="text-xs text-muted-foreground mt-3">
                 Supported: WAV, MP3, MP4, FLAC, AIFF, OGG, M4A, MPEG, AVI, MOV, FLV, MIDI
               </p>
+              {localFolderPath && (
+                <p className="text-xs text-primary mt-2 flex items-center justify-center gap-1">
+                  <Folder className="w-3.5 h-3.5" /> Syncing with: {localFolderPath}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Folders List */}
           {folders.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">
-                Selected Folders ({folders.length})
-              </h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">Selected Folders ({folders.length})</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {folders.map((folder) => (
-                  <div
-                    key={folder.id}
-                    className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
-                  >
+                  <div key={folder.id} className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Folder className="w-5 h-5 text-secondary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-foreground text-sm font-medium truncate">
-                          {folder.name}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {folder.fileCount} files
-                        </p>
+                        <p className="text-foreground text-sm font-medium truncate">{folder.name}</p>
+                        <p className="text-muted-foreground text-xs">{folder.fileCount} files</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFolder(folder.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors ml-2 flex-shrink-0"
-                    >
+                    <button type="button" onClick={() => removeFolder(folder.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-2 flex-shrink-0">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -528,34 +423,20 @@ function Modal({ toggleModal }) {
             </div>
           )}
 
-          {/* Individual Files List */}
           {files.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">
-                Individual Files ({files.length})
-              </h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">Individual Files ({files.length})</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {files.map((fileData) => (
-                  <div
-                    key={fileData.id}
-                    className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
-                  >
+                  <div key={fileData.id} className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getFileIcon(fileData.type)}
                       <div className="flex-1 min-w-0">
-                        <p className="text-foreground text-sm font-medium truncate">
-                          {fileData.name}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {formatFileSize(fileData.size)}
-                        </p>
+                        <p className="text-foreground text-sm font-medium truncate">{fileData.name}</p>
+                        <p className="text-muted-foreground text-xs">{formatFileSize(fileData.size)}</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(fileData.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors ml-2 flex-shrink-0"
-                    >
+                    <button type="button" onClick={() => removeFile(fileData.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-2 flex-shrink-0">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -564,7 +445,6 @@ function Modal({ toggleModal }) {
             </div>
           )}
 
-          {/* Progress Display */}
           {showProgress && (
             <div className="glass rounded-lg p-4 border border-primary/30">
               <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
@@ -576,17 +456,11 @@ function Modal({ toggleModal }) {
               </h3>
               <div className="space-y-2">
                 {progress.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`text-sm flex items-center gap-2 ${
-                      item.status === 'success' ? 'text-green-400' :
-                      item.status === 'error' ? 'text-destructive' :
-                      'text-foreground'
-                    }`}
-                  >
-                    {item.status === 'loading' && (
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                    )}
+                  <div key={index} className={`text-sm flex items-center gap-2 ${
+                    item.status === 'success' ? 'text-green-400' :
+                    item.status === 'error' ? 'text-destructive' : 'text-foreground'
+                  }`}>
+                    {item.status === 'loading' && <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>}
                     {item.step}
                   </div>
                 ))}
@@ -594,7 +468,6 @@ function Modal({ toggleModal }) {
             </div>
           )}
 
-          {/* Summary */}
           {totalFiles > 0 && (
             <div className="glass border border-primary/30 rounded-lg p-3">
               <p className="text-primary text-sm">
@@ -603,13 +476,8 @@ function Modal({ toggleModal }) {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={toggleModal}
-              className="flex-1 py-3 px-4 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border"
-            >
+            <button type="button" onClick={toggleModal} className="flex-1 py-3 px-4 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border">
               Cancel
             </button>
             <button

@@ -1,20 +1,21 @@
-// // routes/authRoutes.js
-// const express = require('express');
-// const router = express.Router();
-// const authController = require('../controllers/authController.js');
-// const authMiddleware = require('../middleware/authMiddleware.js');
-
-// // Exchange OAuth code for JWT token
-// router.get('/getAccessToken', authController.getAccessToken);
-
-// // Get GitHub user data (protected route)
-// router.get('/getUserData', authMiddleware.verifyToken, authController.getUserData);
-
-// router.post('/logout', authMiddleware.verifyToken, authController.revokeGitHubToken);
-
-
-// module.exports = router;
 // routes/authRoutes.js
+// ── Phase 4.6: email/password auth routes (Supabase Auth + cookies) ──────────
+const express = require('express');
+const router = express.Router();
+const authController = require('../controllers/authController.js');
+const authMiddleware = require('../middleware/authMiddleware.js');
+
+// Public
+router.post('/signup', authController.signup); // email, password, username
+router.post('/login', authController.login);   // email, password → sets httpOnly cookies
+
+// Protected
+router.post('/logout', authMiddleware.verifyToken, authController.logout);
+router.get('/me', authMiddleware.verifyToken, authController.getMe);
+
+module.exports = router;
+
+/* ── OLD GitHub-OAuth routes (Phase 4.6 replaced) ──
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController.js');
@@ -33,3 +34,4 @@ router.get('/getUserData', authMiddleware.verifyToken, authController.getUserDat
 router.post('/logout', authMiddleware.verifyToken, authController.revokeGitHubToken);
 
 module.exports = router;
+── END OLD authRoutes ── */

@@ -25,6 +25,12 @@ router.get('/:projectId/pull-changes', projectController.pullChanges);
 router.patch('/:projectId/changes', projectController.markProjectChanges);
 router.post('/:projectId/detect-changes', projectController.detectFileChanges);
 router.post('/:projectId/push', projectController.pushProjectChanges);
+
+// Phase 5 — simple-git endpoints
+router.get('/:projectId/git-credentials', projectController.getGitCredentials);
+router.post('/:projectId/record-push', projectController.recordPush);
+router.get('/:projectId/pull-info', projectController.getPullInfo);
+
 router.post('/:projectId/share', projectController.generateShareLink);
 router.delete('/:projectId', projectController.deleteProject);
 

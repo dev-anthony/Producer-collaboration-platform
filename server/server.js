@@ -1,6 +1,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser'); // ── Phase 4.9 ──
 // require('dotenv').config();
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
@@ -9,6 +10,7 @@ const projectRoutes = require('./routes/projectRoutes');
 const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser()) // ── Phase 4.9: parse httpOnly auth cookies ──
 
 app.use(cors({
   origin: [

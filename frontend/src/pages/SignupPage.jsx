@@ -1,36 +1,45 @@
 
 import React, { useState } from 'react';
 
-// ── Phase 4.11 + 4.12 ───────────────────────────────────────────────────────
-// GitHub-OAuth login replaced with email/password (Supabase Auth via server).
-// The old GitHub OAuth LoginPage is preserved (commented) at the bottom.
+// ── Phase 4.13 ──────────────────────────────────────────────────────────────
+// Email/password signup against the server (Supabase Auth). After a successful
+// signup it switches back to the login screen.
 // Props:
-//   onLogin(user)      → called after a successful login
-//   onNavigateSignup() → switch to the signup screen
+//   onSignupComplete() → called after account creation (navigate to login)
+//   onNavigateLogin()  → switch to the login screen
 //   setToast(toast)    → optional toast setter
 // ────────────────────────────────────────────────────────────────────────────
-function LoginPage({ onLogin, onNavigateSignup, setToast }) {
+function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const res = await fetch('http://localhost:5000/api/auth/signup', {
         method: 'POST',
-        credentials: 'include', // receive httpOnly cookies
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Login failed');
+        throw new Error(data.error || 'Signup failed');
       }
-      if (onLogin) onLogin(data.user);
+      if (setToast) setToast({ type: 'success', message: 'Account created. Please log in.' });
+      if (onSignupComplete) onSignupComplete();
     } catch (err) {
       setErrorMsg(err.message);
       if (setToast) setToast({ type: 'error', message: err.message });
@@ -46,7 +55,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
       <div className="relative z-10 max-w-md w-full animate-fade-in">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/60 mb-6 glow-primary">
             <svg className="w-10 h-10 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18V5l12-2v13" strokeLinecap="round" strokeLinejoin="round"/>
@@ -54,21 +63,29 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
               <circle cx="18" cy="16" r="3"/>
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">ProdCollab</h1>
-          <p className="text-muted-foreground text-lg">Where producers create together</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">Create your account</h1>
+          <p className="text-muted-foreground text-lg">Start collaborating in minutes</p>
         </div>
 
         <div className="glass-strong rounded-3xl p-8 shadow-2xl">
-          <h2 className="text-2xl font-semibold text-foreground mb-2 text-center">Welcome Back</h2>
-          <p className="text-muted-foreground text-center mb-8">Sign in to access your studio workspace</p>
-
           {errorMsg && (
             <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center">
               {errorMsg}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="producer_name"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Email</label>
               <input
@@ -91,59 +108,39 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 placeholder="••••••••"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Confirm Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="••••••••"
+              />
+            </div>
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-xl py-4 px-6 font-semibold bg-primary text-primary-foreground transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
             >
-              {loading ? 'Signing in…' : 'Login'}
+              {loading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
           <p className="text-center text-muted-foreground text-sm mt-6">
-            Don&apos;t have an account?{' '}
+            Already have an account?{' '}
             <button
-              onClick={onNavigateSignup}
+              onClick={onNavigateLogin}
               className="text-primary font-medium hover:underline"
             >
-              Sign up
+              Log in
             </button>
           </p>
         </div>
-
-        <p className="text-center text-muted-foreground/60 text-sm mt-8">
-          By signing in, you agree to our Terms of Service and Privacy Policy
-        </p>
       </div>
     </div>
   );
 }
 
-export default LoginPage;
-
-/* ── OLD GitHub-OAuth LoginPage (Phase 4.11 replaced) ──
-import React from 'react';
-
-function LoginPage({ clientId }) {
-  const loginWithGithub = () => {
-    const isProduction = !window.location.href.includes('localhost');
-    const redirectUri = 'http://localhost:9000/';
-
-    const authUrl = `https://github.com/login/oauth/authorize?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=user%20repo`;
-
-    console.log('[LOGIN] Starting OAuth:', { isProduction, redirectUri, authUrl });
-    window.location.href = authUrl;
-  };
-
-  return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
-      ... (GitHub "Continue with GitHub" button UI) ...
-    </div>
-  );
-}
-
-export default LoginPage;
-── END OLD LoginPage ── */
+export default SignupPage;

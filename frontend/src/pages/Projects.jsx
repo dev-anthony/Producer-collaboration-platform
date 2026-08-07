@@ -6,7 +6,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import { Plus } from 'lucide-react';
 
-function Projects({ onLogout, jwtToken }) {
+// ── Phase 4.15: session via httpOnly cookie; no more jwtToken prop/headers ──
+function Projects({ onLogout }) {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,19 +47,10 @@ function Projects({ onLogout, jwtToken }) {
   };
 
   const getUserData = async () => {
-    if (!jwtToken) {
-      setError("Missing authentication token");
-      setLoading(false);
-      setToast({
-        type: 'error',
-        message: "Missing authentication token"
-      });
-      return;
-    }
-
     try {
-      const response = await fetch("http://localhost:5000/api/auth/getUserData", {
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+      // Phase 4.15: cookie-based session, fetch profile from /api/auth/me
+      const response = await fetch("http://localhost:5000/api/auth/me", {
+        credentials: 'include'
       });
 
       const data = await response.json();
@@ -81,7 +73,7 @@ function Projects({ onLogout, jwtToken }) {
   const getProjects = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/projects", {
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+        credentials: 'include'
       });
       const data = await response.json();
       if (!data.error) {
@@ -329,15 +321,68 @@ function Projects({ onLogout, jwtToken }) {
       throw error;
     }
 
+    setToast({ type: 'info', message: 'Pushing changes' });
+
+    // Get git credentials (ProdCollab token + repoUrl) from server
+    const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
+      credentials: 'include'
+    });
+    const creds = await credRes.json();
+    if (!credRes.ok) {
+      throw new Error(creds.error || creds.message || 'Failed to get git credentials');
+    }
+
+    // Ensure the local folder is a git repo wired to origin
+    const initRes = await window.electronAPI.initGit({
+      folderPath,
+      repoUrl: creds.repoUrl,
+      token: creds.token
+    });
+    if (!initRes.success) throw new Error(initRes.error || 'Git init failed');
+
+    // Commit + push via simple-git
+    const pushRes = await window.electronAPI.gitPush({
+      folderPath,
+      message: `Update by ${user?.username || 'ProdCollab'}`,
+      username: user?.username,
+      email: user?.email,
+      repoUrl: creds.repoUrl,
+      token: creds.token
+    });
+    if (!pushRes.success) throw new Error(pushRes.error || 'Git push failed');
+
+    // Tell the server the push happened
+    await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ commitMessage: `Update by ${user?.username || 'ProdCollab'}` })
+    });
+
+    setProjects(prev => prev.map(p =>
+      String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
+    ));
+    setProjectsWithChanges(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(String(projectId));
+      return newSet;
+    });
+    setToast({
+      type: 'success',
+      message: pushRes.nothingToCommit
+        ? 'Already up to date. Nothing new to push.'
+        : 'Changes pushed successfully!'
+    });
+
+    /* ── OLD Octokit/FormData push flow (Phase 5 replaced with simple-git) ──
     const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-    
     const storedStructure = typeof project.file_paths === 'string' 
       ? JSON.parse(project.file_paths) 
       : project.file_paths;
     const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-    
     let currentFileStructure;
-    
     if (hasFolderStructure) {
       const folderName = storedStructure.folders[0].name;
       currentFileStructure = {
@@ -363,7 +408,6 @@ function Projects({ onLogout, jwtToken }) {
         folders: []
       };
     }
-
     let filesFromDisk;
     try {
       filesFromDisk = await window.electronAPI.readProjectFiles({
@@ -377,15 +421,12 @@ function Projects({ onLogout, jwtToken }) {
       }
       throw error;
     }
-
     if (filesFromDisk.length === 0) {
       setToast({ type: 'error', message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.' });
       return;
     }
-
     const formData = new FormData();
     formData.append('fileStructure', JSON.stringify(currentFileStructure));
-
     for (const fileData of filesFromDisk) {
       try {
         const binaryString = atob(fileData.content);
@@ -403,26 +444,13 @@ function Projects({ onLogout, jwtToken }) {
         setToast({ type: 'error', message: `Error processing file ${fileData.name}` });
       }
     }
-
-    setToast({ type: 'info', message: 'Pushing changes' });
-
-    const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
+    const pushResOld = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${jwtToken}` },
       body: formData
     });
-
-    const pushData = await pushRes.json();
-
-    if (pushRes.ok) {
-      setProjects(prev => prev.map(p =>
-        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
-      ));
-      setProjectsWithChanges(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(String(projectId));
-        return newSet;
-      });
+    const pushData = await pushResOld.json();
+    if (pushResOld.ok) {
       setTimeout(() => {
         setToast({ type: 'success', message: `Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.` });
         window.location.reload();
@@ -430,9 +458,10 @@ function Projects({ onLogout, jwtToken }) {
     } else {
       throw new Error(pushData.error || pushData.message || 'Push failed');
     }
+    ── END OLD push flow ── */
   } catch (err) {
     console.error('[PUSH] Failed:', err);
-    setToast({ type: 'error', message: 'Failed to push changes.' });
+    setToast({ type: 'error', message: `Failed to push changes: ${err.message}` });
   }
 };
 
@@ -508,8 +537,8 @@ function Projects({ onLogout, jwtToken }) {
 
       const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ currentFileStructure })
@@ -584,7 +613,7 @@ function Projects({ onLogout, jwtToken }) {
   try {
     const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
       method: 'DELETE',
-      headers: { "Authorization": `Bearer ${jwtToken}` }
+      credentials: 'include'
     });
     
     if (response.ok) {
@@ -685,7 +714,6 @@ function Projects({ onLogout, jwtToken }) {
                       onDelete={() => handleDeleteProject(project.id)}
                       onPushChanges={() => handlePushChanges(project.id)}
                       onCheckChanges={handleCheckChanges}
-                      jwtToken={jwtToken}
                     />
                   </div>
                 ))}

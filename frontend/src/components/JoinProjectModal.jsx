@@ -300,7 +300,7 @@
 import React, { useState } from 'react';
 import { X, Link2, FolderOpen, Users, Github, Loader, Check, AlertCircle } from 'lucide-react';
 
-function JoinProjectModal({ toggleModal, jwtToken }) {
+function JoinProjectModal({ toggleModal }) {
   const [shareLink, setShareLink] = useState('');
   const [projectInfo, setProjectInfo] = useState(null);
   const [localPath, setLocalPath] = useState('');
@@ -325,9 +325,7 @@ function JoinProjectModal({ toggleModal, jwtToken }) {
       const shareToken = extractTokenFromLink(shareLink);
       
       const response = await fetch(`http://localhost:5000/api/projects/share/${shareToken}`, {
-        headers: {
-          'Authorization': `Bearer ${jwtToken}`
-        }
+        credentials: 'include'
       });
 
       const data = await response.json();
@@ -379,8 +377,8 @@ function JoinProjectModal({ toggleModal, jwtToken }) {
       
       const response = await fetch('http://localhost:5000/api/projects/join', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -397,6 +395,31 @@ function JoinProjectModal({ toggleModal, jwtToken }) {
       const data = await response.json();
 
       if (response.ok) {
+        // Phase 5: clone the repo into the chosen local folder via simple-git
+        try {
+          const joinedProjectId = data.project?.id;
+          const repoUrl = data.project?.repoUrl;
+          if (joinedProjectId && repoUrl && window.electronAPI?.gitClone) {
+            // Fetch ProdCollab git credentials (token) so we can clone private repos
+            const credRes = await fetch(`http://localhost:5000/api/projects/${joinedProjectId}/git-credentials`, {
+              credentials: 'include'
+            });
+            const creds = await credRes.json();
+            if (credRes.ok) {
+              const cloneRes = await window.electronAPI.gitClone({
+                repoUrl: creds.repoUrl || repoUrl,
+                folderPath: localPath,
+                token: creds.token
+              });
+              if (!cloneRes.success) {
+                console.error('[JOIN] git clone failed:', cloneRes.error);
+              }
+            }
+          }
+        } catch (cloneErr) {
+          console.error('[JOIN] Clone step failed:', cloneErr);
+        }
+
         const message = selectedFolderHandle?.isEmpty 
           ? `Successfully joined "${projectInfo.name}"!\n\nEmpty folder linked. Files will be synced when added to: ${localPath}`
           : `Successfully joined "${projectInfo.name}"!\n\nFiles will be synced to: ${localPath}`;

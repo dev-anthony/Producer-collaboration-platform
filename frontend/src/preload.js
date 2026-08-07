@@ -111,4 +111,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('oauth-code', handler);
     return () => ipcRenderer.removeListener('oauth-code', handler);
   },
+
+  // Git (simple-git) — Phase 5
+  initGit: (data) => ipcRenderer.invoke('init-git', data),
+  gitPush: (data) => ipcRenderer.invoke('git-push', data),
+  gitPull: (data) => ipcRenderer.invoke('git-pull', data),
+  gitClone: (data) => ipcRenderer.invoke('git-clone', data),
+  gitLog: (data) => ipcRenderer.invoke('git-log', data),
 });

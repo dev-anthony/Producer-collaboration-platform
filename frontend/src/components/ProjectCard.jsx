@@ -18,13 +18,13 @@ import {
   Users
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
+// ── Phase 4.15: session via httpOnly cookie; jwtToken prop no longer used ──
 function ProjectCard({
   project,
   hasUnpushedChanges = false,
   onDelete,
   onPushChanges,
   onCheckChanges,
-  jwtToken,
   isCollaborator = false
 }) {
   const [isChecking, setIsChecking] = useState(false);
@@ -72,7 +72,7 @@ function ProjectCard({
     try {
       const response = await fetch(`http://localhost:5000/api/projects/${project.id}/share`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${jwtToken}` }
+        credentials: 'include'
       });
       const data = await response.json();
       if (response.ok) {
@@ -165,7 +165,7 @@ function ProjectCard({
       const forceCheck = !folderHasFiles;
       const changesRes = await fetch(
         `http://localhost:5000/api/projects/${projectId}/check-remote-changes${forceCheck ? '?forceCheck=true' : ''}`,
-        { headers: { 'Authorization': `Bearer ${jwtToken}` } }
+        { credentials: 'include' }
       );
       
       const changesData = await changesRes.json();
@@ -194,7 +194,7 @@ function ProjectCard({
       // STEP 4: Fetch files
       const pullRes = await fetch(
         `http://localhost:5000/api/projects/${projectId}/pull-changes`,
-        { headers: { 'Authorization': `Bearer ${jwtToken}` } }
+        { credentials: 'include' }
       );
       
       const data = await pullRes.json();

@@ -11,7 +11,8 @@ import Toast from '../components/Toast';
 
 //use the window.location.reload after a successful push..to reload the window to clear the changes flag
 
-function Dashboard({ onLogout, jwtToken }) {
+// ── Phase 4.15: session via httpOnly cookie; no more jwtToken prop/headers ──
+function Dashboard({ onLogout }) {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,7 @@ function Dashboard({ onLogout, jwtToken }) {
       // console.error('[FOLDER] Error ensuring folder path:', error);
       setToast({
           type: 'error',
-          message: error
+          message: error.message
         });
       
       if (error.message === 'FOLDER_SELECTION_NOT_AVAILABLE') {
@@ -72,7 +73,7 @@ function Dashboard({ onLogout, jwtToken }) {
       }
       setToast({
         type: 'error',
-        message: error
+        message: error.message
       });
       throw error;
     }
@@ -116,19 +117,10 @@ function Dashboard({ onLogout, jwtToken }) {
     setIsModalOpen(!isModalOpen);
   };
   const getUserData = async () => {
-    if (!jwtToken) {
-      setError("Missing authentication token");
-      setLoading(false);
-      setToast({
-          type: 'error',
-          message: "Missing authentication token"
-        });
-      return;
-    }
-
     try {
-      const response = await fetch("http://localhost:5000/api/auth/getUserData", {
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+      // Phase 4.15: cookie-based session, fetch profile from /api/auth/me
+      const response = await fetch("http://localhost:5000/api/auth/me", {
+        credentials: 'include'
       });
 
       const data = await response.json();
@@ -150,7 +142,7 @@ function Dashboard({ onLogout, jwtToken }) {
   const getProjects = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/projects", {
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+        credentials: 'include'
       });
       const data = await response.json();
       if (!data.error) {
@@ -163,7 +155,7 @@ function Dashboard({ onLogout, jwtToken }) {
     } catch (err) {
        setToast({
           type: 'error',
-          message: "Error fetching projects:", err
+          message: `Error fetching projects: ${err.message}`
         });
       console.error("Error fetching projects:", err);
     }
@@ -171,7 +163,7 @@ function Dashboard({ onLogout, jwtToken }) {
   const getCollaboratedProjects = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/projects/collaborated", {
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+        credentials: 'include'
       });
       const data = await response.json();
       if (!data.error) {
@@ -184,36 +176,25 @@ function Dashboard({ onLogout, jwtToken }) {
     } catch (err) {
       setToast({
           type: 'error',
-          message: "Error fetching projects:", err
+          message: `Error fetching collaborated projects: ${err.message}`
         });
       console.error("Error fetching collaborated projects:", err);
     }
   };
   const handlePushChanges = async (projectId) => {
     try {
-      
-      // const project = projects.find(p => String(p.id) === String(projectId)) ||
-      // collaboratedProjects.find(p => p.id === projectId);
       const project = projects.find(p => String(p.id) === String(projectId)) ||
                       collaboratedProjects.find(p => String(p.id) === String(projectId))
 
       if (!project) {
-        setToast({
-          type: 'error',
-          message: "Project not found"
-        });
+        setToast({ type: 'error', message: "Project not found" });
         return;
       }
 
       if (!project.hasUnpushedChanges) {
-        setToast({
-          type: 'info',
-          message: "No changes to push"
-        });
+        setToast({ type: 'info', message: "No changes to push" });
         return;
       }
-
-      // console.log(`[PUSH] Starting push for project ${projectId}...`);
 
       // STEP 1: Ensure folder path exists
       let folderPath;
@@ -221,23 +202,77 @@ function Dashboard({ onLogout, jwtToken }) {
         folderPath = await ensureFolderPath(projectId);
       } catch (error) {
         if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-          // alert('Folder selection cancelled. Cannot push without selecting a folder.');
-          setToast({
-          type: 'warning',
-          message: "Folder selection cancelled. Cannot push without selecting a folder."
-        });
+          setToast({ type: 'warning', message: "Folder selection cancelled. Cannot push without selecting a folder." });
           return;
         }
         throw error;
       }
 
-      // console.log(`[PUSH] Using folder path:`, folderPath);
+      setToast({ type: 'info', message: 'Pushing changes' });
+
+      // STEP 2: Get git credentials (ProdCollab token + repoUrl) from server
+      const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
+        credentials: 'include'
+      });
+      const creds = await credRes.json();
+      if (!credRes.ok) {
+        throw new Error(creds.error || creds.message || 'Failed to get git credentials');
+      }
+
+      // STEP 3: Ensure the local folder is a git repo wired to origin
+      const initRes = await window.electronAPI.initGit({
+        folderPath,
+        repoUrl: creds.repoUrl,
+        token: creds.token
+      });
+      if (!initRes.success) throw new Error(initRes.error || 'Git init failed');
+
+      // STEP 4: Commit + push via simple-git
+      const pushRes = await window.electronAPI.gitPush({
+        folderPath,
+        message: `Update by ${user?.username || 'ProdCollab'}`,
+        username: user?.username,
+        email: user?.email,
+        repoUrl: creds.repoUrl,
+        token: creds.token
+      });
+      if (!pushRes.success) throw new Error(pushRes.error || 'Git push failed');
+
+      // STEP 5: Tell the server the push happened
+      await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ commitMessage: `Update by ${user?.username || 'ProdCollab'}` })
+      });
+
+      // STEP 6: Update UI state
+      setProjects(prev => prev.map(p =>
+        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
+      ));
+      setCollaboratedProjects(prev => prev.map(p =>
+        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
+      ));
+      setProjectsWithChanges(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(String(projectId));
+        return newSet;
+      });
+
+      setToast({
+        type: 'success',
+        message: pushRes.nothingToCommit
+          ? 'Already up to date. Nothing new to push.'
+          : 'Changes pushed successfully!'
+      });
+
+      /* ── OLD Octokit/FormData push flow (Phase 5 replaced with simple-git) ──
+      // console.log(`[PUSH] Starting push for project ${projectId}...`);
 
       // STEP 2: Scan the CURRENT folder structure
-      // console.log('[PUSH] Scanning current folder structure...');
       const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-      
-      // console.log(`[PUSH] Scanned structure:`, scannedStructure);
 
       // STEP 3: Transform scanned structure to match backend format
       const storedStructure = typeof project.file_paths === 'string' 
@@ -248,9 +283,7 @@ function Dashboard({ onLogout, jwtToken }) {
       let currentFileStructure;
       
       if (hasFolderStructure) {
-        // Project has folder structure - recreate it
-        const folderName = storedStructure.folders[0].name; // Use the original folder name
-        
+        const folderName = storedStructure.folders[0].name;
         currentFileStructure = {
           individualFiles: [],
           folders: [{
@@ -264,7 +297,6 @@ function Dashboard({ onLogout, jwtToken }) {
           }]
         };
       } else {
-        // Project has flat structure (individual files)
         currentFileStructure = {
           individualFiles: scannedStructure.files.map(file => ({
             name: file.name,
@@ -275,32 +307,23 @@ function Dashboard({ onLogout, jwtToken }) {
           folders: []
         };
       }
-      
-      // console.log(`[PUSH] Transformed structure:`, currentFileStructure);
 
       // STEP 4: Read files from disk
       let filesFromDisk;
       try {
         filesFromDisk = await window.electronAPI.readProjectFiles({
           projectId: projectId,
-          fileStructure: storedStructure // Use stored structure for reading
+          fileStructure: storedStructure
         });
       } catch (error) {
         if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-          // alert('Folder path error. Please try again.');
-          setToast({
-          type: 'error',
-          message: 'Folder path error. Please try again.'
-        });
+          setToast({ type: 'error', message: 'Folder path error. Please try again.' });
           return;
         }
         throw error;
       }
 
-      // console.log(`[PUSH] Files read from disk:`, filesFromDisk.length);
-
       if (filesFromDisk.length === 0) {
-        // alert('No matching files found in the selected folder.\n\nMake sure your local files match the project structure.');
          setToast({
           type: 'error',
           message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
@@ -310,74 +333,37 @@ function Dashboard({ onLogout, jwtToken }) {
 
       // STEP 5: Build FormData with TRANSFORMED structure
       const formData = new FormData();
-      
-      // Send the transformed current structure (matches backend format)
       formData.append('fileStructure', JSON.stringify(currentFileStructure));
 
-      // Convert base64 files to actual File objects
       for (const fileData of filesFromDisk) {
         try {
-          // Decode base64 to binary
           const binaryString = atob(fileData.content);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
           }
-          
-          // Create Blob from binary data
           const blob = new Blob([bytes]);
-          
-          // Create File object with proper metadata
           const file = new File([blob], fileData.name, {
             type: 'application/octet-stream',
             lastModified: fileData.lastModified || Date.now()
           });
-          
-          // Append to FormData
           formData.append('files', file);
-          
-          // console.log(`[PUSH] Added file to FormData: ${fileData.name} (${file.size} bytes)`);
         } catch (err) {
-          // console.error(`[PUSH] Error processing file ${fileData.name}:`, err);
           setToast({
             type: 'error',
-            message: `Error processing file ${fileData.name}:`, err
+            message: `Error processing file ${fileData.name}: ${err.message}`
           });
         }
       }
 
-      setToast({
-        type: 'info',
-        message:'Pushing changes'
-      })
-
       // STEP 6: Send to server using FormData
-      const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
+      const pushResOld = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${jwtToken}`
-          // DON'T set Content-Type - let browser set it with boundary for FormData
-        },
+        headers: { 'Authorization': `Bearer ${jwtToken}` },
         body: formData
       });
-      
-      const pushData = await pushRes.json();
-
-      if(pushRes.ok){
-
-      setProjects(prev => prev.map(p => 
-        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
-      ))
-      setCollaboratedProjects(prev => prev.map(p =>
-        String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
-      ))
-
-        setProjectsWithChanges(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(projectId));
-          return newSet;
-        });
-
+      const pushData = await pushResOld.json();
+      if(pushResOld.ok){
         setTimeout(()=>{
           setToast({
           type: 'success',
@@ -385,23 +371,15 @@ function Dashboard({ onLogout, jwtToken }) {
         });
         window.location.reload();
         }, 1000)
-
       }else{
        throw new Error(pushData.error || pushData.message || 'Push failed')
       }
-      // // Refresh project lists
-      // getProjects();
-      // getCollaboratedProjects();
-      // await Promise.all([
-      //       getUserData(),
-      //       getProjects(),
-      //       getCollaboratedProjects()
-      //     ]);
+      ── END OLD push flow ── */
     } catch (err) {
       console.error('[PUSH] Failed:', err);
        setToast({
         type: 'error',
-        message: 'Failed to push changes.'
+        message: `Failed to push changes: ${err.message}`
       });
     }
   };
@@ -489,8 +467,8 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
       // Compare with server
       const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ currentFileStructure })
@@ -537,7 +515,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
     try {
       const response = await fetch(`http://localhost:5000/api/projects/${projectId}`, {
         method: 'DELETE',
-        headers: { "Authorization": `Bearer ${jwtToken}` }
+        credentials: 'include'
       });
       
       if (response.ok) {
@@ -687,7 +665,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                           onDelete={() => handleDeleteProject(project.id)}
                           onPushChanges={() => handlePushChanges(project.id)}
                           onCheckChanges={handleCheckChanges}
-                          jwtToken={jwtToken}
                         />
                       </div>
                     ))}
@@ -711,7 +688,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                           onDelete={() => handleDeleteProject(project.id)}
                           onPushChanges={() => handlePushChanges(project.id)}
                           onCheckChanges={handleCheckChanges}
-                          jwtToken={jwtToken}
                           isCollaborator={true}
                         />
                       </div>
@@ -726,7 +702,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         {isJoinModalOpen && (
           <JoinProjectModal 
             toggleModal={() => setIsJoinModalOpen(false)} 
-            jwtToken={jwtToken}
           />
         )}
 

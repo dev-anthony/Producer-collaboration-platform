@@ -228,7 +228,7 @@ const handleFolderSelect = (e) => {
 
       const response = await fetch('http://localhost:5000/api/projects/create', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}` },
+        credentials: 'include', // ── Phase 4.15: cookie-based session ──
         body: apiFormData
       });
 

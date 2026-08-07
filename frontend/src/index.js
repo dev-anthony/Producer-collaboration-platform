@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
 const { spawn } = require('child_process');
+const simpleGit = require('simple-git');
 let serverProcess = null; 
 
 // Initialize persistent storage for folder paths
@@ -19,42 +20,44 @@ const windows = [];
 const watchers = new Map(); // projectId -> watcher instance
 // ──────────────────────────────────────────────────────────────────────────────
 // OAUTH PROTOCOL HANDLER (for production)
+// ── Phase 4.16: removed — GitHub OAuth replaced by email/password auth. ──
 // ──────────────────────────────────────────────────────────────────────────────
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('prodcollab', process.execPath, [path.resolve(process.argv[1])]);
-  }
-} else {
-  app.setAsDefaultProtocolClient('prodcollab');
-}
+// if (process.defaultApp) {
+//   if (process.argv.length >= 2) {
+//     app.setAsDefaultProtocolClient('prodcollab', process.execPath, [path.resolve(process.argv[1])]);
+//   }
+// } else {
+//   app.setAsDefaultProtocolClient('prodcollab');
+// }
 
 // Handle the protocol URL when app is already running (macOS)
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  console.log('[OAUTH] Protocol URL received:', url);
-  
-  if (url.startsWith('prodcollab://')) {
-    try {
-      const urlObj = new URL(url);
-      const code = urlObj.searchParams.get('code');
-      
-      if (code) {
-        console.log('[OAUTH]   Code from protocol:', code);
-        
-        // Send to all windows
-        windows.forEach(win => {
-          if (!win.isDestroyed()) {
-            win.webContents.send('oauth-code', code);
-          }
-        });
-      }
-    } catch (err) {
-      console.error('[OAUTH] Protocol parsing error:', err);
-    }
-  }
-});
+// app.on('open-url', (event, url) => {
+//   event.preventDefault();
+//   console.log('[OAUTH] Protocol URL received:', url);
+//
+//   if (url.startsWith('prodcollab://')) {
+//     try {
+//       const urlObj = new URL(url);
+//       const code = urlObj.searchParams.get('code');
+//
+//       if (code) {
+//         console.log('[OAUTH]   Code from protocol:', code);
+//
+//         // Send to all windows
+//         windows.forEach(win => {
+//           if (!win.isDestroyed()) {
+//             win.webContents.send('oauth-code', code);
+//           }
+//         });
+//       }
+//     } catch (err) {
+//       console.error('[OAUTH] Protocol parsing error:', err);
+//     }
+//   }
+// });
 
-// Handle second instance (Windows/Linux)
+// Handle second instance (Windows/Linux) — keep single-instance focus behavior,
+// OAuth protocol URL handling removed (Phase 4.16).
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -68,25 +71,24 @@ if (!gotTheLock) {
       win.focus();
     }
 
-    // Check for protocol URL in command line (Windows)
-    const url = commandLine.find(arg => arg.startsWith('prodcollab://'));
-    if (url) {
-      console.log('[OAUTH] Second instance protocol URL:', url);
-      try {
-        const urlObj = new URL(url);
-        const code = urlObj.searchParams.get('code');
-        
-        if (code) {
-          windows.forEach(win => {
-            if (!win.isDestroyed()) {
-              win.webContents.send('oauth-code', code);
-            }
-          });
-        }
-      } catch (err) {
-        console.error('[OAUTH] Second instance parsing error:', err);
-      }
-    }
+    // ── Phase 4.16: OAuth protocol URL handling removed ──
+    // const url = commandLine.find(arg => arg.startsWith('prodcollab://'));
+    // if (url) {
+    //   console.log('[OAUTH] Second instance protocol URL:', url);
+    //   try {
+    //     const urlObj = new URL(url);
+    //     const code = urlObj.searchParams.get('code');
+    //     if (code) {
+    //       windows.forEach(win => {
+    //         if (!win.isDestroyed()) {
+    //           win.webContents.send('oauth-code', code);
+    //         }
+    //       });
+    //     }
+    //   } catch (err) {
+    //     console.error('[OAUTH] Second instance parsing error:', err);
+    //   }
+    // }
   });
 }
 
@@ -138,106 +140,71 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   });
 
   // ============================================================================
-  // OAUTH HANDLING - Intercept GitHub OAuth Callback
+  // OAUTH HANDLING — Phase 4.16: removed (GitHub OAuth replaced by email/password)
+  // The will-navigate / did-navigate OAuth interceptors are no longer needed.
   // ============================================================================
-  
-  // ============================================================================
-  // OAUTH HANDLING - Development (localhost) + Production (protocol)
-  // ============================================================================
-  
-  win.webContents.on('will-navigate', (event, url) => {
-    console.log('[OAUTH] will-navigate →', url);
 
-   
-if (url.startsWith('prodcollab://')) {
-  event.preventDefault();
+  // win.webContents.on('will-navigate', (event, url) => {
+  //   console.log('[OAUTH] will-navigate →', url);
+  //
+  //   if (url.startsWith('prodcollab://')) {
+  //     event.preventDefault();
+  //     try {
+  //       const urlObj = new URL(url);
+  //       const code = urlObj.searchParams.get('code');
+  //       if (code) {
+  //         console.log('[OAUTH] Code captured (production):', code);
+  //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
+  //         win.loadURL(targetUrl);
+  //       } else {
+  //         win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] URL parsing error:', err);
+  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //     }
+  //     return;
+  //   }
+  //
+  //   // Handle localhost OAuth callback (development)
+  //   if (url.includes('localhost') && url.includes('?code=')) {
+  //     event.preventDefault();
+  //     try {
+  //       const urlObj = new URL(url);
+  //       const code = urlObj.searchParams.get('code');
+  //       if (code) {
+  //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
+  //         win.loadURL(targetUrl);
+  //       } else {
+  //         win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] URL parsing error:', err);
+  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  //     }
+  //   }
+  // });
 
-  try {
-    const urlObj = new URL(url);
-    const code = urlObj.searchParams.get('code');
+  // Backup: Handle navigation after it happens (safety net) — OAuth only, removed.
+  // win.webContents.on('did-navigate', (event, url) => {
+  //   console.log('[OAUTH] did-navigate →', url);
+  //   if (url.includes('?code=') && url.includes('localhost') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
+  //     try {
+  //       const urlObj = new URL(url);
+  //       const code = urlObj.searchParams.get('code');
+  //       if (code) {
+  //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
+  //       }
+  //     } catch (err) {
+  //       console.error('[OAUTH] Navigation handling error:', err);
+  //     }
+  //   }
+  // });
 
-    if (code) {
-      console.log('[OAUTH] Code captured (production):', code);
-      const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
-      console.log('[OAUTH] Loading app with code:', targetUrl);
-      win.loadURL(targetUrl);
-    } else {
-      console.log('[OAUTH] No code found, loading main app');
-      win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-    }
-  } catch (err) {
-    console.error('[OAUTH] URL parsing error:', err);
-    win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  }
-  return;
-}
-    
-    // Handle localhost OAuth callback (development)
-    if (url.includes('localhost') && url.includes('?code=')) {
-      event.preventDefault();
-      
-      try {
-        const urlObj = new URL(url);
-        const code = urlObj.searchParams.get('code');
-        
-        if (code) {
-          console.log('[OAUTH]   Code captured (dev):', code);
-          const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
-          console.log('[OAUTH] Loading app with code:', targetUrl);
-          win.loadURL(targetUrl);
-        } else {
-          console.log('[OAUTH] No code found, loading main app');
-          win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-        }
-      } catch (err) {
-        console.error('[OAUTH] URL parsing error:', err);
-        win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-      }
-    }
-  });
-
-  // Backup: Handle navigation after it happens (safety net)
-  win.webContents.on('did-navigate', (event, url) => {
-    console.log('[OAUTH] did-navigate →', url);
-    
-    // If we somehow navigated to a URL with code that isn't our webpack server
-    if (url.includes('?code=') && url.includes('localhost') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
-      try {
-        const urlObj = new URL(url);
-        const code = urlObj.searchParams.get('code');
-        if (code) {
-          console.log('[OAUTH]   Late capture - redirecting with code');
-          win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
-        }
-      } catch (err) {
-        console.error('[OAUTH] Navigation handling error:', err);
-      }
-    }
-  });
-
-  // Handle failed loads (404 recovery)
+  // Handle failed loads (404 recovery) — OAuth recovery branch removed (Phase 4.16)
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
-    
-    // If load failed but URL contains OAuth code, extract and retry
-    if (validatedURL.includes('?code=') && validatedURL.includes('localhost')) {
-      try {
-        const urlObj = new URL(validatedURL);
-        const code = urlObj.searchParams.get('code');
-        if (code) {
-          console.log('[OAUTH]   Recovery - loading with code from failed URL');
-          win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
-        }
-      } catch (err) {
-        console.error('[OAUTH] Recovery error:', err);
-        win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-      }
-    }
   });
-
-  // ============================================================================
-  // END OAUTH HANDLING
-  // ============================================================================
 
   // ============================================================================
   // END OAUTH HANDLING
@@ -873,6 +840,138 @@ ipcMain.handle('clear-oauth-session', async () => {
   } catch (error) {
     console.error('[AUTH] Failed to clear session:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Git (simple-git) — Phase 5 file transfer mechanism
+// Uses the ProdCollab GitHub account token (currently dev-anthony's token).
+// The token is embedded into the remote URL so git can authenticate against
+// GitHub without a global credential helper.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Build an authenticated https remote URL: https://<token>@github.com/owner/repo.git
+const buildAuthedRemoteUrl = (repoUrl, token) => {
+  if (!repoUrl) throw new Error('Missing repoUrl');
+  if (!token) return repoUrl; // fall back to unauthenticated (public repos)
+  // Normalize to https + ensure .git suffix
+  let url = repoUrl.trim();
+  if (url.startsWith('git@github.com:')) {
+    url = 'https://github.com/' + url.slice('git@github.com:'.length);
+  }
+  if (!url.endsWith('.git')) url = url + '.git';
+  return url.replace('https://github.com/', `https://${token}@github.com/`);
+};
+
+// Init a repo in an existing project folder and wire up the remote
+ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
+  try {
+    const git = simpleGit(folderPath);
+    const isRepo = await git.checkIsRepo();
+
+    if (!isRepo) {
+      await git.init();
+    }
+
+    const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
+    const remotes = await git.getRemotes(true);
+    const origin = remotes.find((r) => r.name === 'origin');
+    if (!origin) {
+      await git.addRemote('origin', authedUrl);
+    } else {
+      // Keep the token fresh on the existing remote
+      await git.remote(['set-url', 'origin', authedUrl]);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[GIT] init-git failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Stage everything, commit, and push
+ipcMain.handle('git-push', async (_, { folderPath, message, username, email, repoUrl, token }) => {
+  try {
+    const git = simpleGit(folderPath);
+
+    // Make sure origin has a valid authenticated URL (token can rotate)
+    if (repoUrl) {
+      const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
+      const remotes = await git.getRemotes(true);
+      if (remotes.find((r) => r.name === 'origin')) {
+        await git.remote(['set-url', 'origin', authedUrl]);
+      } else {
+        await git.addRemote('origin', authedUrl);
+      }
+    }
+
+    // Attribute the commit to the acting user
+    if (username) await git.addConfig('user.name', username);
+    if (email) await git.addConfig('user.email', email);
+
+    await git.add('.');
+
+    // Only commit if there is something staged
+    const status = await git.status();
+    if (status.staged.length === 0 && status.created.length === 0 &&
+        status.modified.length === 0 && status.deleted.length === 0 &&
+        status.renamed.length === 0) {
+      return { success: true, nothingToCommit: true };
+    }
+
+    await git.commit(message || `Update by ${username || 'ProdCollab'}`);
+
+    // Ensure branch is main, then push
+    await git.branch(['-M', 'main']).catch(() => {});
+    await git.push('origin', 'main', ['--set-upstream']);
+
+    return { success: true };
+  } catch (err) {
+    console.error('[GIT] git-push failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Pull latest from origin/main
+ipcMain.handle('git-pull', async (_, { folderPath, repoUrl, token }) => {
+  try {
+    const git = simpleGit(folderPath);
+    if (repoUrl && token) {
+      const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
+      await git.remote(['set-url', 'origin', authedUrl]).catch(() => {});
+    }
+    await git.pull('origin', 'main');
+    return { success: true };
+  } catch (err) {
+    console.error('[GIT] git-pull failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Clone a repo into a folder (used when a collaborator joins)
+ipcMain.handle('git-clone', async (_, { repoUrl, folderPath, token }) => {
+  try {
+    const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
+    await simpleGit().clone(authedUrl, folderPath);
+    // Reset origin to the token-embedded URL so future pushes/pulls authenticate
+    await simpleGit(folderPath).remote(['set-url', 'origin', authedUrl]).catch(() => {});
+    return { success: true };
+  } catch (err) {
+    console.error('[GIT] git-clone failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Commit history (version history)
+ipcMain.handle('git-log', async (_, { folderPath }) => {
+  try {
+    const git = simpleGit(folderPath);
+    const log = await git.log({ maxCount: 50 });
+    return { success: true, log: log.all };
+  } catch (err) {
+    console.error('[GIT] git-log failed:', err);
+    return { success: false, error: err.message };
   }
 });
 

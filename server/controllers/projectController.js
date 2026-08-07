@@ -4,7 +4,12 @@ const path = require('path');
 const fs = require('fs').promises;
 const { Octokit } = require('@octokit/rest');
 const crypto = require('crypto');
-const pool = require('../config/db');
+// ── Phase 3.10: migrated data access from MySQL pool to Supabase ──
+// const pool = require('../config/db');
+const supabase = require('../config/supabase');
+// ── Phase 4.2/4.4: use the single shared ProdCollab Octokit + fixed owner ──
+// (replaces per-user Octokit built from github_tokens.access_token)
+const { octokit: prodOctokit, GITHUB_OWNER } = require('../config/github');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -250,6 +255,172 @@ exports.createProjectRepo = async (req, res) => {
         return res.status(400).json({ error: 'At least one file is required' });
       }
 
+      // ── Phase 3.10 + 4.4: Supabase + shared ProdCollab Octokit ──
+      try {
+        // Use the single shared ProdCollab GitHub account (no per-user token).
+        const octokit = prodOctokit;
+
+        // Step 1: Create GitHub repository under the fixed ProdCollab owner
+        const sanitizedProjectName = projectName
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-_]/g, '');
+
+        let githubRepo;
+        try {
+          const { data } = await octokit.repos.createForAuthenticatedUser({
+            name: sanitizedProjectName,
+            description: description || '',
+            private: visibility === 'private',
+            auto_init: true // Initialize with README to create main branch
+          });
+          githubRepo = data;
+        } catch (repoError) {
+          if (repoError.message.includes('name already exists')) {
+            return res.status(400).json({
+              error: 'Repository name already exists',
+              message: `A repository named "${sanitizedProjectName}" already exists on the ProdCollab account. Please choose a different project name.`
+            });
+          }
+          throw repoError;
+        }
+
+        console.log(' Repository created:', githubRepo.name);
+
+        // Wait for repo initialization - GitHub needs time to create the main branch
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // Verify the main branch exists before pushing
+        try {
+          await octokit.git.getRef({
+            owner: GITHUB_OWNER,
+            repo: sanitizedProjectName,
+            ref: 'heads/main'
+          });
+          console.log(' Main branch verified');
+        } catch (branchError) {
+          console.log(' Main branch not found, trying master branch...');
+          try {
+            await octokit.git.getRef({
+              owner: GITHUB_OWNER,
+              repo: sanitizedProjectName,
+              ref: 'heads/master'
+            });
+            console.log(' Master branch found');
+          } catch (masterError) {
+            throw new Error('Neither main nor master branch found. Repository might not be initialized yet.');
+          }
+        }
+
+        // Step 2: Push files to repository
+        const fileStructure = req.body.fileStructure ? JSON.parse(req.body.fileStructure) : {
+          individualFiles: [],
+          folders: []
+        };
+
+        const fileData = uploadedFiles.map((file) => {
+          let relativePath = file.originalname;
+          const individualFile = fileStructure.individualFiles?.find(f => f.name === file.originalname);
+          if (individualFile) {
+            relativePath = individualFile.relativePath || file.originalname;
+          } else {
+            for (const folder of fileStructure.folders || []) {
+              const folderFile = folder.files?.find(f => f.name === file.originalname);
+              if (folderFile) {
+                relativePath = folderFile.relativePath || file.originalname;
+                break;
+              }
+            }
+          }
+          return {
+            name: file.originalname,
+            path: file.path,
+            size: file.size,
+            relativePath: relativePath
+          };
+        });
+
+        console.log(` Preparing to upload ${fileData.length} files`);
+
+        await pushFilesToGitHub(
+          octokit,
+          GITHUB_OWNER,
+          sanitizedProjectName,
+          fileData,
+          'Initial project files'
+        );
+
+        console.log(' Files pushed successfully');
+
+        // Step 3: Save project to Supabase
+        const { data: inserted, error: insertError } = await supabase
+          .from('projects')
+          .insert({
+            user_id: userId,
+            repo_name: sanitizedProjectName,
+            repo_url: githubRepo.html_url,
+            description: description || '',
+            visibility: visibility,
+            file_paths: fileStructure // JSONB — no stringify needed
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+
+        const projectId = inserted.id;
+
+        // Step 4: Clean up uploaded files from server
+        await Promise.all(
+          uploadedFiles.map(file => fs.unlink(file.path).catch(() => {}))
+        );
+
+        // Step 5: Return success response
+        res.status(201).json({
+          message: 'Project created successfully',
+          project: {
+            id: projectId,
+            name: sanitizedProjectName,
+            description: githubRepo.description,
+            url: githubRepo.html_url,
+            visibility,
+            fileCount: uploadedFiles.length,
+            createdAt: new Date().toISOString()
+          },
+          repo: {
+            id: githubRepo.id,
+            name: sanitizedProjectName,
+            full_name: githubRepo.full_name,
+            url: githubRepo.html_url,
+            clone_url: githubRepo.clone_url
+          }
+        });
+      } catch (error) {
+        console.error('createProjectRepo error:', error);
+        if (req.files) {
+          await Promise.all(
+            req.files.map(file => fs.unlink(file.path).catch(() => {}))
+          );
+        }
+        res.status(500).json({
+          error: 'Failed to create project',
+          message: error.message,
+        });
+      }
+    } catch (outerError) {
+      // Outer guard for the Supabase/Octokit block above
+      console.error('createProjectRepo outer error:', outerError);
+      if (req.files) {
+        await Promise.all(
+          req.files.map(file => fs.unlink(file.path).catch(() => {}))
+        );
+      }
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create project', message: outerError.message });
+      }
+    }
+
+      /* ── OLD MySQL + per-user Octokit implementation (Phase 3/4 replaced) ──
       const connection = await pool.promise().getConnection();
 
       try {
@@ -446,9 +617,55 @@ exports.createProjectRepo = async (req, res) => {
         message: error.message,
       });
     }
+      ── END OLD createProjectRepo ── */
   });
 };
 exports.getUserProjects = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // ── Phase 3.10: Supabase ──
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('id, repo_name, repo_url, description, visibility, file_paths, has_changes, created_at, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      projects: (projects || []).map(p => {
+        // file_paths is JSONB (object) in Supabase; tolerate string for legacy rows
+        const fileStructure = typeof p.file_paths === 'string'
+          ? JSON.parse(p.file_paths)
+          : (p.file_paths || { individualFiles: [], folders: [] });
+
+        const individualFileCount = fileStructure.individualFiles?.length || 0;
+        const folderFileCount = fileStructure.folders?.reduce((sum, folder) => sum + (folder.files?.length || 0), 0) || 0;
+        const totalFileCount = individualFileCount + folderFileCount;
+
+        return {
+          id: p.id,
+          name: p.repo_name,
+          url: p.repo_url,
+          description: p.description,
+          visibility: p.visibility,
+          fileCount: totalFileCount,
+          updatedAt: p.updated_at,
+          hasUnpushedChanges: p.has_changes === true || p.has_changes === 1,
+          file_paths: fileStructure
+        };
+      })
+    });
+  } catch (error) {
+    console.error('getUserProjects error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch projects',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const userId = req.userId;
 
@@ -505,10 +722,35 @@ exports.getUserProjects = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD getUserProjects ── */
 };
 
 // Mark project as having changes
 exports.markProjectChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { hasChanges } = req.body;
+    const userId = req.userId;
+
+    // ── Phase 3.10: Supabase ──
+    const { error } = await supabase
+      .from('projects')
+      .update({ has_changes: !!hasChanges, updated_at: new Date().toISOString() })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    res.json({ message: 'Project updated successfully' });
+  } catch (error) {
+    console.error('markProjectChanges error:', error);
+    res.status(500).json({
+      error: 'Failed to update project',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const { projectId } = req.params;
     const { hasChanges } = req.body;
@@ -535,8 +777,125 @@ exports.markProjectChanges = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD markProjectChanges ── */
 };
 exports.detectFileChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { currentFileStructure } = req.body;
+    const userId = req.userId;
+
+    // ── Phase 3.10: Supabase access check + fetch ──
+    const { data: ownerRows } = await supabase
+      .from('projects').select('id').eq('id', projectId).eq('user_id', userId);
+    const { data: collabRows } = await supabase
+      .from('project_collaborators').select('id').eq('project_id', projectId).eq('user_id', userId);
+
+    if ((!ownerRows || ownerRows.length === 0) && (!collabRows || collabRows.length === 0)) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    const { data: projectRow, error: fetchError } = await supabase
+      .from('projects').select('file_paths').eq('id', projectId).single();
+
+    if (fetchError || !projectRow) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const storedStructure = typeof projectRow.file_paths === 'string'
+      ? JSON.parse(projectRow.file_paths)
+      : (projectRow.file_paths || { individualFiles: [], folders: [] });
+
+    let hasChanges = false;
+    const changeDetails = [];
+
+    const storedIndividual = storedStructure.individualFiles || [];
+    const currentIndividual = currentFileStructure.individualFiles || [];
+
+    if (storedIndividual.length !== currentIndividual.length) {
+      hasChanges = true;
+      changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
+    }
+
+    currentIndividual.forEach(currentFile => {
+      const storedFile = storedIndividual.find(f => f.name === currentFile.name);
+      if (!storedFile) {
+        hasChanges = true;
+        changeDetails.push(`New file added: ${currentFile.name}`);
+      } else if (storedFile.size !== currentFile.size) {
+        hasChanges = true;
+        changeDetails.push(`File modified: ${currentFile.name}`);
+      }
+    });
+
+    storedIndividual.forEach(storedFile => {
+      if (!currentIndividual.find(f => f.name === storedFile.name)) {
+        hasChanges = true;
+        changeDetails.push(`File deleted: ${storedFile.name}`);
+      }
+    });
+
+    const storedFolders = storedStructure.folders || [];
+    const currentFolders = currentFileStructure.folders || [];
+
+    if (storedFolders.length !== currentFolders.length) {
+      hasChanges = true;
+      changeDetails.push(`Folder count changed: ${storedFolders.length} → ${currentFolders.length}`);
+    }
+
+    currentFolders.forEach(currentFolder => {
+      const storedFolder = storedFolders.find(f => f.name === currentFolder.name);
+      if (!storedFolder) {
+        hasChanges = true;
+        changeDetails.push(`New folder added: ${currentFolder.name}`);
+      } else {
+        const storedFolderFiles = storedFolder.files || [];
+        const currentFolderFiles = currentFolder.files || [];
+
+        if (storedFolderFiles.length !== currentFolderFiles.length) {
+          hasChanges = true;
+          changeDetails.push(`Files count in folder "${currentFolder.name}" changed: ${storedFolderFiles.length} → ${currentFolderFiles.length}`);
+        }
+
+        currentFolderFiles.forEach(currentFile => {
+          const storedFile = storedFolderFiles.find(f => f.name === currentFile.name);
+          if (!storedFile) {
+            hasChanges = true;
+            changeDetails.push(`New file added in folder "${currentFolder.name}": ${currentFile.name}`);
+          } else if (storedFile.size !== currentFile.size) {
+            hasChanges = true;
+            changeDetails.push(`File modified in folder "${currentFolder.name}": ${currentFile.name}`);
+          }
+        });
+
+        storedFolderFiles.forEach(storedFile => {
+          if (!currentFolderFiles.find(f => f.name === storedFile.name)) {
+            hasChanges = true;
+            changeDetails.push(`File deleted in folder "${currentFolder.name}": ${storedFile.name}`);
+          }
+        });
+      }
+    });
+
+    storedFolders.forEach(storedFolder => {
+      if (!currentFolders.find(f => f.name === storedFolder.name)) {
+        hasChanges = true;
+        changeDetails.push(`Folder deleted: ${storedFolder.name}`);
+      }
+    });
+
+    await supabase
+      .from('projects')
+      .update({ has_changes: hasChanges, updated_at: new Date().toISOString() })
+      .eq('id', projectId);
+
+    res.json({ hasChanges, changeDetails });
+  } catch (error) {
+    console.error('detectFileChanges error:', error);
+    res.status(500).json({ error: 'Failed to detect changes', message: error.message });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const { projectId } = req.params;
     const { currentFileStructure } = req.body;
@@ -568,84 +927,7 @@ exports.detectFileChanges = async (req, res) => {
       }
 
       const storedStructure = JSON.parse(projects[0].file_paths);
-
-      let hasChanges = false;
-      const changeDetails = [];
-
-      const storedIndividual = storedStructure.individualFiles || [];
-      const currentIndividual = currentFileStructure.individualFiles || [];
-
-      if (storedIndividual.length !== currentIndividual.length) {
-        hasChanges = true;
-        changeDetails.push(`Individual files count changed: ${storedIndividual.length} → ${currentIndividual.length}`);
-      }
-
-      currentIndividual.forEach(currentFile => {
-        const storedFile = storedIndividual.find(f => f.name === currentFile.name);
-        if (!storedFile) {
-          hasChanges = true;
-          changeDetails.push(`New file added: ${currentFile.name}`);
-        } else if (storedFile.size !== currentFile.size) {
-          hasChanges = true;
-          changeDetails.push(`File modified: ${currentFile.name}`);
-        }
-      });
-
-      storedIndividual.forEach(storedFile => {
-        if (!currentIndividual.find(f => f.name === storedFile.name)) {
-          hasChanges = true;
-          changeDetails.push(`File deleted: ${storedFile.name}`);
-        }
-      });
-
-      const storedFolders = storedStructure.folders || [];
-      const currentFolders = currentFileStructure.folders || [];
-
-      if (storedFolders.length !== currentFolders.length) {
-        hasChanges = true;
-        changeDetails.push(`Folder count changed: ${storedFolders.length} → ${currentFolders.length}`);
-      }
-
-      currentFolders.forEach(currentFolder => {
-        const storedFolder = storedFolders.find(f => f.name === currentFolder.name);
-        if (!storedFolder) {
-          hasChanges = true;
-          changeDetails.push(`New folder added: ${currentFolder.name}`);
-        } else {
-          const storedFolderFiles = storedFolder.files || [];
-          const currentFolderFiles = currentFolder.files || [];
-
-          if (storedFolderFiles.length !== currentFolderFiles.length) {
-            hasChanges = true;
-            changeDetails.push(`Files count in folder "${currentFolder.name}" changed: ${storedFolderFiles.length} → ${currentFolderFiles.length}`);
-          }
-
-          currentFolderFiles.forEach(currentFile => {
-            const storedFile = storedFolderFiles.find(f => f.name === currentFile.name);
-            if (!storedFile) {
-              hasChanges = true;
-              changeDetails.push(`New file added in folder "${currentFolder.name}": ${currentFile.name}`);
-            } else if (storedFile.size !== currentFile.size) {
-              hasChanges = true;
-              changeDetails.push(`File modified in folder "${currentFolder.name}": ${currentFile.name}`);
-            }
-          });
-
-          storedFolderFiles.forEach(storedFile => {
-            if (!currentFolderFiles.find(f => f.name === storedFile.name)) {
-              hasChanges = true;
-              changeDetails.push(`File deleted in folder "${currentFolder.name}": ${storedFile.name}`);
-            }
-          });
-        }
-      });
-
-      storedFolders.forEach(storedFolder => {
-        if (!currentFolders.find(f => f.name === storedFolder.name)) {
-          hasChanges = true;
-          changeDetails.push(`Folder deleted: ${storedFolder.name}`);
-        }
-      });
+      // ... (change-detection logic identical to the migrated version above) ...
 
       await connection.execute(
         'UPDATE projects SET has_changes = ?, updated_at = NOW() WHERE id = ?',
@@ -660,8 +942,20 @@ exports.detectFileChanges = async (req, res) => {
     console.error('detectFileChanges error:', error);
     res.status(500).json({ error: 'Failed to detect changes', message: error.message });
   }
+  ── END OLD detectFileChanges ── */
 };
 exports.pushProjectChanges = async (req, res) => {
+  // ── Phase 5 + 3.10: DEPRECATED ──────────────────────────────────────────
+  // The old byte-upload push (multer + Octokit blob API + MySQL) is replaced by
+  // the simple-git client flow (see recordPush / getGitCredentials). The client
+  // now pushes with git directly; the server only records the push. This handler
+  // is kept (route still mounted) but no longer performs uploads.
+  return res.status(410).json({
+    error: 'Deprecated endpoint',
+    message: 'Use the git-based push flow: POST /:projectId/record-push after client git push.'
+  });
+
+  /* ── OLD MySQL + Octokit blob upload implementation (Phase 5 replaced) ──
   // Use multer middleware to handle file uploads
   upload.array('files', 100)(req, res, async (err) => {
     if (err) {
@@ -727,49 +1021,6 @@ exports.pushProjectChanges = async (req, res) => {
 
         // Determine which files are new/modified
         const filesToUpload = [];
-        
-        // Check individual files
-        // newFileStructure.individualFiles.forEach(newFile => {
-        //   const storedFile = storedStructure.individualFiles?.find(f => f.name === newFile.name);
-          
-        //   if (!storedFile || 
-        //       storedFile.size !== newFile.size || 
-        //       storedFile.lastModified !== newFile.lastModified) {
-        //     // File is new or modified
-        //     const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-        //     if (uploadedFile) {
-        //       filesToUpload.push({
-        //         file: uploadedFile,
-        //         relativePath: newFile.relativePath,
-        //         isNew: !storedFile
-        //       });
-        //     }
-        //   }
-        // });
-
-        // // Check files in folders
-        // newFileStructure.folders.forEach(newFolder => {
-        //   const storedFolder = storedStructure.folders?.find(f => f.name === newFolder.name);
-          
-        //   newFolder.files.forEach(newFile => {
-        //     const storedFile = storedFolder?.files?.find(f => f.name === newFile.name);
-            
-        //     if (!storedFile || 
-        //         storedFile.size !== newFile.size || 
-        //         storedFile.lastModified !== newFile.lastModified) {
-        //       // File is new or modified
-        //       const uploadedFile = uploadedFiles.find(f => f.originalname === newFile.name);
-        //       if (uploadedFile) {
-        //         filesToUpload.push({
-        //           file: uploadedFile,
-        //           relativePath: newFile.relativePath,
-        //           isNew: !storedFile
-        //         });
-        //       }
-        //     }
-        //   });
-        // });
-
 
         // Check individual files
 newFileStructure.individualFiles.forEach(newFile => {
@@ -807,10 +1058,7 @@ newFileStructure.folders.forEach(newFolder => {
   });
 });
         console.log(` Files to upload: ${filesToUpload.length}`);
-        
-        // if (filesToUpload.length === 0) {
-        //   return res.status(400).json({ error: 'No modified files found to push / files already exist on github.'});
-        // }
+
         if (filesToUpload.length === 0) {
           console.log('[PUSH] No changed files detected — clearing flag anyway');
         }
@@ -887,9 +1135,66 @@ newFileStructure.folders.forEach(newFolder => {
       });
     }
   });
+  ── END OLD pushProjectChanges ── */
 };
 // Delete project
 exports.deleteProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    // ── Phase 3.10 + 4.4: Supabase + shared ProdCollab Octokit ──
+    const { data: ownerRows } = await supabase
+      .from('projects').select('*').eq('id', projectId).eq('user_id', userId);
+    const { data: collabRows } = await supabase
+      .from('project_collaborators').select('*').eq('project_id', projectId).eq('user_id', userId);
+
+    const isOwner = ownerRows && ownerRows.length > 0;
+    const isCollab = collabRows && collabRows.length > 0;
+
+    if (!isOwner && !isCollab) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    if (isOwner) {
+      const project = ownerRows[0];
+
+      // Delete repo from GitHub using the shared ProdCollab account
+      try {
+        await prodOctokit.repos.delete({
+          owner: GITHUB_OWNER,
+          repo: project.repo_name
+        });
+        console.log(`GitHub repository deleted: ${project.repo_name}`);
+      } catch (githubError) {
+        console.error('Error deleting GitHub repo:', githubError.message);
+        // Continue with DB deletion even if GitHub deletion fails
+      }
+
+      // Delete project (collaborators cascade via FK)
+      const { error: delError } = await supabase
+        .from('projects').delete().eq('id', projectId);
+      if (delError) throw delError;
+
+      res.json({ message: 'Project deleted successfully', deletedBy: 'owner' });
+    } else {
+      // Collaborator: just leave the project
+      const { error: leaveError } = await supabase
+        .from('project_collaborators').delete()
+        .eq('project_id', projectId).eq('user_id', userId);
+      if (leaveError) throw leaveError;
+
+      res.json({ message: 'Successfully left project', deletedBy: 'collaborator' });
+    }
+  } catch (error) {
+    console.error('deleteProject error:', error);
+    res.status(500).json({
+      error: 'Failed to delete project',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL + per-user Octokit implementation (Phase 3/4 replaced) ──
   try {
     const { projectId } = req.params;
     const userId = req.userId;
@@ -979,9 +1284,52 @@ exports.deleteProject = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD deleteProject ── */
 };
 //generate project link
 exports.generateShareLink = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    // ── Phase 3.10: Supabase ──
+    const { data: project, error: fetchError } = await supabase
+      .from('projects')
+      .select('id, repo_name, share_token')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    let shareToken = project.share_token;
+    if (!shareToken) {
+      shareToken = crypto.randomBytes(32).toString('hex');
+      const { error: updateError } = await supabase
+        .from('projects')
+        .update({ share_token: shareToken })
+        .eq('id', projectId);
+      if (updateError) throw updateError;
+    }
+
+    const shareLink = `${process.env.ORIGIN || 'http://localhost:3000'}/join/${shareToken}`;
+
+    res.json({
+      shareLink,
+      shareToken,
+      projectName: project.repo_name
+    });
+  } catch (error) {
+    console.error('generateShareLink error:', error);
+    res.status(500).json({
+      error: 'Failed to generate share link',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const { projectId } = req.params;
     const userId = req.userId;
@@ -1030,9 +1378,57 @@ exports.generateShareLink = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD generateShareLink ── */
 };
 // Get project info from share token
 exports.getProjectByToken = async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    // ── Phase 3.10: Supabase ──
+    const { data: project, error: fetchError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('share_token', shareToken)
+      .single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Invalid share link' });
+    }
+
+    // Fetch owner profile
+    const { data: owner } = await supabase
+      .from('users')
+      .select('username, avatar_url')
+      .eq('id', project.user_id)
+      .single();
+
+    const fileStructure = typeof project.file_paths === 'string'
+      ? JSON.parse(project.file_paths)
+      : (project.file_paths || { individualFiles: [], folders: [] });
+
+    res.json({
+      id: project.id,
+      name: project.repo_name,
+      description: project.description,
+      visibility: project.visibility,
+      repoUrl: project.repo_url,
+      owner: {
+        username: owner?.username,
+        avatar: owner?.avatar_url
+      },
+      fileCount: (fileStructure.individualFiles?.length || 0) +
+                 (fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0) || 0)
+    });
+  } catch (error) {
+    console.error('getProjectByToken error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch project',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const { shareToken } = req.params;
 
@@ -1078,8 +1474,68 @@ exports.getProjectByToken = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD getProjectByToken ── */
 };
 exports.joinProject = async (req, res) => {
+  try {
+    const { shareToken, localPath } = req.body;
+    const userId = req.userId;
+
+    if (!shareToken || !localPath) {
+      return res.status(400).json({ error: 'Share token and local path are required' });
+    }
+
+    // ── Phase 3.10: Supabase ──
+    const { data: project, error: fetchError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('share_token', shareToken)
+      .single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Invalid share link' });
+    }
+
+    // Already a collaborator?
+    const { data: existing } = await supabase
+      .from('project_collaborators')
+      .select('id')
+      .eq('project_id', project.id)
+      .eq('user_id', userId);
+
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ error: 'You are already a collaborator on this project' });
+    }
+
+    const { error: insertError } = await supabase
+      .from('project_collaborators')
+      .insert({
+        project_id: project.id,
+        user_id: userId,
+        role: 'collaborator',
+        local_path: localPath
+      });
+
+    if (insertError) throw insertError;
+
+    res.json({
+      message: 'Successfully joined project',
+      project: {
+        id: project.id,
+        name: project.repo_name,
+        repoUrl: project.repo_url,
+        localPath: localPath
+      }
+    });
+  } catch (error) {
+    console.error('joinProject error:', error);
+    res.status(500).json({
+      error: 'Failed to join project',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const { shareToken, localPath } = req.body;
     const userId = req.userId;
@@ -1147,9 +1603,87 @@ exports.joinProject = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD joinProject ── */
 };
 // Get user's collaborated projects
 exports.getCollaboratedProjects = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // ── Phase 3.10: Supabase (join done in JS across 3 tables) ──
+    const { data: collabs, error: collabError } = await supabase
+      .from('project_collaborators')
+      .select('project_id, role, local_path, joined_at')
+      .eq('user_id', userId)
+      .order('joined_at', { ascending: false });
+
+    if (collabError) throw collabError;
+
+    if (!collabs || collabs.length === 0) {
+      return res.json({ projects: [] });
+    }
+
+    const projectIds = collabs.map(c => c.project_id);
+    const { data: projectRows, error: projError } = await supabase
+      .from('projects')
+      .select('id, repo_name, repo_url, description, visibility, file_paths, has_changes, updated_at, user_id')
+      .in('id', projectIds);
+
+    if (projError) throw projError;
+
+    // Owners
+    const ownerIds = [...new Set((projectRows || []).map(p => p.user_id))];
+    const { data: owners } = await supabase
+      .from('users')
+      .select('id, username, avatar_url')
+      .in('id', ownerIds.length ? ownerIds : ['00000000-0000-0000-0000-000000000000']);
+    const ownerMap = {};
+    (owners || []).forEach(o => { ownerMap[o.id] = o; });
+
+    const projMap = {};
+    (projectRows || []).forEach(p => { projMap[p.id] = p; });
+
+    const formattedProjects = collabs
+      .map(c => {
+        const p = projMap[c.project_id];
+        if (!p) return null;
+        // Exclude projects the user actually owns (mirror `p.user_id != ?`)
+        if (String(p.user_id) === String(userId)) return null;
+
+        const fileStructure = typeof p.file_paths === 'string'
+          ? JSON.parse(p.file_paths)
+          : (p.file_paths || { individualFiles: [], folders: [] });
+        const totalFileCount = (fileStructure.individualFiles?.length || 0) +
+                               (fileStructure.folders?.reduce((sum, f) => sum + (f.files?.length || 0), 0) || 0);
+        const owner = ownerMap[p.user_id] || {};
+
+        return {
+          id: p.id,
+          name: p.repo_name,
+          url: p.repo_url,
+          description: p.description,
+          visibility: p.visibility,
+          fileCount: totalFileCount,
+          updatedAt: p.updated_at,
+          hasUnpushedChanges: p.has_changes === true || p.has_changes === 1,
+          role: c.role,
+          localPath: c.local_path,
+          owner: { username: owner.username, avatar: owner.avatar_url },
+          isCollaborator: true
+        };
+      })
+      .filter(Boolean);
+
+    res.json({ projects: formattedProjects });
+  } catch (error) {
+    console.error('getCollaboratedProjects error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch collaborated projects',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
   try {
     const userId = req.userId;
 
@@ -1214,9 +1748,55 @@ exports.getCollaboratedProjects = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD getCollaboratedProjects ── */
 };
 // Clone/Pull project files from GitHub
 exports.cloneProjectFiles = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    // ── Phase 3.10 + 4.4: Supabase access check + shared Octokit ──
+    const { data: ownerRows } = await supabase
+      .from('projects').select('id').eq('id', projectId).eq('user_id', userId);
+    const { data: collabRows } = await supabase
+      .from('project_collaborators').select('id').eq('project_id', projectId).eq('user_id', userId);
+
+    if ((!ownerRows || ownerRows.length === 0) && (!collabRows || collabRows.length === 0)) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    const { data: project, error: fetchError } = await supabase
+      .from('projects').select('*').eq('id', projectId).single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Use the shared ProdCollab account (owner is fixed)
+    const octokit = prodOctokit;
+    const repoOwner = GITHUB_OWNER;
+
+    const allFiles = await getAllRepoFiles(octokit, repoOwner, project.repo_name, '');
+
+    res.json({
+      message: 'Files fetched successfully',
+      project: {
+        id: project.id,
+        name: project.repo_name,
+        repoUrl: project.repo_url
+      },
+      files: allFiles
+    });
+  } catch (error) {
+    console.error('cloneProjectFiles error:', error);
+    res.status(500).json({
+      error: 'Failed to clone project files',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL + per-user Octokit implementation (Phase 3/4 replaced) ──
   try {
     const { projectId } = req.params;
     const userId = req.userId;
@@ -1298,6 +1878,7 @@ exports.cloneProjectFiles = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD cloneProjectFiles ── */
 };
 async function getAllRepoFiles(octokit, owner, repo, path = '', ref = 'main') {
   const files = [];
@@ -1512,6 +2093,45 @@ exports.getProjectById = async (req, res) => {
     const { projectId } = req.params;
     const userId = req.userId;
 
+    // ── Phase 3.10: Supabase ──
+    // (ownership/collaborator enforcement kept commented, matching prior behavior)
+    const { data: project, error: fetchError } = await supabase
+      .from('projects')
+      .select('id, repo_name, repo_url, description, visibility, file_paths, has_changes, created_at, updated_at')
+      .eq('id', projectId)
+      .single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const fileStructure = typeof project.file_paths === 'string'
+      ? JSON.parse(project.file_paths)
+      : (project.file_paths || { individualFiles: [], folders: [] });
+
+    res.json({
+      id: project.id,
+      name: project.repo_name,
+      url: project.repo_url,
+      description: project.description,
+      visibility: project.visibility,
+      file_paths: fileStructure,
+      hasUnpushedChanges: project.has_changes === true || project.has_changes === 1,
+      updatedAt: project.updated_at
+    });
+  } catch (error) {
+    console.error('getProjectById error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch project',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL implementation (Phase 3.10 replaced) ──
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
     const connection = await pool.promise().getConnection();
 
     try {
@@ -1571,9 +2191,86 @@ exports.getProjectById = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD getProjectById ── */
 };
 // UPDATED checkRemoteChanges - More intelligent change detection
 exports.checkRemoteChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+    const { forceCheck } = req.query; // Add optional force flag
+
+    // ── Phase 3.10 + 4.4: Supabase access check + shared Octokit ──
+    const { data: ownerRows } = await supabase
+      .from('projects').select('id').eq('id', projectId).eq('user_id', userId);
+    const { data: collabRows } = await supabase
+      .from('project_collaborators').select('id').eq('project_id', projectId).eq('user_id', userId);
+
+    if ((!ownerRows || ownerRows.length === 0) && (!collabRows || collabRows.length === 0)) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    const { data: project, error: fetchError } = await supabase
+      .from('projects').select('*').eq('id', projectId).single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Shared ProdCollab account owns all repos
+    const octokit = prodOctokit;
+    const repoOwner = GITHUB_OWNER;
+
+    const { data: commits } = await octokit.repos.listCommits({
+      owner: repoOwner,
+      repo: project.repo_name,
+      per_page: 1
+    });
+
+    if (commits.length === 0) {
+      return res.json({ hasChanges: false });
+    }
+
+    const latestCommitDate = new Date(commits[0].commit.author.date);
+    const lastPulledDate = project.last_pulled_at ? new Date(project.last_pulled_at) : null;
+
+    if (forceCheck === 'true') {
+      console.log('[CHECK] Force check enabled - treating as first pull');
+      return res.json({
+        hasChanges: true,
+        message: 'Force pull enabled',
+        latestCommit: commits[0].sha,
+        latestCommitDate: latestCommitDate.toISOString()
+      });
+    }
+
+    if (!lastPulledDate) {
+      return res.json({
+        hasChanges: true,
+        message: 'First-time pull required',
+        latestCommit: commits[0].sha,
+        latestCommitDate: latestCommitDate.toISOString()
+      });
+    }
+
+    const hasChanges = latestCommitDate > lastPulledDate;
+
+    res.json({
+      hasChanges,
+      latestCommit: commits[0].sha,
+      latestCommitDate: latestCommitDate.toISOString(),
+      lastPulledDate: lastPulledDate.toISOString(),
+      message: hasChanges ? 'New changes available' : 'Already up to date'
+    });
+  } catch (error) {
+    console.error('checkRemoteChanges error:', error);
+    res.status(500).json({
+      error: 'Failed to check for changes',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL + per-user Octokit implementation (Phase 3/4 replaced) ──
   try {
     const { projectId } = req.params;
     const userId = req.userId;
@@ -1684,9 +2381,88 @@ exports.checkRemoteChanges = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD checkRemoteChanges ── */
 };
 // UPDATED pullChanges - Always fetch ALL files, let client decide what to write
 exports.pullChanges = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.userId;
+
+    // ── Phase 3.10 + 4.4: Supabase access check + shared Octokit ──
+    const { data: ownerRows } = await supabase
+      .from('projects').select('id').eq('id', projectId).eq('user_id', userId);
+    const { data: collabRows } = await supabase
+      .from('project_collaborators').select('id').eq('project_id', projectId).eq('user_id', userId);
+
+    if ((!ownerRows || ownerRows.length === 0) && (!collabRows || collabRows.length === 0)) {
+      return res.status(404).json({ error: 'Project not found or access denied' });
+    }
+
+    const { data: project, error: fetchError } = await supabase
+      .from('projects').select('*').eq('id', projectId).single();
+
+    if (fetchError || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const octokit = prodOctokit;
+    const repoOwner = GITHUB_OWNER;
+
+    console.log(`[PULL] Fetching from ${repoOwner}/${project.repo_name}`);
+
+    const { data: repoData } = await octokit.repos.get({
+      owner: repoOwner,
+      repo: project.repo_name
+    });
+
+    const defaultBranch = repoData.default_branch || 'main';
+
+    const allFiles = await getAllRepoFiles(octokit, repoOwner, project.repo_name, '', defaultBranch);
+
+    const filesWithCleanContent = allFiles
+      .filter(file => {
+        if (!file.content) return false;
+        if (!file.path) return false;
+        return true;
+      })
+      .map(file => ({
+        path: file.path,
+        name: file.name,
+        size: file.size || 0,
+        content: file.content.replace(/\n/g, ''),
+        sha: file.sha,
+        encoding: file.encoding || 'base64'
+      }));
+
+    if (filesWithCleanContent.length === 0) {
+      return res.status(400).json({
+        error: 'No valid files found',
+        message: 'All files from GitHub are missing content'
+      });
+    }
+
+    // Update last_pulled_at timestamp
+    await supabase
+      .from('projects')
+      .update({ last_pulled_at: new Date().toISOString() })
+      .eq('id', projectId);
+
+    res.json({
+      message: 'Files fetched successfully',
+      changedFiles: filesWithCleanContent,
+      totalFiles: allFiles.length,
+      changedCount: filesWithCleanContent.length
+    });
+  } catch (error) {
+    console.error('pullChanges error:', error);
+    res.status(500).json({
+      error: 'Failed to pull changes',
+      message: error.message
+    });
+  }
+
+  /* ── OLD MySQL + per-user Octokit implementation (Phase 3/4 replaced) ──
   try {
     const { projectId } = req.params;
     const userId = req.userId;
@@ -1756,18 +2532,15 @@ exports.pullChanges = async (req, res) => {
 
       console.log(`[PULL]   Fetched ${allFiles.length} total files from GitHub`);
 
-      // IMPORTANT: Return ALL files, not just changed ones
-      // Let the frontend/Electron decide what to write based on local folder state
-      
       // Validate and clean files
       const filesWithCleanContent = allFiles
         .filter(file => {
           if (!file.content) {
-            console.warn(`[PULL] ⚠️ Skipping file with no content: ${file.path}`);
+            console.warn(`[PULL] Skipping file with no content: ${file.path}`);
             return false;
           }
           if (!file.path) {
-            console.warn(`[PULL] ⚠️ Skipping file with no path:`, file.name);
+            console.warn(`[PULL] Skipping file with no path:`, file.name);
             return false;
           }
           return true;
@@ -1776,7 +2549,7 @@ exports.pullChanges = async (req, res) => {
           path: file.path,
           name: file.name,
           size: file.size || 0,
-          content: file.content.replace(/\n/g, ''), // Clean base64 - remove newlines
+          content: file.content.replace(/\n/g, ''),
           sha: file.sha,
           encoding: file.encoding || 'base64'
         }));
@@ -1788,25 +2561,16 @@ exports.pullChanges = async (req, res) => {
         });
       }
 
-      // Validate base64 content of first file as sanity check
       const firstFile = filesWithCleanContent[0];
       if (firstFile.content.length < 10) {
-        console.warn(`[PULL] ⚠️ Suspiciously short content for ${firstFile.path}: ${firstFile.content.length} chars`);
+        console.warn(`[PULL] Suspiciously short content for ${firstFile.path}: ${firstFile.content.length} chars`);
       }
-
-      console.log(`[PULL]   Sample file check - ${firstFile.path}:`, {
-        hasContent: !!firstFile.content,
-        contentLength: firstFile.content.length,
-        contentPreview: firstFile.content.substring(0, 50) + '...'
-      });
 
       // Update last_pulled_at timestamp
       await connection.execute(
         'UPDATE projects SET last_pulled_at = NOW() WHERE id = ?',
         [projectId]
       );
-
-      console.log(`[PULL] Returning ${filesWithCleanContent.length} valid files to client`);
 
       res.json({
         message: 'Files fetched successfully',
@@ -1825,7 +2589,182 @@ exports.pullChanges = async (req, res) => {
       message: error.message
     });
   }
+  ── END OLD pullChanges ── */
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Phase 5 — simple-git based file transfer
+// The desktop client performs the actual git push/pull/clone. The server no
+// longer handles file bytes; it only serves the ProdCollab GitHub credentials
+// (currently dev-anthony's account) + repo URL, and records push/pull state.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── Phase 4.3: shared ProdCollab GitHub token now comes from env, not the DB.
+// The single GitHub account that owns/authenticates ALL ProdCollab repos.
+const getProdCollabToken = async () => {
+  const token = process.env.PRODCOLLAB_GITHUB_TOKEN;
+  if (!token) {
+    throw new Error('PRODCOLLAB_GITHUB_TOKEN not configured in environment');
+  }
+  return token;
+};
+
+// Serve git credentials (token + repoUrl) to the client so simple-git can
+// authenticate against GitHub. Client uses these for push/pull/clone.
+exports.getGitCredentials = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    // ── Phase 3.10: Supabase ──
+    const { data: project, error } = await supabase
+      .from('projects')
+      .select('id, repo_name, repo_url')
+      .eq('id', projectId)
+      .single();
+    if (error || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const token = await getProdCollabToken();
+    res.json({
+      token,
+      repoUrl: project.repo_url,
+      repoName: project.repo_name
+    });
+  } catch (error) {
+    console.error('getGitCredentials error:', error);
+    res.status(500).json({ error: 'Failed to get git credentials', message: error.message });
+  }
+};
+
+// Record that a push happened (client already pushed via simple-git).
+exports.recordPush = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { fileCount } = req.body;
+    // ── Phase 3.10: Supabase ──
+    const { error } = await supabase
+      .from('projects')
+      .update({ has_changes: false, updated_at: new Date().toISOString() })
+      .eq('id', projectId);
+    if (error) throw error;
+    res.json({ message: 'Push recorded', fileCount: fileCount || 0 });
+  } catch (error) {
+    console.error('recordPush error:', error);
+    res.status(500).json({ error: 'Failed to record push', message: error.message });
+  }
+};
+
+// Return pull info (token + clone URL) and stamp last_pulled_at.
+exports.getPullInfo = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    // ── Phase 3.10: Supabase ──
+    const { data: project, error } = await supabase
+      .from('projects')
+      .select('id, repo_name, repo_url')
+      .eq('id', projectId)
+      .single();
+    if (error || !project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const token = await getProdCollabToken();
+    await supabase
+      .from('projects')
+      .update({ last_pulled_at: new Date().toISOString() })
+      .eq('id', projectId);
+    res.json({ token, repoUrl: project.repo_url, repoName: project.repo_name });
+  } catch (error) {
+    console.error('getPullInfo error:', error);
+    res.status(500).json({ error: 'Failed to get pull info', message: error.message });
+  }
+};
+
+/* ── OLD MySQL implementations of the Phase 5 helpers (Phase 3.10 / 4.3 replaced) ──
+const PRODCOLLAB_GITHUB_USER_ID = 1;
+
+const getProdCollabToken = async (connection) => {
+  const [rows] = await connection.execute(
+    'SELECT access_token FROM github_tokens WHERE user_id = ?',
+    [PRODCOLLAB_GITHUB_USER_ID]
+  );
+  if (rows.length === 0 || !rows[0].access_token) {
+    throw new Error('ProdCollab GitHub token not found');
+  }
+  return rows[0].access_token;
+};
+
+exports.getGitCredentials = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const connection = await pool.promise().getConnection();
+    try {
+      const [projects] = await connection.execute(
+        'SELECT id, repo_name, repo_url FROM projects WHERE id = ?',
+        [projectId]
+      );
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      const project = projects[0];
+      const token = await getProdCollabToken(connection);
+      res.json({ token, repoUrl: project.repo_url, repoName: project.repo_name });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getGitCredentials error:', error);
+    res.status(500).json({ error: 'Failed to get git credentials', message: error.message });
+  }
+};
+
+exports.recordPush = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { fileCount } = req.body;
+    const connection = await pool.promise().getConnection();
+    try {
+      await connection.execute(
+        'UPDATE projects SET has_changes = 0, updated_at = NOW() WHERE id = ?',
+        [projectId]
+      );
+      res.json({ message: 'Push recorded', fileCount: fileCount || 0 });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('recordPush error:', error);
+    res.status(500).json({ error: 'Failed to record push', message: error.message });
+  }
+};
+
+exports.getPullInfo = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const connection = await pool.promise().getConnection();
+    try {
+      const [projects] = await connection.execute(
+        'SELECT id, repo_name, repo_url FROM projects WHERE id = ?',
+        [projectId]
+      );
+      if (projects.length === 0) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      const project = projects[0];
+      const token = await getProdCollabToken(connection);
+      await connection.execute(
+        'UPDATE projects SET last_pulled_at = NOW() WHERE id = ?',
+        [projectId]
+      );
+      res.json({ token, repoUrl: project.repo_url, repoName: project.repo_name });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('getPullInfo error:', error);
+    res.status(500).json({ error: 'Failed to get pull info', message: error.message });
+  }
+};
+── END OLD Phase 5 helpers ── */
+
 module.exports = {
   createProjectRepo: exports.createProjectRepo,
   getUserProjects: exports.getUserProjects,
@@ -1841,5 +2780,9 @@ module.exports = {
   checkRemoteChanges: exports.checkRemoteChanges,
   pullChanges: exports.pullChanges,
   getProjectById: exports.getProjectById,
+  // Phase 5 — simple-git endpoints
+  getGitCredentials: exports.getGitCredentials,
+  recordPush: exports.recordPush,
+  getPullInfo: exports.getPullInfo,
   // clearChangesFlag: exports.clearChangesFlag
 };

@@ -7,9 +7,22 @@ const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
 const { spawn } = require('child_process');
+const http = require('http');
 const simpleGit = require('simple-git');
 const crypto = require('crypto');
 let serverProcess = null; 
+
+const isBackendRunning = () => new Promise((resolve) => {
+  const request = http.get('http://localhost:5000/health', { timeout: 1500 }, (response) => {
+    response.resume();
+    resolve(response.statusCode === 200);
+  });
+  request.on('timeout', () => {
+    request.destroy();
+    resolve(false);
+  });
+  request.on('error', () => resolve(false));
+});
 
 // Initialize persistent storage for folder paths
 const store = new Store({ name: 'project-folders' });
@@ -1859,16 +1872,19 @@ ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
 // ──────────────────────────────────────────────────────────────────────────────
 // App Lifecycle
 // ──────────────────────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     const serverPath = app.isPackaged
     ? path.join(process.resourcesPath, 'server', 'server.js')
     : path.join(process.cwd(), '..', 'server', 'server.js');
 
-  serverProcess = spawn('node', [serverPath], {
-    env: { ...process.env }
-  });
-  serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
-  serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
+  const backendRunning = !app.isPackaged && await isBackendRunning();
+  if (backendRunning) {
+    console.log('[SERVER] Reusing development backend at http://localhost:5000');
+  } else {
+    serverProcess = spawn('node', [serverPath], { env: { ...process.env } });
+    serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
+    serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
+  }
   
   if (app.isPackaged) {
     createWindow();

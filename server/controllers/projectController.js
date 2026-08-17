@@ -7,6 +7,23 @@ const crypto = require('crypto');
 // ── Phase 3.10: migrated data access from MySQL pool to Supabase ──
 // const pool = require('../config/db');
 const supabase = require('../config/supabase');
+
+const projectEventClients = new Map();
+
+const broadcastProjectUpdate = (project, sourceClientId = null) => {
+  const eventProject = sourceClientId ? { ...project, source_client_id: sourceClientId } : project;
+  let delivered = 0;
+  for (const client of projectEventClients.values()) {
+    if (!client.projectIds.has(String(project.id))) continue;
+    try {
+      client.response.write(`event: project-updated\ndata: ${JSON.stringify(eventProject)}\n\n`);
+      delivered += 1;
+    } catch (error) {
+      console.warn(`[REALTIME] Could not deliver project ${project.id} update:`, error.message);
+    }
+  }
+  console.log(`[REALTIME] Project ${project.id} update delivered to ${delivered} connected collaborator(s)`);
+};
 // ── Phase 4.2/4.4: use the single shared ProdCollab Octokit + fixed owner ──
 // (replaces per-user Octokit built from github_tokens.access_token)
 const { octokit: prodOctokit, GITHUB_OWNER } = require('../config/github');
@@ -2665,17 +2682,35 @@ exports.recordPush = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { fileCount, commitMessage } = req.body;
+    const sourceClientId = req.get('x-prodcollab-client-id') || null;
+    const { data: pusherProfile, error: profileError } = await supabase
+      .from('users')
+      .select('id, email, username')
+      .eq('id', req.userId)
+      .single();
+    if (profileError || !pusherProfile) throw profileError || new Error('Pusher profile not found');
+    console.log(`[PUSH] Recording project ${projectId} from user ${pusherProfile.id} (${pusherProfile.email}) client ${sourceClientId || '(unknown)'}`);
     // ── Phase 3.10: Supabase ──
-    const { error } = await supabase
+    const pushedAt = new Date().toISOString();
+    const lastPushedBy = pusherProfile.username || pusherProfile.email || 'A collaborator';
+    const { data: updatedProject, error } = await supabase
       .from('projects')
       .update({
         has_changes: false,
-        last_pushed_by: req.user?.email || req.user?.user_metadata?.username || 'A collaborator',
-        updated_at: new Date().toISOString()
+        last_pushed_by: lastPushedBy,
+        updated_at: pushedAt
       })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .select('id, repo_name, last_pushed_by, updated_at')
+      .single();
     if (error) throw error;
-    res.json({ message: 'Push recorded', fileCount: fileCount || 0, commitMessage: commitMessage || null });
+    broadcastProjectUpdate(updatedProject, sourceClientId);
+    res.json({
+      message: 'Push recorded',
+      fileCount: fileCount || 0,
+      commitMessage: commitMessage || null,
+      project: updatedProject
+    });
   } catch (error) {
     console.error('recordPush error:', error);
     res.status(500).json({ error: 'Failed to record push', message: error.message });
@@ -2714,6 +2749,11 @@ exports.streamProjectEvents = async (req, res) => {
   res.flushHeaders?.();
 
   try {
+    const { data: subscriberProfile } = await supabase
+      .from('users')
+      .select('email, username')
+      .eq('id', req.userId)
+      .single();
     const [{ data: owned }, { data: memberships }] = await Promise.all([
       supabase.from('projects').select('id').eq('user_id', req.userId),
       supabase.from('project_collaborators').select('project_id').eq('user_id', req.userId)
@@ -2722,6 +2762,12 @@ exports.streamProjectEvents = async (req, res) => {
       ...(owned || []).map(({ id }) => String(id)),
       ...(memberships || []).map(({ project_id }) => String(project_id))
     ]);
+    const clientId = `${req.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    projectEventClients.set(clientId, { userId: req.userId, projectIds, response: res });
+    console.log(
+      `[REALTIME] User ${req.userId} (${subscriberProfile?.email || subscriberProfile?.username || 'unknown'}) ` +
+      `connected for projects: ${[...projectIds].join(', ') || '(none)'}`
+    );
     const channel = supabase
       .channel(`project-events-${req.userId}-${Date.now()}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, (payload) => {
@@ -2730,11 +2776,15 @@ exports.streamProjectEvents = async (req, res) => {
         }
       });
 
-    await channel.subscribe();
+    channel.subscribe((status) => {
+      console.log(`[REALTIME] Supabase channel for user ${req.userId}: ${status}`);
+    });
     const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
     req.on('close', () => {
       clearInterval(heartbeat);
+      projectEventClients.delete(clientId);
       supabase.removeChannel(channel);
+      console.log(`[REALTIME] User ${req.userId} disconnected`);
     });
   } catch (error) {
     res.write(`event: subscription-error\ndata: ${JSON.stringify({ error: 'Realtime subscription failed' })}\n\n`);

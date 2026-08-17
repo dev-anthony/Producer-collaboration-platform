@@ -1515,20 +1515,29 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     if (email) await git.addConfig('user.email', email);
 
     const statusBeforeCommit = await git.status();
+    const protectedPaths = new Set(
+      getProtectedConflicts(folderPath).map((conflict) => conflict.preservedPath.replace(/\\/g, '/'))
+    );
+    if (protectedPaths.size > 0) {
+      await git.reset(['--', ...protectedPaths]).catch(() => {});
+    }
     const deletedPaths = new Set(statusBeforeCommit.deleted.map((filePath) => filePath.replace(/\\/g, '/')));
     if (deletedPaths.size > 0) {
       await git.reset(['--', ...deletedPaths]);
     }
     const changedPaths = statusBeforeCommit.files
       .map(({ path: filePath }) => filePath)
-      .filter((filePath) => !deletedPaths.has(filePath.replace(/\\/g, '/')));
+      .filter((filePath) => {
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        return !deletedPaths.has(normalizedPath) && !protectedPaths.has(normalizedPath);
+      });
     const candidatePaths = new Set([
       ...statusBeforeCommit.staged,
       ...statusBeforeCommit.not_added,
       ...statusBeforeCommit.created,
       ...statusBeforeCommit.modified,
       ...statusBeforeCommit.renamed.map((item) => item.to)
-    ].map((filePath) => filePath.replace(/\\/g, '/')));
+    ].map((filePath) => filePath.replace(/\\/g, '/')).filter((filePath) => !protectedPaths.has(filePath)));
     const duplicateFiles = [
       ...await findDuplicateFiles(folderPath, candidatePaths),
       ...await findRemoteContentDuplicates(git, folderPath, candidatePaths)
@@ -1637,6 +1646,15 @@ ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
     sendGitProgress(event, 'pull', 'Applying latest changes');
     await git.merge(['--ff-only', 'origin/main']);
     await finishPullReconciliation(reconciliation, true);
+    if (reconciliation.conflicts.length > 0) {
+      const protectedConflicts = [...getProtectedConflicts(folderPath)];
+      for (const conflict of reconciliation.conflicts) {
+        if (!protectedConflicts.some((item) => item.preservedPath === conflict.preservedPath)) {
+          protectedConflicts.push(conflict);
+        }
+      }
+      setProtectedConflicts(folderPath, protectedConflicts);
+    }
     sendGitProgress(event, 'pull', 'Pull complete', 100);
     return { success: true, conflicts: reconciliation.conflicts };
   } catch (err) {
@@ -1730,6 +1748,76 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
     return { success: false, error: sanitizeGitError(err, token) };
   } finally {
     endGitProgress(event, 'clone');
+  }
+});
+
+ipcMain.handle('get-project-conflicts', async (_, { folderPath }) => {
+  const records = [...getProtectedConflicts(folderPath)];
+  try {
+    const git = simpleGit(folderPath);
+    if (await git.checkIsRepo()) {
+      const status = await git.status();
+      for (const untrackedPath of status.not_added || []) {
+        const normalizedPath = untrackedPath.replace(/\\/g, '/');
+        const parsed = path.posix.parse(normalizedPath);
+        const originalName = parsed.name.replace(/ \(local conflict \d{4}-\d{2}-\d{2}T.+\)$/, '');
+        if (originalName === parsed.name) continue;
+        const originalPath = path.posix.join(parsed.dir, `${originalName}${parsed.ext}`);
+        if (!records.some((item) => item.preservedPath === normalizedPath)) {
+          records.push({ originalPath, preservedPath: normalizedPath });
+        }
+      }
+      setProtectedConflicts(folderPath, records);
+    }
+  } catch (error) {
+    console.warn('[CONFLICT] Could not discover existing conflict files:', error.message);
+  }
+  return records;
+});
+
+ipcMain.handle('resolve-project-conflict', async (event, { projectId, folderPath, preservedPath, action }) => {
+  const records = getProtectedConflicts(folderPath);
+  const conflict = records.find((item) => item.preservedPath === preservedPath);
+  if (!conflict) return { success: false, code: 'CONFLICT_NOT_FOUND' };
+
+  const preservedFullPath = path.join(folderPath, conflict.preservedPath);
+  const originalFullPath = path.join(folderPath, conflict.originalPath);
+  const pausedWatchers = await pauseWatchersForFolder(folderPath);
+  try {
+    if (action === 'use-remote') {
+      await fs.rm(preservedFullPath, { force: true });
+    } else if (action === 'use-local') {
+      await fs.mkdir(path.dirname(originalFullPath), { recursive: true });
+      await fs.copyFile(preservedFullPath, originalFullPath);
+      await fs.rm(preservedFullPath, { force: true });
+    } else if (action !== 'keep-both') {
+      return { success: false, code: 'INVALID_ACTION' };
+    }
+
+    setProtectedConflicts(
+      folderPath,
+      records.filter((item) => item.preservedPath !== preservedPath)
+    );
+    if (action === 'keep-both' || action === 'use-local') {
+      const changedPath = action === 'keep-both' ? preservedFullPath : originalFullPath;
+      event.sender.send('file-changed', {
+        projectId: String(projectId),
+        event: action === 'keep-both' ? 'add' : 'change',
+        path: changedPath
+      });
+      scheduleAutoPush(
+        getProjectKey(getSessionScope(event), projectId),
+        String(projectId),
+        event.sender,
+        changedPath
+      );
+    }
+    return { success: true, action, originalPath: conflict.originalPath, preservedPath: conflict.preservedPath };
+  } catch (error) {
+    console.error('[CONFLICT] Resolution failed:', error);
+    return { success: false, code: 'RESOLUTION_FAILED' };
+  } finally {
+    resumePausedWatchers(pausedWatchers);
   }
 });
 

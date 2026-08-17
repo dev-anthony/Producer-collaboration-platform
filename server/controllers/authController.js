@@ -5,6 +5,7 @@
 // implementation is preserved (commented) at the bottom for review.
 // ────────────────────────────────────────────────────────────────────────────
 const supabase = require('../config/supabase');
+const { createAuthClient } = require('../config/supabase');
 
 // Cookie options shared by the auth cookies
 const cookieOpts = (maxAge) => ({
@@ -59,7 +60,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'email and password are required' });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await createAuthClient().auth.signInWithPassword({ email, password });
 
     if (error) return res.status(401).json({ error: 'Invalid credentials' });
 

@@ -42,13 +42,34 @@ function ProjectCard({
   const [remoteChangesAvailable, setRemoteChangesAvailable] = useState(
     () => Boolean(window.localStorage.getItem(`prodcollab_remote_ahead_${project.id}`))
   );
+  const [folderPath, setFolderPath] = useState(null);
+  const [conflicts, setConflicts] = useState([]);
+  const [resolvingConflict, setResolvingConflict] = useState(null);
+
+  const loadConflicts = async () => {
+    if (!window.electronAPI?.getProjectConflicts) return;
+    const linkedFolder = await window.electronAPI.getFolderPath(project.id);
+    setFolderPath(linkedFolder);
+    if (!linkedFolder) {
+      setConflicts([]);
+      return;
+    }
+    setConflicts(await window.electronAPI.getProjectConflicts(linkedFolder));
+  };
+
+  useEffect(() => {
+    loadConflicts().catch((error) => console.error('[CONFLICT] Could not load conflicts:', error));
+  }, [project.id]);
 
   useEffect(() => {
     const handleRemoteChange = (event) => {
       if (String(event.detail?.id) === String(project.id)) setRemoteChangesAvailable(true);
     };
     const handleRemoteSynced = (event) => {
-      if (String(event.detail?.id) === String(project.id)) setRemoteChangesAvailable(false);
+      if (String(event.detail?.id) === String(project.id)) {
+        setRemoteChangesAvailable(false);
+        loadConflicts().catch((error) => console.error('[CONFLICT] Could not refresh conflicts:', error));
+      }
     };
     window.addEventListener('prodcollab:remote-change', handleRemoteChange);
     window.addEventListener('prodcollab:remote-synced', handleRemoteSynced);
@@ -57,6 +78,32 @@ function ProjectCard({
       window.removeEventListener('prodcollab:remote-synced', handleRemoteSynced);
     };
   }, [project.id]);
+
+  const resolveConflict = async (conflict, action) => {
+    if (!folderPath) return;
+    setResolvingConflict(conflict.preservedPath);
+    try {
+      const result = await window.electronAPI.resolveProjectConflict({
+        projectId: project.id,
+        folderPath,
+        preservedPath: conflict.preservedPath,
+        action
+      });
+      if (!result.success) throw new Error(result.code || 'RESOLUTION_FAILED');
+      setConflicts((current) => current.filter((item) => item.preservedPath !== conflict.preservedPath));
+      const messages = {
+        'use-remote': 'Remote version kept. The local conflict copy was removed.',
+        'keep-both': 'Both versions kept. The local copy can be included in your next push.',
+        'use-local': 'Local version selected. It is now ready to replace the shared version on your next push.'
+      };
+      setToast({ type: 'success', message: messages[action] });
+    } catch (error) {
+      console.error('[CONFLICT] Resolution failed:', error);
+      setToast({ type: 'error', message: 'We could not apply that choice. Your files have not been changed.' });
+    } finally {
+      setResolvingConflict(null);
+    }
+  };
 
   // Phase 6.10: wrap the parent push handler so we can show a "Pushing…" state
   const handlePushClick = async () => {
@@ -317,6 +364,28 @@ function ProjectCard({
                   {projectFolderName}
                 </code>
               </div>
+            </div>
+          )}
+
+          {conflicts.length > 0 && (
+            <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+              <div className="mb-3 flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-400" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Review local version</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Protected from pushes until you choose what to keep.</p>
+                </div>
+              </div>
+              {conflicts.map((conflict) => (
+                <div key={conflict.preservedPath} className="border-t border-amber-400/20 pt-3 first:border-0 first:pt-0">
+                  <p className="mb-2 truncate text-xs font-medium text-foreground" title={conflict.originalPath}>{conflict.originalPath}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-remote')} className="rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">Use remote</button>
+                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'keep-both')} className="rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs text-primary disabled:opacity-50">Keep both</button>
+                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-local')} className="rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-semibold text-black disabled:opacity-50">Use local</button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

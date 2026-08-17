@@ -364,14 +364,19 @@ function Projects({ onLogout }) {
     if (!pushRes.success) throw new Error(pushRes.code || 'PUSH_FAILED');
 
     // Tell the server the push happened
-    await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
+    const recordResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
       method: 'POST',
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-prodcollab-client-id': window.localStorage.getItem('prodcollab_realtime_client_id') || ''
       },
       body: JSON.stringify({ commitMessage: `Update by ${user?.username || 'ProdCollab'}` })
     });
+    if (!recordResponse.ok) {
+      console.error('[PUSH] Files reached GitHub, but realtime update recording failed:', await recordResponse.text());
+      throw new Error('PUSH_RECORD_FAILED');
+    }
 
     setProjects(prev => prev.map(p =>
       String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
@@ -477,6 +482,8 @@ function Projects({ onLogout }) {
       type: 'error',
       message: err.message === 'SYNC_IN_PROGRESS'
         ? 'This project is already syncing. Please wait a moment.'
+        : err.message === 'PUSH_RECORD_FAILED'
+          ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
         : err.message === 'DUPLICATE_CONTENT'
           ? 'That audio already exists in this project. Remove the duplicate copy before pushing.'
         : 'We could not upload your changes. They are still safe locally. Please try again.'

@@ -137,6 +137,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitPull: (data) => ipcRenderer.invoke('git-pull', data),
   gitClone: (data) => ipcRenderer.invoke('git-clone', data),
   gitLog: (data) => ipcRenderer.invoke('git-log', data),
+  getProjectConflicts: (folderPath) => ipcRenderer.invoke('get-project-conflicts', { folderPath }),
+  resolveProjectConflict: (data) => ipcRenderer.invoke('resolve-project-conflict', data),
   onGitProgress: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('git-progress', handler);

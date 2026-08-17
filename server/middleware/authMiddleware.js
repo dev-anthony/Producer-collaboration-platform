@@ -1,6 +1,7 @@
 // middleware/authMiddleware.js
 // ── Phase 4.10: read session from httpOnly cookie, validate via Supabase Auth ──
 const supabase = require('../config/supabase');
+const { createAuthClient } = require('../config/supabase');
 
 const cookieOpts = (maxAge) => ({
   httpOnly: true,
@@ -23,7 +24,7 @@ exports.verifyToken = async (req, res, next) => {
       : { data: null, error: new Error('Access token missing') };
 
     if ((error || !data?.user) && refreshToken) {
-      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+      const { data: refreshed, error: refreshError } = await createAuthClient().auth.refreshSession({ refresh_token: refreshToken });
       if (!refreshError && refreshed?.session && refreshed?.user) {
         token = refreshed.session.access_token;
         res.cookie('prodcollab_token', token, cookieOpts(60 * 60 * 1000));

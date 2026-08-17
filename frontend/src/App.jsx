@@ -31,6 +31,12 @@ function App() {
   const [syncProgress, setSyncProgress] = useState(null);
   const [authScreen, setAuthScreen] = useState('login'); // 'login' | 'signup'
   const seenPushes = useRef(new Set());
+  const realtimeClientId = useRef(null);
+  if (!realtimeClientId.current) {
+    const storedClientId = window.localStorage.getItem('prodcollab_realtime_client_id');
+    realtimeClientId.current = storedClientId || crypto.randomUUID();
+    if (!storedClientId) window.localStorage.setItem('prodcollab_realtime_client_id', realtimeClientId.current);
+  }
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
@@ -38,9 +44,14 @@ function App() {
       console.error('[WATCHER] Could not restore session watchers:', error);
     });
     const events = new EventSource('http://localhost:5000/api/projects/events', { withCredentials: true });
+    events.onopen = () => console.log('[REALTIME] Connected');
+    events.onerror = (error) => console.warn('[REALTIME] Connection interrupted; retrying automatically', error);
     const handleProjectUpdate = async (event) => {
       const project = JSON.parse(event.data);
-      if (!project.last_pushed_by || project.last_pushed_by === user?.email) return;
+      if (!project.last_pushed_by || project.source_client_id === realtimeClientId.current) return;
+      if (!project.source_client_id && (
+        project.last_pushed_by === user?.email || project.last_pushed_by === user?.username
+      )) return;
       const pushKey = `${project.id}:${project.last_pushed_by}:${project.updated_at}`;
       if (seenPushes.current.has(pushKey)) return;
       seenPushes.current.add(pushKey);

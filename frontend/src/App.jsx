@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/Login.jsx';
 import SignupPage from './pages/SignupPage.jsx';
@@ -9,6 +9,7 @@ import Toast from './components/Toast.jsx';
 import Collaboration from './pages/Collaboration.jsx';
 import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
+import { Loader2 } from 'lucide-react';
 
 // ── Phase 4.14 ──────────────────────────────────────────────────────────────
 // Session is now managed entirely by httpOnly cookies + Supabase Auth.
@@ -17,20 +18,31 @@ import Settings from './pages/Settings.jsx';
 // The old JWT/localStorage implementation is preserved (commented) at the bottom.
 // ────────────────────────────────────────────────────────────────────────────
 function App() {
+  const devAccount = new URLSearchParams(window.location.search).get('devAccount');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [syncProgress, setSyncProgress] = useState(null);
   const [authScreen, setAuthScreen] = useState('login'); // 'login' | 'signup'
+  const seenPushes = useRef(new Set());
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
+    window.electronAPI?.restoreSessionWatchers?.().catch((error) => {
+      console.error('[WATCHER] Could not restore session watchers:', error);
+    });
     const events = new EventSource('http://localhost:5000/api/projects/events', { withCredentials: true });
     const handleProjectUpdate = async (event) => {
       const project = JSON.parse(event.data);
       if (!project.last_pushed_by || project.last_pushed_by === user?.email) return;
+      const pushKey = `${project.id}:${project.last_pushed_by}:${project.updated_at}`;
+      if (seenPushes.current.has(pushKey)) return;
+      seenPushes.current.add(pushKey);
       const message = `${project.last_pushed_by} pushed changes to ${project.repo_name}`;
       setToast({ type: 'info', message });
+      window.localStorage.setItem(`prodcollab_remote_ahead_${project.id}`, pushKey);
+      window.dispatchEvent(new CustomEvent('prodcollab:remote-change', { detail: project }));
       window.electronAPI?.showNotification({ title: 'ProdCollab update', body: message });
       if (window.localStorage.getItem('prodcollab_auto_pull') !== 'true') return;
       try {
@@ -40,13 +52,16 @@ function App() {
         const pullInfo = await response.json();
         if (!response.ok) throw new Error(pullInfo.error || 'Could not get pull details');
         const result = await window.electronAPI.gitPull({ folderPath, repoUrl: pullInfo.repoUrl, token: pullInfo.token });
-        if (!result.success) throw new Error(result.error || 'Git pull failed');
+        if (!result.success) throw new Error(result.code || 'PULL_FAILED');
+        window.localStorage.removeItem(`prodcollab_remote_ahead_${project.id}`);
+        window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: project.id } }));
         window.electronAPI?.showNotification({
           title: 'ProdCollab synced',
           body: `${project.repo_name} was updated in your local folder.`
         });
       } catch (error) {
-        setToast({ type: 'error', message: `Automatic pull failed: ${error.message}` });
+        console.error('[SYNC] Automatic pull failed:', error);
+        setToast({ type: 'error', message: 'We could not download the latest changes. You can retry from the project card.' });
       }
     };
     events.addEventListener('project-updated', handleProjectUpdate);
@@ -58,10 +73,31 @@ function App() {
 
   useEffect(() => {
     if (!window.electronAPI?.onGitProgress) return undefined;
-    return window.electronAPI.onGitProgress(({ operation, stage, percent }) => {
+    const removeProgress = window.electronAPI.onGitProgress(({ operation, stage, percent }) => {
+      const operationLabel = operation === 'clone'
+        ? 'Joining project'
+        : operation === 'pull'
+          ? 'Pulling changes'
+          : 'Pushing changes';
+      setSyncProgress({ operationLabel, stage, percent });
+      if (percent === 100) setTimeout(() => setSyncProgress(null), 1500);
+    });
+    const removeEnd = window.electronAPI.onGitProgressEnd?.(() => {
+      setTimeout(() => setSyncProgress(null), 500);
+    });
+    return () => {
+      removeProgress?.();
+      removeEnd?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onFileDeleted) return undefined;
+    return window.electronAPI.onFileDeleted(({ path: filePath, event }) => {
+      const name = filePath.split(/[\\/]/).pop();
       setToast({
         type: 'info',
-        message: `${operation === 'clone' ? 'Joining project' : 'Pushing changes'}: ${stage} ${percent}%`
+        message: `${event === 'unlinkDir' ? 'Folder' : 'File'} deleted locally: ${name}. This deletion will not be pushed.`
       });
     });
   }, []);
@@ -128,6 +164,11 @@ function App() {
 
   return (
     <HashRouter>
+      {devAccount && (
+        <div className="fixed bottom-3 right-3 z-[100] bg-yellow-400 text-black px-3 py-1.5 rounded-md text-xs font-bold shadow-lg">
+          DEV TEST {devAccount}
+        </div>
+      )}
       {toast && (
         <Toast
           message={toast.message}
@@ -135,6 +176,15 @@ function App() {
           duration={3000}
           onClose={() => setToast(null)}
         />
+      )}
+      {syncProgress && (
+        <div className="fixed left-1/2 top-4 z-[110] -translate-x-1/2 rounded-xl border border-primary/30 bg-background/95 px-5 py-3 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center gap-3 text-sm font-medium text-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span>{syncProgress.operationLabel}: {syncProgress.stage}</span>
+            {syncProgress.percent != null && <span className="text-primary">{syncProgress.percent}%</span>}
+          </div>
+        </div>
       )}
       <Routes>
         <Route

@@ -1,7 +1,7 @@
 
 if (require('electron-squirrel-startup')) app.quit();
 
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, clipboard, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, clipboard, Notification, screen } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
@@ -21,17 +21,44 @@ const windows = [];
 const watchers = new Map(); // projectId -> watcher instance
 // ── Phase 6.1: debounced auto-push timers (projectId -> timeout handle) ──
 const pushTimers = new Map();
+const pendingPushPaths = new Map();
 const PUSH_DELAY = 10 * 60 * 1000; // 10 minutes
 
 // Schedule (or reschedule) an auto-push for a project after PUSH_DELAY of quiet.
-function scheduleAutoPush(pid) {
-  if (pushTimers.has(pid)) clearTimeout(pushTimers.get(pid));
+function scheduleAutoPush(watcherKey, pid, target, filePath) {
+  const pending = pendingPushPaths.get(watcherKey) || new Set();
+  pending.add(filePath);
+  pendingPushPaths.set(watcherKey, pending);
+  if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
   const timer = setTimeout(() => {
-    pushTimers.delete(pid);
-    notifyAll('auto-push-ready', { projectId: pid });
+    pushTimers.delete(watcherKey);
+    pendingPushPaths.delete(watcherKey);
+    if (target && !target.isDestroyed()) target.send('auto-push-ready', { projectId: pid });
   }, PUSH_DELAY);
-  pushTimers.set(pid, timer);
+  pushTimers.set(watcherKey, timer);
 }
+
+function removePendingPushPath(watcherKey, deletedPath) {
+  const pending = pendingPushPaths.get(watcherKey);
+  if (!pending) return;
+  for (const filePath of pending) {
+    if (filePath === deletedPath || filePath.startsWith(`${deletedPath}${path.sep}`)) pending.delete(filePath);
+  }
+  if (pending.size > 0) return;
+  pendingPushPaths.delete(watcherKey);
+  if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
+  pushTimers.delete(watcherKey);
+}
+
+const getSessionScope = (event) => {
+  const owner = windows.find((win) => !win.isDestroyed() && win.webContents.id === event.sender.id);
+  if (!owner?.devSessionName) return 'default';
+  return `persist:prodcollab-dev-${owner.devSessionName.toLowerCase().replace(/\s+/g, '-')}`;
+};
+const getProjectKey = (scope, projectId) => (
+  scope === 'default' ? String(projectId) : `${scope}::${String(projectId)}`
+);
+const DEV_ACCOUNT_A_SCOPE = 'persist:prodcollab-dev-account-a';
 // ──────────────────────────────────────────────────────────────────────────────
 // OAUTH PROTOCOL HANDLER (for production)
 // ── Phase 4.16: removed — GitHub OAuth replaced by email/password auth. ──
@@ -109,15 +136,18 @@ if (!gotTheLock) {
 // ──────────────────────────────────────────────────────────────────────────────
 // Window Creation
 // ──────────────────────────────────────────────────────────────────────────────
-function createWindow(sessionName = 'default', xOffset = 0) {
+function createWindow(sessionName = 'default', bounds = {}) {
+  const isDevTestWindow = !app.isPackaged && sessionName !== 'default';
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: bounds.width || 1200,
+    height: bounds.height || 800,
     icon: path.join(__dirname, '../assets/icon.ico'),
-    x: xOffset,
-    y: 100,
+    ...(Number.isInteger(bounds.x) ? { x: bounds.x } : {}),
+    ...(Number.isInteger(bounds.y) ? { y: bounds.y } : {}),
+    title: isDevTestWindow ? `ProdCollab [DEV ${sessionName}]` : 'ProdCollab',
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      ...(isDevTestWindow ? { partition: `persist:prodcollab-dev-${sessionName.toLowerCase().replace(/\s+/g, '-')}` } : {}),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -225,8 +255,16 @@ function createWindow(sessionName = 'default', xOffset = 0) {
   // ============================================================================
 
   // Initial load
-  win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  win.setTitle(`ProdCollab - ${sessionName}`);
+  const windowUrl = isDevTestWindow
+    ? `${MAIN_WINDOW_WEBPACK_ENTRY}?devAccount=${encodeURIComponent(sessionName)}`
+    : MAIN_WINDOW_WEBPACK_ENTRY;
+  win.loadURL(windowUrl);
+  win.webContents.on('page-title-updated', (event) => {
+    if (!isDevTestWindow) return;
+    event.preventDefault();
+    win.setTitle(`ProdCollab [DEV ${sessionName}]`);
+  });
+  win.devSessionName = sessionName;
 
   // Phase 6.11 — on window close, ask the user: keep running in the background
   // (so auto-push keeps working) or quit entirely. Only quit fully when the user
@@ -318,14 +356,19 @@ function createWindow(sessionName = 'default', xOffset = 0) {
 //   watchers.set(pid, watcher);
 //   console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
 // }
-function startWatching(projectId, folderPath) {
+function startWatching(projectId, folderPath, scope = 'default', target = null) {
   const pid = String(projectId);
+  const watcherKey = getProjectKey(scope, pid);
+  const notifyTarget = (channel, data) => {
+    if (target && !target.isDestroyed()) target.send(channel, data);
+    else notifyAll(channel, data);
+  };
 
   // Stop existing watcher if any
-  if (watchers.has(pid)) {
-    watchers.get(pid).close();
-    watchers.delete(pid);
-    console.log(`[WATCHER] Stopped existing watcher for ${pid}`);
+  if (watchers.has(watcherKey)) {
+    watchers.get(watcherKey).close();
+    watchers.delete(watcherKey);
+    console.log(`[WATCHER] Stopped existing watcher for ${watcherKey}`);
   }
 
   const watcher = chokidar.watch(folderPath, {
@@ -339,6 +382,9 @@ function startWatching(projectId, folderPath) {
   ],
     ignoreInitial: true,
     persistent: true,
+    usePolling: !app.isPackaged && process.platform === 'win32',
+    interval: 500,
+    binaryInterval: 1000,
     awaitWriteFinish: {
       stabilityThreshold: 4000,
       pollInterval: 100
@@ -349,44 +395,47 @@ function startWatching(projectId, folderPath) {
   watcher
     .on('add', (filePath) => {
       console.log(`[WATCHER] File added: ${filePath}`);
-      notifyAll('file-changed', { projectId: pid, event: 'add', path: filePath });
-      scheduleAutoPush(pid); // Phase 6.1
+      notifyTarget('file-changed', { projectId: pid, event: 'add', path: filePath });
+      scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
     })
     .on('change', (filePath) => {
       console.log(`[WATCHER] File changed: ${filePath}`);
-      notifyAll('file-changed', { projectId: pid, event: 'change', path: filePath });
-      scheduleAutoPush(pid); // Phase 6.1
+      notifyTarget('file-changed', { projectId: pid, event: 'change', path: filePath });
+      scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
     })
     .on('unlink', (filePath) => {
       console.log(`[WATCHER] File deleted: ${filePath}`);
-      notifyAll('file-changed', { projectId: pid, event: 'unlink', path: filePath });
-      scheduleAutoPush(pid); // Phase 6.1
+      removePendingPushPath(watcherKey, filePath);
+      notifyTarget('file-deleted', { projectId: pid, event: 'unlink', path: filePath });
     })
     .on('addDir', (dirPath) => {
       console.log(`[WATCHER] Folder added: ${dirPath}`);
-      notifyAll('file-changed', { projectId: pid, event: 'addDir', path: dirPath });
-      scheduleAutoPush(pid); // Phase 6.1
+      // Git does not track empty directories. Added files inside it emit `add`.
     })
     .on('unlinkDir', (dirPath) => {
       console.log(`[WATCHER] Folder deleted: ${dirPath}`);
-      notifyAll('file-changed', { projectId: pid, event: 'unlinkDir', path: dirPath });
-      scheduleAutoPush(pid); // Phase 6.1
+      removePendingPushPath(watcherKey, dirPath);
+      notifyTarget('file-deleted', { projectId: pid, event: 'unlinkDir', path: dirPath });
     })
     .on('error', (error) => {
       console.error(`[WATCHER] Error for ${pid}:`, error);
+    })
+    .on('ready', () => {
+      console.log(`[WATCHER] Ready ${watcherKey} → ${folderPath}`);
     });
 
-  watchers.set(pid, watcher);
-  console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
+  watchers.set(watcherKey, watcher);
+  console.log(`[WATCHER] Started watching ${watcherKey} → ${folderPath}`);
   refreshTray(); // Phase 6.11: keep tray "Push now" list in sync
 }
 
-  function stopWatching(projectId) {
+  function stopWatching(projectId, scope = 'default') {
     const pid = String(projectId);
-    if (watchers.has(pid)) {
-      watchers.get(pid).close();
-      watchers.delete(pid);
-      console.log(`[WATCHER] Stopped watching ${pid}`);
+    const watcherKey = getProjectKey(scope, pid);
+    if (watchers.has(watcherKey)) {
+      watchers.get(watcherKey).close();
+      watchers.delete(watcherKey);
+      console.log(`[WATCHER] Stopped watching ${watcherKey}`);
     }
     refreshTray(); // Phase 6.11
   }
@@ -395,11 +444,35 @@ function startWatching(projectId, folderPath) {
 function restoreAllWatchers() {
   console.log('[MAIN] Restoring watchers from persistent storage...');
   const watched = store.get('watchedFolders', {});
+  if (!app.isPackaged) {
+    let migrated = false;
+    for (const [storedKey, folderPath] of Object.entries({ ...watched })) {
+      if (storedKey.includes('::')) continue;
+      const scopedKey = getProjectKey(DEV_ACCOUNT_A_SCOPE, storedKey);
+      if (!watched[scopedKey]) watched[scopedKey] = folderPath;
+      delete watched[storedKey];
+      migrated = true;
+    }
+    if (migrated) store.set('watchedFolders', watched);
+  }
   console.log('[MAIN] Found saved projects:', Object.keys(watched));
 
   for (const [pid, folderPath] of Object.entries(watched)) {
     if (folderPath) {
-      startWatching(pid, folderPath);
+      const separator = pid.indexOf('::');
+      if (separator === -1) {
+        if (app.isPackaged) {
+          startWatching(pid, folderPath);
+        } else {
+          const accountA = windows.find((win) => getWindowScope(win) === DEV_ACCOUNT_A_SCOPE);
+          startWatching(pid, folderPath, DEV_ACCOUNT_A_SCOPE, accountA?.webContents || null);
+        }
+        continue;
+      }
+      const scope = pid.slice(0, separator);
+      const projectId = pid.slice(separator + 2);
+      const targetWindow = windows.find((win) => getWindowScope(win) === scope);
+      startWatching(projectId, folderPath, scope, targetWindow?.webContents || null);
     }
   }
 }
@@ -417,13 +490,16 @@ function notifyAll(channel, data) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 // Clear any pending debounce timer and signal the renderer to push immediately.
-function triggerPushNow(projectId) {
+function triggerPushNow(projectId, scope = null, target = null) {
   const pid = String(projectId);
-  if (pushTimers.has(pid)) {
-    clearTimeout(pushTimers.get(pid));
-    pushTimers.delete(pid);
+  const timerKey = scope ? getProjectKey(scope, pid) : pid;
+  if (pushTimers.has(timerKey)) {
+    clearTimeout(pushTimers.get(timerKey));
+    pushTimers.delete(timerKey);
   }
-  notifyAll('auto-push-ready', { projectId: pid });
+  pendingPushPaths.delete(timerKey);
+  if (target && !target.isDestroyed()) target.send('auto-push-ready', { projectId: pid });
+  else notifyAll('auto-push-ready', { projectId: pid });
 }
 
 let tray = null;
@@ -436,7 +512,7 @@ function focusMainWindow() {
     win.show();
     win.focus();
   } else {
-    createWindow('Account-A', 0);
+    createWindow(app.isPackaged ? 'default' : 'ACCOUNT A');
   }
 }
 
@@ -445,10 +521,19 @@ function refreshTray() {
   if (!tray) return;
 
   const watched = store.get('watchedFolders', {}); // { projectId: folderPath }
-  const projectItems = Object.entries(watched).map(([pid, folderPath]) => ({
-    label: `Push now — ${folderPath ? path.basename(folderPath) : pid}`,
-    click: () => triggerPushNow(pid),
-  }));
+  const projectItems = Object.entries(watched).map(([storedKey, folderPath]) => {
+    const separator = storedKey.indexOf('::');
+    const scope = separator === -1 ? null : storedKey.slice(0, separator);
+    const pid = separator === -1 ? storedKey : storedKey.slice(separator + 2);
+    const targetWindow = scope
+      ? windows.find((win) => getWindowScope(win) === scope)
+      : null;
+    const accountLabel = targetWindow?.devSessionName ? ` [${targetWindow.devSessionName}]` : '';
+    return {
+      label: `Push now${accountLabel} - ${folderPath ? path.basename(folderPath) : pid}`,
+      click: () => triggerPushNow(pid, scope, targetWindow?.webContents || null),
+    };
+  });
 
   const template = [
     { label: 'ProdCollab', enabled: false },
@@ -458,6 +543,10 @@ function refreshTray() {
       : [{ label: 'No watched projects', enabled: false }]),
     { type: 'separator' },
     { label: 'Open ProdCollab', click: () => focusMainWindow() },
+    ...(!app.isPackaged ? [
+      { label: 'Open DEV Account A', click: () => openDevTestWindow('ACCOUNT A', 0) },
+      { label: 'Open DEV Account B', click: () => openDevTestWindow('ACCOUNT B', 1) },
+    ] : []),
     { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
   ];
 
@@ -632,17 +721,22 @@ ipcMain.handle('read-folder-files', async (_, folderPath) => {
 // Preflight folder validation used before create/join mutates server state.
 // projectId is optional for new projects; when present, relinking the same
 // project's existing folder remains valid.
-ipcMain.handle('validate-folder-link', async (_, { folderPath, projectId }) => {
+ipcMain.handle('validate-folder-link', async (event, { folderPath, projectId }) => {
   if (!folderPath) {
     return { valid: false, error: 'NO_FOLDER_SELECTED' };
   }
 
-  const pid = projectId == null ? null : String(projectId);
+  const scope = getSessionScope(event);
+  const projectPid = projectId == null ? null : String(projectId);
+  const pid = projectPid == null ? null : getProjectKey(scope, projectPid);
   const current = store.get('watchedFolders', {});
   const normalize = (p) => path.resolve(p).replace(/[\\/]+$/, '').toLowerCase();
   const target = normalize(folderPath);
   const conflict = Object.entries(current).find(
-    ([otherPid, otherPath]) => otherPid !== pid && otherPath && normalize(otherPath) === target
+    ([otherPid, otherPath]) => {
+      const sameProject = otherPid === pid || (scope === DEV_ACCOUNT_A_SCOPE && otherPid === projectPid);
+      return !sameProject && otherPath && normalize(otherPath) === target;
+    }
   );
 
   if (conflict) {
@@ -656,12 +750,14 @@ ipcMain.handle('validate-folder-link', async (_, { folderPath, projectId }) => {
   return { valid: true };
 });
 //Save folder path (persistent)
-ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
+ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
   if (!projectId || !folderPath) {
     throw new Error('Missing projectId or folderPath');
   }
 
-  const pid = String(projectId);
+  const projectPid = String(projectId);
+  const scope = getSessionScope(event);
+  const pid = getProjectKey(scope, projectPid);
   const current = store.get('watchedFolders', {});
 
   // ── Guard: a local folder may only be linked to ONE project. ──
@@ -670,13 +766,27 @@ ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
   const normalize = (p) => path.resolve(p).replace(/[\\/]+$/, '').toLowerCase();
   const target = normalize(folderPath);
   const conflict = Object.entries(current).find(
-    ([otherPid, otherPath]) => otherPid !== pid && otherPath && normalize(otherPath) === target
+    ([otherPid, otherPath]) => {
+      const sameProject = otherPid === pid || (scope === DEV_ACCOUNT_A_SCOPE && otherPid === projectPid);
+      return !sameProject && otherPath && normalize(otherPath) === target;
+    }
   );
   if (conflict) {
+    const [conflictKey, conflictPath] = conflict;
+    const conflictProjectId = conflictKey.includes('::')
+      ? conflictKey.slice(conflictKey.indexOf('::') + 2)
+      : conflictKey;
+    const canTransferDevMapping = !app.isPackaged && conflictProjectId === projectPid && normalize(conflictPath) === target;
+    if (canTransferDevMapping) {
+      const conflictScope = conflictKey.includes('::') ? conflictKey.slice(0, conflictKey.indexOf('::')) : 'default';
+      stopWatching(projectPid, conflictScope);
+      delete current[conflictKey];
+    } else {
     throw new Error(
       `FOLDER_ALREADY_LINKED: This folder is already linked to another project (id ${conflict[0]}). ` +
       `Please choose a different folder for each project.`
     );
+    }
   }
 
   current[pid] = folderPath;
@@ -685,30 +795,73 @@ ipcMain.handle('save-folder-path', async (_, { projectId, folderPath }) => {
   console.log(`[SAVE] Project ${pid} → ${folderPath}`);
   
   // Automatically start watching when folder is saved
-  startWatching(pid, folderPath);
+  startWatching(projectPid, folderPath, scope, event.sender);
 
   return true;
 });
 
 
 // Get folder path
-ipcMain.handle('get-folder-path', async (_, projectId) => {
-  const pid = String(projectId);
+ipcMain.handle('get-folder-path', async (event, projectId) => {
+  const scope = getSessionScope(event);
+  const pid = getProjectKey(scope, projectId);
   const watched = store.get('watchedFolders', {});
-  const folderPath = watched[pid] || null;
+  const folderPath = watched[pid] || (scope === DEV_ACCOUNT_A_SCOPE ? watched[String(projectId)] : null) || null;
   console.log(`[GET] Project ${pid} → ${folderPath || '(none)'}`);
   return folderPath;
 });
 
+ipcMain.handle('find-project-folder', async (event, { projectId, repoUrl }) => {
+  const scope = getSessionScope(event);
+  const watched = store.get('watchedFolders', {});
+  const expectedRemote = normalizeRemoteUrl(repoUrl);
+  if (!expectedRemote) return null;
+
+  const scopedEntries = Object.entries(watched).filter(([storedKey]) => {
+    if (scope === 'default') return !storedKey.includes('::');
+    return storedKey.startsWith(`${scope}::`);
+  });
+
+  for (const [storedKey, folderPath] of scopedEntries) {
+    try {
+      const git = simpleGit(folderPath);
+      if (!(await git.checkIsRepo())) continue;
+      const remotes = await git.getRemotes(true);
+      const origin = remotes.find((remote) => remote.name === 'origin');
+      if (normalizeRemoteUrl(origin?.refs?.fetch || origin?.refs?.push) !== expectedRemote) continue;
+
+      const newKey = getProjectKey(scope, projectId);
+      for (const [otherKey, otherPath] of scopedEntries) {
+        if (path.resolve(otherPath).toLowerCase() !== path.resolve(folderPath).toLowerCase()) continue;
+        const otherProjectId = otherKey.includes('::') ? otherKey.slice(otherKey.indexOf('::') + 2) : otherKey;
+        stopWatching(otherProjectId, scope);
+        delete watched[otherKey];
+      }
+      watched[newKey] = folderPath;
+      store.set('watchedFolders', watched);
+      startWatching(projectId, folderPath, scope, event.sender);
+      console.log(`[RECOVER] Project ${newKey} matched Git origin → ${folderPath}`);
+      return folderPath;
+    } catch (error) {
+      console.warn(`[RECOVER] Could not inspect ${folderPath}: ${error.message}`);
+    }
+  }
+
+  return null;
+});
+
 // Delete folder path
-ipcMain.handle('delete-folder-path', async (_, projectId) => {
-  const pid = String(projectId);
+ipcMain.handle('delete-folder-path', async (event, projectId) => {
+  const scope = getSessionScope(event);
+  const pid = getProjectKey(scope, projectId);
   const current = store.get('watchedFolders', {});
-  
-  if (current[pid]) {
-    delete current[pid];
+  const legacyPid = String(projectId);
+  const storedPid = current[pid] ? pid : (scope === DEV_ACCOUNT_A_SCOPE && current[legacyPid] ? legacyPid : null);
+
+  if (storedPid) {
+    delete current[storedPid];
     store.set('watchedFolders', current);
-    stopWatching(pid);
+    stopWatching(projectId, scope);
     console.log(`[DELETE] Removed folder path for ${pid}`);
   }
   
@@ -728,10 +881,11 @@ ipcMain.handle('scan-folder', async (_, folderPath) => {
   }
 });
 // Add this to your IPC handlers in main.js (if not already there)
-ipcMain.handle('has-folder-path', async (_, projectId) => {
-  const pid = String(projectId);
+ipcMain.handle('has-folder-path', async (event, projectId) => {
+  const scope = getSessionScope(event);
+  const pid = getProjectKey(scope, projectId);
   const watched = store.get('watchedFolders', {});
-  const folderPath = watched[pid];
+  const folderPath = watched[pid] || (scope === DEV_ACCOUNT_A_SCOPE ? watched[String(projectId)] : null);
   
   console.log(`[CHECK] Project ${pid} has folder: ${!!folderPath}`);
   return {
@@ -741,12 +895,13 @@ ipcMain.handle('has-folder-path', async (_, projectId) => {
 });
 
 // Read project files
-ipcMain.handle('read-project-files', async (_, { projectId, fileStructure }) => {
-  const pid = String(projectId);
+ipcMain.handle('read-project-files', async (event, { projectId, fileStructure }) => {
+  const scope = getSessionScope(event);
+  const pid = getProjectKey(scope, projectId);
   console.log(`[READ] Reading files for project ${pid}`);
 
   const watched = store.get('watchedFolders', {});
-  const folderPath = watched[pid];
+  const folderPath = watched[pid] || (scope === DEV_ACCOUNT_A_SCOPE ? watched[String(projectId)] : null);
 
   if (!folderPath) {
     console.error(`[READ] No folder path for project ${pid}`);
@@ -930,9 +1085,9 @@ ipcMain.handle('write-files', async (event, payload) => {
   return result;
 });
 // Start watching
-ipcMain.handle('start-watching', async (_, { projectId, folderPath }) => {
+ipcMain.handle('start-watching', async (event, { projectId, folderPath }) => {
   try {
-    startWatching(projectId, folderPath);
+    startWatching(projectId, folderPath, getSessionScope(event), event.sender);
     return { success: true };
   } catch (err) {
     console.error('[WATCHER] Start failed:', err);
@@ -941,9 +1096,9 @@ ipcMain.handle('start-watching', async (_, { projectId, folderPath }) => {
 });
 
 // Stop watching
-ipcMain.handle('stop-watching', async (_, projectId) => {
+ipcMain.handle('stop-watching', async (event, projectId) => {
   try {
-    stopWatching(projectId);
+    stopWatching(projectId, getSessionScope(event));
     return { success: true };
   } catch (err) {
     console.error('[WATCHER] Stop failed:', err);
@@ -954,12 +1109,12 @@ ipcMain.handle('stop-watching', async (_, projectId) => {
 //logout
 // Add this IPC handler to main.js, near your other ipcMain.handle() calls
 
-ipcMain.handle('clear-oauth-session', async () => {
+ipcMain.handle('clear-oauth-session', async (event) => {
   console.log('[AUTH] Clearing OAuth session...');
   
   try {
     for (const win of windows) {
-      if (!win.isDestroyed()) {
+      if (!win.isDestroyed() && win.webContents.id === event.sender.id) {
         const session = win.webContents.session;
         
         // Clear ALL storage data
@@ -1024,6 +1179,26 @@ const buildAuthedRemoteUrl = (repoUrl, token) => {
   return url.replace('https://github.com/', `https://${token}@github.com/`);
 };
 
+const normalizeRemoteUrl = (repoUrl) => {
+  if (!repoUrl) return '';
+  return repoUrl
+    .trim()
+    .replace(/^https:\/\/[^@/]+@github\.com\//i, 'https://github.com/')
+    .replace(/^git@github\.com:/i, 'https://github.com/')
+    .replace(/\.git$/i, '')
+    .replace(/\/$/, '')
+    .toLowerCase();
+};
+
+const sendGitProgress = (event, operation, stage, percent = null) => {
+  if (event.sender.isDestroyed()) return;
+  event.sender.send('git-progress', { operation, stage, percent });
+};
+
+const endGitProgress = (event, operation) => {
+  if (!event.sender.isDestroyed()) event.sender.send('git-progress-end', { operation });
+};
+
 const sanitizeGitError = (error, token) => {
   const message = error?.message || String(error);
   return token ? message.split(token).join('[REDACTED]') : message;
@@ -1046,6 +1221,29 @@ function attachGitProgress(git, event, operation) {
     stderr.on('data', report);
   });
   return git;
+}
+
+function getWindowScope(win) {
+  if (!win?.devSessionName) return 'default';
+  return `persist:prodcollab-dev-${win.devSessionName.toLowerCase().replace(/\s+/g, '-')}`;
+}
+
+function openDevTestWindow(sessionName, column) {
+  const existing = windows.find((win) => !win.isDestroyed() && win.devSessionName === sessionName);
+  if (existing) {
+    if (existing.isMinimized()) existing.restore();
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+  const { x, y, width, height } = screen.getPrimaryDisplay().workArea;
+  const windowWidth = Math.floor(width / 2);
+  return createWindow(sessionName, {
+    x: x + (column * windowWidth),
+    y,
+    width: windowWidth,
+    height
+  });
 }
 
 async function findDuplicateFiles(folderPath, candidatePaths) {
@@ -1087,6 +1285,38 @@ async function findDuplicateFiles(folderPath, candidatePaths) {
   return duplicates;
 }
 
+async function findRemoteContentDuplicates(git, folderPath, candidatePaths) {
+  const isRepo = await git.checkIsRepo();
+  if (!isRepo) return [];
+  let tree;
+  try {
+    tree = await git.raw(['ls-tree', '-r', 'HEAD']);
+  } catch {
+    return [];
+  }
+  const remoteByHash = new Map();
+  for (const line of tree.split(/\r?\n/)) {
+    const match = line.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/);
+    if (match) remoteByHash.set(match[1], match[2]);
+  }
+
+  const duplicates = [];
+  for (const candidatePath of candidatePaths) {
+    const normalizedPath = candidatePath.replace(/\\/g, '/');
+    const fullPath = path.join(folderPath, candidatePath);
+    try {
+      const hash = (await git.raw(['hash-object', fullPath])).trim();
+      const remotePath = remoteByHash.get(hash);
+      if (remotePath && remotePath !== normalizedPath) {
+        duplicates.push({ path: normalizedPath, duplicateOf: remotePath });
+      }
+    } catch {
+      // Deleted paths and transient files have no local content to compare.
+    }
+  }
+  return duplicates;
+}
+
 // Init a repo in an existing project folder and wire up the remote
 ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
   try {
@@ -1116,8 +1346,14 @@ ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
 
 // Stage everything, commit, and push
 ipcMain.handle('git-push', async (event, { folderPath, message, username, email, repoUrl, token }) => {
+  const operationKey = normalizeFolderPath(folderPath);
+  if (activeGitOperations.has(operationKey)) {
+    return { success: false, code: 'SYNC_IN_PROGRESS' };
+  }
+  activeGitOperations.add(operationKey);
   try {
     const git = attachGitProgress(simpleGit(folderPath), event, 'push');
+    sendGitProgress(event, 'push', 'Checking local changes');
 
     // Make sure origin has a valid authenticated URL (token can rotate)
     if (repoUrl) {
@@ -1135,7 +1371,13 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     if (email) await git.addConfig('user.email', email);
 
     const statusBeforeCommit = await git.status();
-    const changedPaths = statusBeforeCommit.files.map(({ path: filePath }) => filePath);
+    const deletedPaths = new Set(statusBeforeCommit.deleted.map((filePath) => filePath.replace(/\\/g, '/')));
+    if (deletedPaths.size > 0) {
+      await git.reset(['--', ...deletedPaths]);
+    }
+    const changedPaths = statusBeforeCommit.files
+      .map(({ path: filePath }) => filePath)
+      .filter((filePath) => !deletedPaths.has(filePath.replace(/\\/g, '/')));
     const candidatePaths = new Set([
       ...statusBeforeCommit.staged,
       ...statusBeforeCommit.not_added,
@@ -1143,26 +1385,32 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
       ...statusBeforeCommit.modified,
       ...statusBeforeCommit.renamed.map((item) => item.to)
     ].map((filePath) => filePath.replace(/\\/g, '/')));
-    const duplicateFiles = await findDuplicateFiles(folderPath, candidatePaths);
+    const duplicateFiles = [
+      ...await findDuplicateFiles(folderPath, candidatePaths),
+      ...await findRemoteContentDuplicates(git, folderPath, candidatePaths)
+    ];
     if (duplicateFiles.length > 0) {
       const duplicate = duplicateFiles[0];
       return {
         success: false,
+        code: 'DUPLICATE_CONTENT',
         duplicateFiles,
         error: `Push blocked: "${duplicate.path}" has the same content as "${duplicate.duplicateOf}". Remove one copy or change its content before pushing.`
       };
     }
 
+    sendGitProgress(event, 'push', 'Staging changed files');
     if (changedPaths.length > 0) await git.add(changedPaths);
 
-    // Only commit if there is something staged
-    const status = await git.status();
-    if (status.staged.length === 0 && status.created.length === 0 &&
-        status.modified.length === 0 && status.deleted.length === 0 &&
-        status.renamed.length === 0) {
+    // Local deletions are intentionally not staged. Only commit indexed changes.
+    const stagedPaths = (await git.diff(['--cached', '--name-only']))
+      .split(/\r?\n/)
+      .filter(Boolean);
+    if (stagedPaths.length === 0) {
       return { success: true, nothingToCommit: true };
     }
 
+    sendGitProgress(event, 'push', 'Creating commit');
     await git.commit(message || `Update by ${username || 'ProdCollab'}`);
 
     // Ensure branch is main
@@ -1172,6 +1420,7 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     // concurrent push), git rejects with "fetch first" / non-fast-forward.
     // Recover by rebasing onto the remote and retrying once.
     try {
+      sendGitProgress(event, 'push', 'Uploading changes');
       await git.push('origin', 'main', ['--set-upstream']);
     } catch (pushErr) {
       const msg = String(pushErr && pushErr.message);
@@ -1200,26 +1449,59 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
       await git.push('origin', 'main', ['--set-upstream']);
     }
 
-    return { success: true, filesStaged: changedPaths.length };
+    sendGitProgress(event, 'push', 'Push complete', 100);
+    return { success: true, filesStaged: stagedPaths.length };
   } catch (err) {
     console.error('[GIT] git-push failed:', sanitizeGitError(err, token));
-    return { success: false, error: sanitizeGitError(err, token) };
+    return { success: false, code: 'PUSH_FAILED' };
+  } finally {
+    activeGitOperations.delete(operationKey);
+    endGitProgress(event, 'push');
   }
 });
 
 // Pull latest from origin/main
-ipcMain.handle('git-pull', async (_, { folderPath, repoUrl, token }) => {
+ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
+  const operationKey = normalizeFolderPath(folderPath);
+  if (activeGitOperations.has(operationKey)) {
+    return { success: false, code: 'SYNC_IN_PROGRESS' };
+  }
+  activeGitOperations.add(operationKey);
+  syncSuppressedFolders.add(operationKey);
   try {
     const git = simpleGit(folderPath);
+    sendGitProgress(event, 'pull', 'Checking remote changes');
     if (repoUrl && token) {
       const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
       await git.remote(['set-url', 'origin', authedUrl]).catch(() => {});
     }
-    await git.pull('origin', 'main');
+    sendGitProgress(event, 'pull', 'Downloading latest changes');
+    try {
+      await git.raw(['-c', 'http.version=HTTP/1.1', 'fetch', '--prune', '--no-tags', 'origin', 'main']);
+    } catch (fetchError) {
+      const fetchMessage = sanitizeGitError(fetchError, token);
+      console.warn('[GIT] Pull fetch retry after first failure:', fetchMessage);
+      await git.raw([
+        '-c', 'http.version=HTTP/1.1',
+        '-c', 'core.compression=0',
+        'fetch', '--prune', '--no-tags', 'origin', 'main'
+      ]);
+    }
+    sendGitProgress(event, 'pull', 'Applying latest changes');
+    await git.merge(['--ff-only', 'origin/main']);
+    sendGitProgress(event, 'pull', 'Pull complete', 100);
     return { success: true };
   } catch (err) {
     console.error('[GIT] git-pull failed:', sanitizeGitError(err, token));
-    return { success: false, error: sanitizeGitError(err, token) };
+    const message = String(err?.message || '').toLowerCase();
+    return {
+      success: false,
+      code: message.includes('unpack-objects') ? 'PULL_OBJECTS_FAILED' : 'PULL_FAILED'
+    };
+  } finally {
+    activeGitOperations.delete(operationKey);
+    setTimeout(() => syncSuppressedFolders.delete(operationKey), 1500);
+    endGitProgress(event, 'pull');
   }
 });
 
@@ -1296,6 +1578,8 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
   } catch (err) {
     console.error('[GIT] git-clone failed:', sanitizeGitError(err, token));
     return { success: false, error: sanitizeGitError(err, token) };
+  } finally {
+    endGitProgress(event, 'clone');
   }
 });
 
@@ -1317,8 +1601,8 @@ ipcMain.handle('git-log', async (_, { folderPath }) => {
 
 // 6.2 — Immediate manual push override. Clears the pending debounce timer and
 // signals the renderer to push right now.
-ipcMain.handle('push-now', async (_, { projectId }) => {
-  triggerPushNow(projectId);
+ipcMain.handle('push-now', async (event, { projectId }) => {
+  triggerPushNow(projectId, getSessionScope(event), event.sender);
   return { success: true };
 });
 
@@ -1348,8 +1632,12 @@ app.whenReady().then(() => {
   serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
   serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
   
-  createWindow('Account-A', 0);
-  // createWindow('Account-B', 850);
+  if (app.isPackaged) {
+    createWindow();
+  } else {
+    openDevTestWindow('ACCOUNT A', 0);
+    openDevTestWindow('ACCOUNT B', 1);
+  }
 
   // Phase 6.11: build the system tray (per-project "Push now")
   buildTray();
@@ -1362,7 +1650,8 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow('Account-A', 0);
+      if (app.isPackaged) createWindow();
+      else openDevTestWindow('ACCOUNT A', 0);
     }
   });
 });

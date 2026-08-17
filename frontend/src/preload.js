@@ -82,6 +82,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   getFolderPath: (projectId) => 
     ipcRenderer.invoke('get-folder-path', projectId),
+
+  findProjectFolder: (data) => ipcRenderer.invoke('find-project-folder', data),
   
   deleteFolderPath: (projectId) =>
     ipcRenderer.invoke('delete-folder-path', projectId),
@@ -94,6 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   startWatching: (projectId, folderPath) => 
     ipcRenderer.invoke('start-watching', { projectId, folderPath }),
+  restoreSessionWatchers: () => ipcRenderer.invoke('restore-session-watchers'),
   
   stopWatching: (projectId) => 
     ipcRenderer.invoke('stop-watching', projectId),
@@ -103,9 +106,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('file-changed', handler);
     return () => ipcRenderer.removeListener('file-changed', handler);
   },
+
+  onFileDeleted: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('file-deleted', handler);
+    return () => ipcRenderer.removeListener('file-deleted', handler);
+  },
   
   removeFileChangedListener: () => {
     ipcRenderer.removeAllListeners('file-changed');
+  },
+
+  removeFileDeletedListener: () => {
+    ipcRenderer.removeAllListeners('file-deleted');
   },
   
   writeFiles: (data) => ipcRenderer.invoke('write-files', data),
@@ -128,6 +141,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('git-progress', handler);
     return () => ipcRenderer.removeListener('git-progress', handler);
+  },
+  onGitProgressEnd: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('git-progress-end', handler);
+    return () => ipcRenderer.removeListener('git-progress-end', handler);
   },
 
   // Auto-push / silent sync — Phase 6

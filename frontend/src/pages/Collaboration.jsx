@@ -81,6 +81,15 @@ function Collaboration({ onLogout }) {
           hasUnpushedChanges: projectsWithChanges.has(String(p.id)) || p.hasUnpushedChanges
         })) || [];
         setCollaboratedProjects(projectsWithWatchStatus);
+        for (const project of projectsWithWatchStatus) {
+          if (!project.localPath || !window.electronAPI?.saveFolderPath) continue;
+          try {
+            const currentPath = await window.electronAPI.getFolderPath(project.id);
+            if (!currentPath) await window.electronAPI.saveFolderPath(project.id, project.localPath);
+          } catch (folderError) {
+            console.error(`[WATCHER] Could not restore project ${project.id}:`, folderError);
+          }
+        }
       }
     } catch (err) {
       setToast({
@@ -347,7 +356,7 @@ function Collaboration({ onLogout }) {
       repoUrl: creds.repoUrl,
       token: creds.token
     });
-    if (!pushRes.success) throw new Error(pushRes.error || 'Git push failed');
+    if (!pushRes.success) throw new Error(pushRes.code || 'PUSH_FAILED');
 
     // Tell the server the push happened
     await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
@@ -457,7 +466,14 @@ function Collaboration({ onLogout }) {
     ── END OLD push flow ── */
   } catch (err) {
     console.error('[PUSH] Failed:', err);
-    setToast({ type: 'error', message: `Failed to push changes: ${err.message}` });
+    setToast({
+      type: 'error',
+      message: err.message === 'SYNC_IN_PROGRESS'
+        ? 'This project is already syncing. Please wait a moment.'
+        : err.message === 'DUPLICATE_CONTENT'
+          ? 'That audio already exists in this project. Remove the duplicate copy before pushing.'
+        : 'We could not upload your changes. They are still safe locally. Please try again.'
+    });
   }
 };
 

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Toast from './Toast'
 import {
   Github,
@@ -39,6 +39,24 @@ function ProjectCard({
   const [toast, setToast] = useState(null);
   // Phase 6.10: sync status — 'idle' | 'pushing' | 'failed'
   const [pushState, setPushState] = useState('idle');
+  const [remoteChangesAvailable, setRemoteChangesAvailable] = useState(
+    () => Boolean(window.localStorage.getItem(`prodcollab_remote_ahead_${project.id}`))
+  );
+
+  useEffect(() => {
+    const handleRemoteChange = (event) => {
+      if (String(event.detail?.id) === String(project.id)) setRemoteChangesAvailable(true);
+    };
+    const handleRemoteSynced = (event) => {
+      if (String(event.detail?.id) === String(project.id)) setRemoteChangesAvailable(false);
+    };
+    window.addEventListener('prodcollab:remote-change', handleRemoteChange);
+    window.addEventListener('prodcollab:remote-synced', handleRemoteSynced);
+    return () => {
+      window.removeEventListener('prodcollab:remote-change', handleRemoteChange);
+      window.removeEventListener('prodcollab:remote-synced', handleRemoteSynced);
+    };
+  }, [project.id]);
 
   // Phase 6.10: wrap the parent push handler so we can show a "Pushing…" state
   const handlePushClick = async () => {
@@ -139,167 +157,49 @@ function ProjectCard({
 
     try {
       const projectId = project.id;
-      
-      // STEP 1: Get folder path
-      let folderPath;
-      try {
-        folderPath = await window.electronAPI.getFolderPath(projectId);
-        
-        if (!folderPath) {
-          // console.log('[PULL] No folder path found, prompting user...');
-          
-          if (!window.electronAPI?.selectFolder) {
-            // alert('Folder selection not available in this environment.');
-             setToast({ type: 'warning', message: 'Folder selection not available in this environment.'});
-            return;
-          }
-
-          folderPath = await window.electronAPI.selectFolder();
-          
-          if (!folderPath) {
-            // alert('Folder selection cancelled.');
-            setToast({ type: 'info', message: 'Folder selection cancelled.'});
-            return;
-          }
- await window.electronAPI.saveFolderPath(projectId, folderPath);
-          // await window.electronAPI.saveFolderPath(projectId, folderPath);
-          // console.log('[PULL] Folder path saved:', folderPath);
-        } else {
-          // console.log('[PULL] Using existing folder:', folderPath);
-        }
-      } catch (pathError) {
-        // console.error('[PULL] Error getting folder path:', pathError);
-        // alert('Failed to get folder path. Please try again.');
-        setToast({ type: 'error', message: 'Failed to get folder path. Please try again.'});
-        return;
-      }
-
-      // Optional: Validate folder name match
-      const selectedFolderName = folderPath.split(/[\\/]/).pop();
-      if (projectFolderName && !selectedFolderName.includes(projectFolderName)) {
-        if (!confirm(
-          ` Warning: Selected folder "${selectedFolderName}" ` +
-          `does not match expected project folder "${projectFolderName}"\n\nContinue anyway?`
-        )) {
-          return;
-        }
-      }
-
-      // STEP 2: Check if folder has files (to detect first-time pull)
-      let folderHasFiles = false;
-      try {
-        if (window.electronAPI?.checkFolderContents) {
-          folderHasFiles = await window.electronAPI.checkFolderContents(folderPath);
-          // console.log('[PULL] Folder has files:', folderHasFiles);
-        }
-      } catch (err) {
-        // console.warn('[PULL] Could not check folder contents:', err);
-        setToast({ type: 'warning', message: 'Could not check folder contents.'});
-      }
-
-      // STEP 3: Check for remote changes (with force flag if folder is empty)
-      const forceCheck = !folderHasFiles;
-      const changesRes = await fetch(
-        `http://localhost:5000/api/projects/${projectId}/check-remote-changes${forceCheck ? '?forceCheck=true' : ''}`,
-        { credentials: 'include' }
-      );
-      
-      const changesData = await changesRes.json();
-
-      if (!changesRes.ok) {
-        throw new Error(changesData.error || 'Failed to check remote changes');
-      }
-      
-      // If folder is empty, skip the "no changes" check
-      if (!forceCheck && !changesData.hasChanges) {
-        const shouldPullAnyway = confirm(
-          ' No new changes detected on GitHub.\n\n' +
-          'However, your local folder may be empty or incomplete.\n\n' +
-          'Would you like to pull all files anyway?'
-        );
-        
-        if (!shouldPullAnyway) {
-          // alert(' Your local folder is already up to date!');
-          setToast({ type: 'info', message: 'Your local folder is already up to date!'});
-          return;
-        }
-      }
-
-      // console.log('[PULL] Remote changes detected, fetching files...');
-
-      // STEP 4: Fetch files
-      const pullRes = await fetch(
-        `http://localhost:5000/api/projects/${projectId}/pull-changes`,
-        { credentials: 'include' }
-      );
-      
-      const data = await pullRes.json();
-
-      if (!pullRes.ok) {
-        throw new Error(data.error || 'Failed to pull changes');
-      }
-      
-      if (!data.changedFiles || data.changedFiles.length === 0) {
-        // alert(' No files to download (remote repository is empty).');
-        setToast({ type: 'info', message: 'No files to download (remote repository is empty).'});
-
-        return;
-      }
-
-      // console.log(`[PULL]  Received ${data.changedFiles.length} files`);
-
-      // STEP 5: Write files via Electron API
-      if (!window.electronAPI?.writeFiles) {
-        // alert(' File writing not supported in this environment.');
-        setToast({ type: 'error', message: 'File writing not supported in this environment.'});
-        return;
-      }
-
-      // Validate that we have files and they have content
-      const validFiles = data.changedFiles.filter(file => {
-        if (!file.content) {
-          // console.warn(`[PULL] File has no content: ${file.path}`);
-          return false;
-        }
-        if (!file.path) {
-          return false;
-        }
-        return true;
+      const infoResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/pull-info`, {
+        credentials: 'include'
       });
+      const pullInfo = await infoResponse.json();
+      if (!infoResponse.ok) throw new Error(pullInfo.error || 'Could not get pull details');
 
-      if (validFiles.length === 0) {
-        // alert(' No valid files to write (all files missing content)');
-        setToast({ type: 'info', message: 'No valid files to write (all files missing content)'});
-        return;
+      let folderPath = await window.electronAPI.getFolderPath(projectId);
+      if (!folderPath && window.electronAPI?.findProjectFolder) {
+        folderPath = await window.electronAPI.findProjectFolder({ projectId, repoUrl: pullInfo.repoUrl });
+      }
+      if (!folderPath) {
+        folderPath = await window.electronAPI.selectFolder();
+        if (!folderPath) {
+          setToast({ type: 'info', message: 'Folder selection cancelled.' });
+          return;
+        }
+        await window.electronAPI.saveFolderPath(projectId, folderPath);
       }
 
-
-      const writePayload = {
+      const result = await window.electronAPI.gitPull({
         folderPath,
-        files: validFiles.map(file => ({
-          path: file.path,
-          content: file.content,
-          size: file.size || 0
-        }))
-      };
-
-      const result = await window.electronAPI.writeFiles(writePayload);
-
-      // console.log('[PULL] Write result:', result);
-
-      if (result.success) {
-        setToast({ type: 'success', message:
-          `Successfully pulled and saved ${result.successCount} file(s)! Files written to: ${folderPath}`
-        });
-      } else {
-        setToast({ type: 'warning', message:
-          `Partial success: ${result.successCount} files saved, ${result.failCount} files failed.`
-        });
+        repoUrl: pullInfo.repoUrl,
+        token: pullInfo.token
+      });
+      if (!result.success) {
+        if (result.code === 'SYNC_IN_PROGRESS') {
+          setToast({ type: 'info', message: 'This project is already syncing. Please wait a moment.' });
+          return;
+        }
+        throw new Error(result.code || 'PULL_FAILED');
       }
+
+      setRemoteChangesAvailable(false);
+      window.localStorage.removeItem(`prodcollab_remote_ahead_${projectId}`);
+      window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: projectId } }));
+      setToast({ type: 'success', message: 'Latest changes pulled into the linked project folder.' });
 
     } catch (error) {
- 
-      setToast({ type: 'error', message: `Failed to pull changes: ${error.message || 'Unknown error'}`});
+      console.error(`[PULL] Project ${project.id} failed:`, error);
+      const message = error.message === 'PULL_OBJECTS_FAILED'
+        ? 'The project could not finish syncing. Please try again in a moment.'
+        : 'We could not pull the latest changes. Check your connection and try again.';
+      setToast({ type: 'error', message });
     } finally {
       setIsPulling(false);
     }
@@ -316,6 +216,12 @@ function ProjectCard({
       >
         {/* Status Badges */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          {remoteChangesAvailable && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(210,90%,55%)]/20 text-[hsl(210,90%,65%)] border border-[hsl(210,90%,55%)]/30">
+              <Download className="w-3 h-3" />
+              Update available
+            </span>
+          )}
           {/* Phase 6.10: subtle sync status indicator */}
           {pushState === 'pushing' ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(185,85%,50%)]/20 text-[hsl(185,85%,50%)] border border-[hsl(185,85%,50%)]/30">

@@ -349,7 +349,7 @@ function Projects({ onLogout }) {
       repoUrl: creds.repoUrl,
       token: creds.token
     });
-    if (!pushRes.success) throw new Error(pushRes.error || 'Git push failed');
+    if (!pushRes.success) throw new Error(pushRes.code || 'PUSH_FAILED');
 
     // Tell the server the push happened
     await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
@@ -461,7 +461,14 @@ function Projects({ onLogout }) {
     ── END OLD push flow ── */
   } catch (err) {
     console.error('[PUSH] Failed:', err);
-    setToast({ type: 'error', message: `Failed to push changes: ${err.message}` });
+    setToast({
+      type: 'error',
+      message: err.message === 'SYNC_IN_PROGRESS'
+        ? 'This project is already syncing. Please wait a moment.'
+        : err.message === 'DUPLICATE_CONTENT'
+          ? 'That audio already exists in this project. Remove the duplicate copy before pushing.'
+        : 'We could not upload your changes. They are still safe locally. Please try again.'
+    });
   }
 };
 
@@ -616,10 +623,11 @@ function Projects({ onLogout }) {
       method: 'DELETE',
       credentials: 'include'
     });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || data.message || 'Failed to delete project');
     
     if (response.ok) {
       if (window.electronAPI) {
-        await window.electronAPI.stopWatching(projectId);
         await window.electronAPI.deleteFolderPath(projectId);
       }
       setProjects(projects.filter(p => String(p.id) !== String(projectId)));
@@ -628,10 +636,10 @@ function Projects({ onLogout }) {
         newSet.delete(String(projectId));
         return newSet;
       });
-      setToast({ type: 'success', message: 'Deleted successfully' });
+      setToast({ type: 'success', message: data.message || 'Deleted successfully' });
     }
   } catch (err) {
-    setToast({ type: 'error', message: "Error deleting project" });
+    setToast({ type: 'error', message: err.message || "Error deleting project" });
   }
 };
 

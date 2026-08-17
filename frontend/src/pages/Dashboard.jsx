@@ -183,6 +183,15 @@ function Dashboard({ onLogout }) {
           hasUnpushedChanges: projectsWithChanges.has(String(p.id)) || p.hasUnpushedChanges
         })) || [];
         setCollaboratedProjects(projectsWithWatchStatus);
+        for (const project of projectsWithWatchStatus) {
+          if (!project.localPath || !window.electronAPI?.saveFolderPath) continue;
+          try {
+            const currentPath = await window.electronAPI.getFolderPath(project.id);
+            if (!currentPath) await window.electronAPI.saveFolderPath(project.id, project.localPath);
+          } catch (folderError) {
+            console.error(`[WATCHER] Could not restore project ${project.id}:`, folderError);
+          }
+        }
       }
     } catch (err) {
       setToast({
@@ -247,7 +256,7 @@ function Dashboard({ onLogout }) {
         repoUrl: creds.repoUrl,
         token: creds.token
       });
-      if (!pushRes.success) throw new Error(pushRes.error || 'Git push failed');
+      if (!pushRes.success) throw new Error(pushRes.code || 'PUSH_FAILED');
 
       // STEP 5: Tell the server the push happened
       await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
@@ -388,9 +397,13 @@ function Dashboard({ onLogout }) {
       ── END OLD push flow ── */
     } catch (err) {
       console.error('[PUSH] Failed:', err);
-       setToast({
+      setToast({
         type: 'error',
-        message: `Failed to push changes: ${err.message}`
+        message: err.message === 'SYNC_IN_PROGRESS'
+          ? 'This project is already syncing. Please wait a moment.'
+          : err.message === 'DUPLICATE_CONTENT'
+            ? 'That audio already exists in this project. Remove the duplicate copy before pushing.'
+          : 'We could not upload your changes. They are still safe locally. Please try again.'
       });
     }
   };
@@ -529,11 +542,12 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         method: 'DELETE',
         credentials: 'include'
       });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || data.message || 'Failed to delete project');
       
       if (response.ok) {
         // Stop watching and remove folder path
         if (window.electronAPI) {
-          await window.electronAPI.stopWatching(projectId);
           await window.electronAPI.deleteFolderPath(projectId);
         }
         
@@ -547,14 +561,14 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         
         setToast({
           type: 'success',
-          message: 'Deleted succesfully'
+          message: data.message || 'Deleted successfully'
         });
       }
     } catch (err) {
       // alert("Error deleting project");
       setToast({
         type: 'error',
-        message: "Error deleting project"
+        message: err.message || "Error deleting project"
       });
     }
   };

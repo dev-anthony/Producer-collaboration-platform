@@ -28,7 +28,19 @@ function Projects({ onLogout }) {
       });
     }
 
+    const handleLocalSynced = (event) => {
+      const projectId = String(event.detail?.id);
+      setProjects(prev => prev.map(p => String(p.id) === projectId ? { ...p, hasUnpushedChanges: false } : p));
+      setProjectsWithChanges(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    };
+    window.addEventListener('prodcollab:local-synced', handleLocalSynced);
+
     return () => {
+      window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
       }

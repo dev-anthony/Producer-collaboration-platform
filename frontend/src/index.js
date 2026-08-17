@@ -19,10 +19,34 @@ console.log('[MAIN] Store initialized →', store.path);
 
 const windows = [];
 const watchers = new Map(); // projectId -> watcher instance
+const watcherDetails = new Map(); // watcherKey -> routing details
 // ── Phase 6.1: debounced auto-push timers (projectId -> timeout handle) ──
 const pushTimers = new Map();
 const pendingPushPaths = new Map();
+const activeGitOperations = new Set();
+const syncSuppressedFolders = new Set();
 const PUSH_DELAY = 10 * 60 * 1000; // 10 minutes
+
+const normalizeFolderPath = (folderPath) => path.resolve(folderPath).toLowerCase();
+const isSyncSuppressed = (folderPath) => syncSuppressedFolders.has(normalizeFolderPath(folderPath));
+
+function getProtectedConflicts(folderPath) {
+  const conflicts = store.get('protectedConflicts', {});
+  return conflicts[normalizeFolderPath(folderPath)] || [];
+}
+
+function setProtectedConflicts(folderPath, records) {
+  const conflicts = store.get('protectedConflicts', {});
+  const key = normalizeFolderPath(folderPath);
+  if (records.length > 0) conflicts[key] = records;
+  else delete conflicts[key];
+  store.set('protectedConflicts', conflicts);
+}
+
+function isProtectedConflict(folderPath, filePath) {
+  const relativePath = path.relative(folderPath, filePath).replace(/\\/g, '/');
+  return getProtectedConflicts(folderPath).some((conflict) => conflict.preservedPath === relativePath);
+}
 
 // Schedule (or reschedule) an auto-push for a project after PUSH_DELAY of quiet.
 function scheduleAutoPush(watcherKey, pid, target, filePath) {
@@ -264,6 +288,12 @@ function createWindow(sessionName = 'default', bounds = {}) {
     event.preventDefault();
     win.setTitle(`ProdCollab [DEV ${sessionName}]`);
   });
+
+  if (!app.isPackaged) {
+    win.webContents.session.clearCache().catch((error) => {
+      console.warn(`[CACHE] Could not clear development cache for ${sessionName}:`, error.message);
+    });
+  }
   win.devSessionName = sessionName;
 
   // Phase 6.11 — on window close, ask the user: keep running in the background
@@ -394,25 +424,30 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
 
   watcher
     .on('add', (filePath) => {
+      if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
       console.log(`[WATCHER] File added: ${filePath}`);
       notifyTarget('file-changed', { projectId: pid, event: 'add', path: filePath });
       scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
     })
     .on('change', (filePath) => {
+      if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
       console.log(`[WATCHER] File changed: ${filePath}`);
       notifyTarget('file-changed', { projectId: pid, event: 'change', path: filePath });
       scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
     })
     .on('unlink', (filePath) => {
+      if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
       console.log(`[WATCHER] File deleted: ${filePath}`);
       removePendingPushPath(watcherKey, filePath);
       notifyTarget('file-deleted', { projectId: pid, event: 'unlink', path: filePath });
     })
     .on('addDir', (dirPath) => {
+      if (isSyncSuppressed(folderPath)) return;
       console.log(`[WATCHER] Folder added: ${dirPath}`);
       // Git does not track empty directories. Added files inside it emit `add`.
     })
     .on('unlinkDir', (dirPath) => {
+      if (isSyncSuppressed(folderPath)) return;
       console.log(`[WATCHER] Folder deleted: ${dirPath}`);
       removePendingPushPath(watcherKey, dirPath);
       notifyTarget('file-deleted', { projectId: pid, event: 'unlinkDir', path: dirPath });
@@ -425,6 +460,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     });
 
   watchers.set(watcherKey, watcher);
+  watcherDetails.set(watcherKey, { projectId: pid, folderPath, scope, target });
   console.log(`[WATCHER] Started watching ${watcherKey} → ${folderPath}`);
   refreshTray(); // Phase 6.11: keep tray "Push now" list in sync
 }
@@ -435,6 +471,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     if (watchers.has(watcherKey)) {
       watchers.get(watcherKey).close();
       watchers.delete(watcherKey);
+      watcherDetails.delete(watcherKey);
       console.log(`[WATCHER] Stopped watching ${watcherKey}`);
     }
     refreshTray(); // Phase 6.11
@@ -1095,6 +1132,16 @@ ipcMain.handle('start-watching', async (event, { projectId, folderPath }) => {
   }
 });
 
+ipcMain.handle('restore-session-watchers', async (event) => {
+  try {
+    restoreWatchersForSender(event);
+    return { success: true };
+  } catch (error) {
+    console.error('[WATCHER] Session restore failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Stop watching
 ipcMain.handle('stop-watching', async (event, projectId) => {
   try {
@@ -1198,6 +1245,103 @@ const sendGitProgress = (event, operation, stage, percent = null) => {
 const endGitProgress = (event, operation) => {
   if (!event.sender.isDestroyed()) event.sender.send('git-progress-end', { operation });
 };
+
+async function reconcileUntrackedPullConflicts(git, folderPath) {
+  const status = await git.status();
+  const untrackedPaths = status.not_added || [];
+  if (untrackedPaths.length === 0) return { conflicts: [], backups: [], backupRoot: null };
+
+  let remoteTree;
+  try {
+    remoteTree = await git.raw(['ls-tree', '-r', 'origin/main']);
+  } catch {
+    return { conflicts: [], backups: [], backupRoot: null };
+  }
+  const remoteBlobs = new Map();
+  for (const line of remoteTree.split(/\r?\n/)) {
+    const match = line.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/);
+    if (match) remoteBlobs.set(match[2], match[1]);
+  }
+  const conflicts = [];
+  const backups = [];
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupRoot = path.join(folderPath, '.git', 'prodcollab-pull-backup', timestamp);
+
+  for (const relativePath of untrackedPaths) {
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const remoteHash = remoteBlobs.get(normalizedPath);
+    if (!remoteHash) continue;
+
+    const localPath = path.join(folderPath, relativePath);
+    const localHash = (await git.raw(['hash-object', localPath])).trim();
+    const parsed = path.parse(localPath);
+    const conflictPath = localHash === remoteHash
+      ? null
+      : path.join(parsed.dir, `${parsed.name} (local conflict ${timestamp})${parsed.ext}`);
+    const backupPath = path.join(backupRoot, normalizedPath);
+    await fs.mkdir(path.dirname(backupPath), { recursive: true });
+    await fs.rename(localPath, backupPath);
+    backups.push({ localPath, backupPath, conflictPath });
+    if (conflictPath) {
+      conflicts.push({
+        originalPath: normalizedPath,
+        preservedPath: path.relative(folderPath, conflictPath).replace(/\\/g, '/')
+      });
+    }
+  }
+
+  return { conflicts, backups, backupRoot };
+}
+
+async function pauseWatchersForFolder(folderPath) {
+  const normalizedFolder = normalizeFolderPath(folderPath);
+  const paused = [];
+  for (const [watcherKey, details] of watcherDetails) {
+    if (normalizeFolderPath(details.folderPath) !== normalizedFolder) continue;
+    paused.push(details);
+    await watchers.get(watcherKey)?.close();
+    watchers.delete(watcherKey);
+    watcherDetails.delete(watcherKey);
+    console.log(`[WATCHER] Paused ${watcherKey} during pull`);
+  }
+  return paused;
+}
+
+function resumePausedWatchers(pausedWatchers) {
+  for (const details of pausedWatchers) {
+    startWatching(details.projectId, details.folderPath, details.scope, details.target);
+  }
+}
+
+function restoreWatchersForSender(event) {
+  const scope = getSessionScope(event);
+  const watched = store.get('watchedFolders', {});
+  for (const [storedKey, folderPath] of Object.entries(watched)) {
+    if (!folderPath) continue;
+    const separator = storedKey.indexOf('::');
+    const storedScope = separator === -1 ? 'default' : storedKey.slice(0, separator);
+    if (storedScope !== scope) continue;
+    const projectId = separator === -1 ? storedKey : storedKey.slice(separator + 2);
+    startWatching(projectId, folderPath, scope, event.sender);
+  }
+}
+
+async function finishPullReconciliation(reconciliation, mergeSucceeded) {
+  for (const { localPath, backupPath, conflictPath } of reconciliation.backups) {
+    if (!mergeSucceeded) {
+      await fs.mkdir(path.dirname(localPath), { recursive: true });
+      await fs.rename(backupPath, localPath).catch(() => {});
+    } else if (conflictPath) {
+      await fs.mkdir(path.dirname(conflictPath), { recursive: true });
+      await fs.rename(backupPath, conflictPath);
+    } else {
+      await fs.rm(backupPath, { force: true });
+    }
+  }
+  if (reconciliation.backupRoot) {
+    await fs.rm(reconciliation.backupRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 const sanitizeGitError = (error, token) => {
   const message = error?.message || String(error);
@@ -1468,6 +1612,8 @@ ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
   }
   activeGitOperations.add(operationKey);
   syncSuppressedFolders.add(operationKey);
+  const pausedWatchers = await pauseWatchersForFolder(folderPath);
+  let reconciliation = { conflicts: [], backups: [], backupRoot: null };
   try {
     const git = simpleGit(folderPath);
     sendGitProgress(event, 'pull', 'Checking remote changes');
@@ -1487,11 +1633,14 @@ ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
         'fetch', '--prune', '--no-tags', 'origin', 'main'
       ]);
     }
+    reconciliation = await reconcileUntrackedPullConflicts(git, folderPath);
     sendGitProgress(event, 'pull', 'Applying latest changes');
     await git.merge(['--ff-only', 'origin/main']);
+    await finishPullReconciliation(reconciliation, true);
     sendGitProgress(event, 'pull', 'Pull complete', 100);
-    return { success: true };
+    return { success: true, conflicts: reconciliation.conflicts };
   } catch (err) {
+    await finishPullReconciliation(reconciliation, false);
     console.error('[GIT] git-pull failed:', sanitizeGitError(err, token));
     const message = String(err?.message || '').toLowerCase();
     return {
@@ -1500,7 +1649,8 @@ ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
     };
   } finally {
     activeGitOperations.delete(operationKey);
-    setTimeout(() => syncSuppressedFolders.delete(operationKey), 1500);
+    syncSuppressedFolders.delete(operationKey);
+    resumePausedWatchers(pausedWatchers);
     endGitProgress(event, 'pull');
   }
 });

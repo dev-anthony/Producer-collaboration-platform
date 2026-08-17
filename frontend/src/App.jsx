@@ -11,6 +11,11 @@ import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
 import { Loader2 } from 'lucide-react';
 
+function ProtectedRoute({ isAuthenticated, children }) {
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+}
+
 // ── Phase 4.14 ──────────────────────────────────────────────────────────────
 // Session is now managed entirely by httpOnly cookies + Supabase Auth.
 // Removed: localStorage token logic, isTokenExpired, refreshAccessToken,
@@ -53,8 +58,16 @@ function App() {
         if (!response.ok) throw new Error(pullInfo.error || 'Could not get pull details');
         const result = await window.electronAPI.gitPull({ folderPath, repoUrl: pullInfo.repoUrl, token: pullInfo.token });
         if (!result.success) throw new Error(result.code || 'PULL_FAILED');
+        if (result.conflicts?.length > 0) {
+          console.warn(`[SYNC] Preserved ${result.conflicts.length} local conflict file(s):`, result.conflicts);
+          setToast({
+            type: 'warning',
+            message: `Project updated. ${result.conflicts.length} local file version was preserved as a conflict copy.`
+          });
+        }
         window.localStorage.removeItem(`prodcollab_remote_ahead_${project.id}`);
         window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: project.id } }));
+        window.dispatchEvent(new CustomEvent('prodcollab:local-synced', { detail: { id: project.id } }));
         window.electronAPI?.showNotification({
           title: 'ProdCollab synced',
           body: `${project.repo_name} was updated in your local folder.`
@@ -151,13 +164,6 @@ function App() {
     }
   };
 
-  const ProtectedRoute = ({ children }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" replace />;
-    }
-    return children;
-  };
-
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -178,11 +184,17 @@ function App() {
         />
       )}
       {syncProgress && (
-        <div className="fixed left-1/2 top-4 z-[110] -translate-x-1/2 rounded-xl border border-primary/30 bg-background/95 px-5 py-3 shadow-xl backdrop-blur-xl">
-          <div className="flex items-center gap-3 text-sm font-medium text-foreground">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span>{syncProgress.operationLabel}: {syncProgress.stage}</span>
-            {syncProgress.percent != null && <span className="text-primary">{syncProgress.percent}%</span>}
+        <div className="pointer-events-none fixed left-1/2 top-3 z-[110] w-[min(92vw,420px)] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-background/95 shadow-lg backdrop-blur-xl">
+          <div className="flex h-11 items-center gap-3 px-4 text-sm text-foreground">
+            <Loader2 className="h-4 w-4 flex-none animate-spin text-primary" />
+            <span className="min-w-0 flex-1 truncate"><strong>{syncProgress.operationLabel}</strong> · {syncProgress.stage}</span>
+            {syncProgress.percent != null && <span className="flex-none tabular-nums text-primary">{syncProgress.percent}%</span>}
+          </div>
+          <div className="h-0.5 bg-muted">
+            <div
+              className={`h-full bg-primary transition-[width] duration-300 ${syncProgress.percent == null ? 'w-1/3 animate-pulse' : ''}`}
+              style={syncProgress.percent == null ? undefined : { width: `${syncProgress.percent}%` }}
+            />
           </div>
         </div>
       )}
@@ -210,7 +222,7 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Dashboard onLogout={handleLogout} />
             </ProtectedRoute>
           }
@@ -218,7 +230,7 @@ function App() {
         <Route
           path="/collaboration"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Collaboration onLogout={handleLogout} />
             </ProtectedRoute>
           }
@@ -226,14 +238,14 @@ function App() {
         <Route
           path="/projects"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Projects onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />
         <Route
           path="/settings"
-          element={<ProtectedRoute><Settings onLogout={handleLogout} /></ProtectedRoute>}
+          element={<ProtectedRoute isAuthenticated={isAuthenticated}><Settings onLogout={handleLogout} /></ProtectedRoute>}
         />
         <Route
           path="/"

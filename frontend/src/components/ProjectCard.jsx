@@ -189,10 +189,20 @@ function ProjectCard({
         throw new Error(result.code || 'PULL_FAILED');
       }
 
+      if (result.conflicts?.length > 0) {
+        console.warn(`[PULL] Preserved ${result.conflicts.length} local conflict file(s):`, result.conflicts);
+      }
+
       setRemoteChangesAvailable(false);
       window.localStorage.removeItem(`prodcollab_remote_ahead_${projectId}`);
       window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: projectId } }));
-      setToast({ type: 'success', message: 'Latest changes pulled into the linked project folder.' });
+      window.dispatchEvent(new CustomEvent('prodcollab:local-synced', { detail: { id: projectId } }));
+      setToast({
+        type: result.conflicts?.length > 0 ? 'warning' : 'success',
+        message: result.conflicts?.length > 0
+          ? `Latest changes pulled. ${result.conflicts.length} local file version was preserved as a conflict copy.`
+          : 'Latest changes pulled into the linked project folder.'
+      });
 
     } catch (error) {
       console.error(`[PULL] Project ${project.id} failed:`, error);

@@ -18,8 +18,10 @@ import {
   Users,
   CheckCircle2,
   CircleDashed,
-  Loader2
+  Loader2,
+  Clock3
 } from 'lucide-react';
+import VersionHistory from './VersionHistory';
 import { createPortal } from 'react-dom';
 // ── Phase 4.15: session via httpOnly cookie; jwtToken prop no longer used ──
 function ProjectCard({
@@ -27,7 +29,8 @@ function ProjectCard({
   hasUnpushedChanges = false,
   onDelete,
   onPushChanges,
-  isCollaborator = false
+  isCollaborator = false,
+  currentUser
 }) {
   // Phase 6.7: isChecking state kept for the (removed) check button — no longer used
   const [isChecking, setIsChecking] = useState(false);
@@ -45,6 +48,7 @@ function ProjectCard({
   const [folderPath, setFolderPath] = useState(null);
   const [conflicts, setConflicts] = useState([]);
   const [resolvingConflict, setResolvingConflict] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const loadConflicts = async () => {
     if (!window.electronAPI?.getProjectConflicts) return;
@@ -387,6 +391,21 @@ function ProjectCard({
                 </div>
               ))}
             </div>
+          )}
+
+          <button
+            onClick={() => setShowHistory((visible) => !visible)}
+            className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Clock3 className="h-3.5 w-3.5" />
+            {showHistory ? 'Hide version history' : 'View version history'}
+          </button>
+          {showHistory && (
+            <VersionHistory
+              folderPath={folderPath}
+              currentUser={currentUser}
+              onRestored={() => window.dispatchEvent(new CustomEvent('prodcollab:history-restored', { detail: { id: project.id } }))}
+            />
           )}
 
           {/* Actions */}

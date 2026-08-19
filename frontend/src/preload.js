@@ -133,10 +133,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Git (simple-git) — Phase 5
   initGit: (data) => ipcRenderer.invoke('init-git', data),
+  setGitIdentity: (data) => ipcRenderer.invoke('set-git-identity', data),
   gitPush: (data) => ipcRenderer.invoke('git-push', data),
   gitPull: (data) => ipcRenderer.invoke('git-pull', data),
   gitClone: (data) => ipcRenderer.invoke('git-clone', data),
   gitLog: (data) => ipcRenderer.invoke('git-log', data),
+  gitRestore: (data) => ipcRenderer.invoke('git-restore', data),
   getProjectConflicts: (folderPath) => ipcRenderer.invoke('get-project-conflicts', { folderPath }),
   resolveProjectConflict: (data) => ipcRenderer.invoke('resolve-project-conflict', data),
   onGitProgress: (callback) => {

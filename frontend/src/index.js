@@ -213,8 +213,8 @@ function createWindow(sessionName = 'default', bounds = {}) {
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
       ] : [
         process.env.NODE_ENV === 'development'
-          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-          : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+          : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
       ]
     }
   });
@@ -366,7 +366,6 @@ function createWindow(sessionName = 'default', bounds = {}) {
 //     persistent: true,
 //     awaitWriteFinish: {
 //       stabilityThreshold: 2000, // Wait 2s after last change
-//       pollInterval: 100
 //     },
 //     depth: 99, // Watch all subdirectories
 //   });
@@ -425,13 +424,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
   ],
     ignoreInitial: true,
     persistent: true,
-    usePolling: !app.isPackaged && process.platform === 'win32',
-    interval: 500,
-    binaryInterval: 1000,
-    awaitWriteFinish: {
-      stabilityThreshold: 4000,
-      pollInterval: 100
-    },
+    atomic: true,
     depth: 99,
   });
 
@@ -1572,12 +1565,19 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     const stagedPaths = (await git.diff(['--cached', '--name-only']))
       .split(/\r?\n/)
       .filter(Boolean);
-    if (stagedPaths.length === 0) {
-      return { success: true, nothingToCommit: true };
+    if (stagedPaths.length > 0) {
+      sendGitProgress(event, 'push', 'Creating commit');
+      await git.commit(message || `Update by ${username || 'ProdCollab'}`);
+    } else {
+      let commitsAhead = 0;
+      try {
+        commitsAhead = Number((await git.raw(['rev-list', '--count', 'origin/main..HEAD'])).trim());
+      } catch {
+        commitsAhead = 0;
+      }
+      if (commitsAhead === 0) return { success: true, nothingToCommit: true };
+      sendGitProgress(event, 'push', `Uploading ${commitsAhead} local commit${commitsAhead === 1 ? '' : 's'}`);
     }
-
-    sendGitProgress(event, 'push', 'Creating commit');
-    await git.commit(message || `Update by ${username || 'ProdCollab'}`);
 
     // Ensure branch is main
     await git.branch(['-M', 'main']).catch(() => {});
@@ -1623,6 +1623,18 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
   } finally {
     activeGitOperations.delete(operationKey);
     endGitProgress(event, 'push');
+  }
+});
+
+ipcMain.handle('set-git-identity', async (_, { folderPath, username, email }) => {
+  try {
+    const git = simpleGit(folderPath);
+    if (username) await git.addConfig('user.name', username);
+    if (email) await git.addConfig('user.email', email);
+    return { success: true };
+  } catch (error) {
+    console.error('[GIT] Could not set commit identity:', error);
+    return { success: false, code: 'IDENTITY_UPDATE_FAILED' };
   }
 });
 
@@ -1839,7 +1851,14 @@ ipcMain.handle('git-log', async (_, { folderPath }) => {
   try {
     const git = simpleGit(folderPath);
     const log = await git.log({ maxCount: 50 });
-    return { success: true, log: log.all };
+    const enrichedLog = await Promise.all(log.all.map(async (commit) => {
+      const changedFiles = (await git.raw(['show', '--format=', '--name-only', commit.hash]))
+        .split(/\r?\n/)
+        .map((filePath) => filePath.trim())
+        .filter(Boolean);
+      return { ...commit, changedFiles };
+    }));
+    return { success: true, log: enrichedLog };
   } catch (err) {
     console.error('[GIT] git-log failed:', err);
     return { success: false, error: err.message };
@@ -1932,6 +1951,24 @@ app.on('before-quit', () => {
   watchers.forEach(w => w.close());
   watchers.clear();
   console.log('[MAIN] Application shutting down cleanly');
+});
+
+ipcMain.handle('git-restore', async (_, { folderPath, commitSha, username, email }) => {
+  try {
+    const git = simpleGit(folderPath);
+    const status = await git.status();
+    if (!status.isClean()) return { success: false, code: 'LOCAL_CHANGES_PENDING' };
+    await git.raw(['restore', '--source', commitSha, '--staged', '--worktree', '.']);
+    const restored = await git.status();
+    if (!restored.files.length) return { success: true, nothingToRestore: true };
+    if (username) await git.addConfig('user.name', username);
+    if (email) await git.addConfig('user.email', email);
+    await git.commit(`Restore project to ${commitSha.slice(0, 7)}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[GIT] git-restore failed:', error);
+    return { success: false, code: 'RESTORE_FAILED' };
+  }
 });
 
 ipcMain.handle('copy-text', (_, text) => {

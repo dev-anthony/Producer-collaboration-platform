@@ -542,12 +542,12 @@
 ---
 
 ## PHASE 7 — REAL-TIME NOTIFICATIONS
-> Collaborators get notified instantly when something is pushed. No polling.
+> Collaborators get notified instantly over authenticated WebSockets. No polling.
 
-- [ ] **7.1** Enable Supabase Realtime on the `projects` table in Supabase dashboard
+- [x] **7.1** Enable Supabase Realtime on the `projects` table in Supabase dashboard
   - Database → Replication → Tables → enable `projects`
 
-- [ ] **7.2** In frontend — subscribe to realtime changes on projects the user belongs to:
+- [x] **7.2** In frontend — subscribe over the authenticated WebSocket connection to projects the user belongs to:
   ```javascript
   useEffect(() => {
     const subscription = supabase
@@ -575,12 +575,12 @@
   }, [userProjectIds])
   ```
 
-- [ ] **7.3** Add `last_pushed_by` column to projects table:
+- [x] **7.3** Add `last_pushed_by` column to projects table:
   ```sql
   ALTER TABLE projects ADD COLUMN last_pushed_by TEXT;
   ```
 
-- [ ] **7.4** Update push endpoint to write `last_pushed_by` on every push:
+- [x] **7.4** Update push endpoint to write `last_pushed_by` on every push:
   ```javascript
   await supabase.from('projects')
     .update({ 
@@ -591,21 +591,21 @@
     .eq('id', projectId)
   ```
 
-- [ ] **7.5** Add auto-pull option in settings — when a collaborator pushes, user can have it pull automatically into their local folder
+- [x] **7.5** Add auto-pull option in settings — when a collaborator pushes, user can have it pull automatically into their local folder
 
 ---
 
 ## PHASE 8 — VERSION HISTORY UI
 > Every file shows who touched it and when. Producers can restore any version.
 
-- [ ] **8.1** Build `VersionHistory.jsx` component:
+- [x] **8.1** Build `VersionHistory.jsx` component:
   - Show list of commits from `git-log`
   - Each commit: username, timestamp, short message, files changed
   - Restore button per commit
 
-- [ ] **8.2** Add version history panel to ProjectCard — click to expand
+- [x] **8.2** Add version history panel to ProjectCard — click to expand
 
-- [ ] **8.3** Add `git-restore` IPC handler in `main.js`:
+- [x] **8.3** Add `git-restore` IPC handler in `main.js`:
   ```javascript
   ipcMain.handle('git-restore', async (_, { folderPath, commitSha }) => {
     const git = simpleGit(folderPath)
@@ -614,7 +614,7 @@
   })
   ```
 
-- [ ] **8.4** Expose in preload:
+- [x] **8.4** Expose in preload:
   ```javascript
   gitRestore: (data) => ipcRenderer.invoke('git-restore', data)
   ```

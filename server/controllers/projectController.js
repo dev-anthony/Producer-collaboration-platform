@@ -2665,11 +2665,21 @@ exports.getGitCredentials = async (req, res) => {
     if (error || !project) {
       return res.status(404).json({ error: 'Project not found' });
     }
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('username, email')
+      .eq('id', req.userId)
+      .single();
+    if (profileError || !profile) {
+      return res.status(401).json({ error: 'Could not resolve the signed-in user profile' });
+    }
     const token = await getProdCollabToken();
     res.json({
       token,
       repoUrl: project.repo_url,
-      repoName: project.repo_name
+      repoName: project.repo_name,
+      authorName: profile.username || profile.email,
+      authorEmail: profile.email
     });
   } catch (error) {
     console.error('getGitCredentials error:', error);
@@ -2739,56 +2749,6 @@ exports.getPullInfo = async (req, res) => {
   } catch (error) {
     console.error('getPullInfo error:', error);
     res.status(500).json({ error: 'Failed to get pull info', message: error.message });
-  }
-};
-
-exports.streamProjectEvents = async (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders?.();
-
-  try {
-    const { data: subscriberProfile } = await supabase
-      .from('users')
-      .select('email, username')
-      .eq('id', req.userId)
-      .single();
-    const [{ data: owned }, { data: memberships }] = await Promise.all([
-      supabase.from('projects').select('id').eq('user_id', req.userId),
-      supabase.from('project_collaborators').select('project_id').eq('user_id', req.userId)
-    ]);
-    const projectIds = new Set([
-      ...(owned || []).map(({ id }) => String(id)),
-      ...(memberships || []).map(({ project_id }) => String(project_id))
-    ]);
-    const clientId = `${req.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    projectEventClients.set(clientId, { userId: req.userId, projectIds, response: res });
-    console.log(
-      `[REALTIME] User ${req.userId} (${subscriberProfile?.email || subscriberProfile?.username || 'unknown'}) ` +
-      `connected for projects: ${[...projectIds].join(', ') || '(none)'}`
-    );
-    const channel = supabase
-      .channel(`project-events-${req.userId}-${Date.now()}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, (payload) => {
-        if (projectIds.has(String(payload.new?.id))) {
-          res.write(`event: project-updated\ndata: ${JSON.stringify(payload.new)}\n\n`);
-        }
-      });
-
-    channel.subscribe((status) => {
-      console.log(`[REALTIME] Supabase channel for user ${req.userId}: ${status}`);
-    });
-    const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
-    req.on('close', () => {
-      clearInterval(heartbeat);
-      projectEventClients.delete(clientId);
-      supabase.removeChannel(channel);
-      console.log(`[REALTIME] User ${req.userId} disconnected`);
-    });
-  } catch (error) {
-    res.write(`event: subscription-error\ndata: ${JSON.stringify({ error: 'Realtime subscription failed' })}\n\n`);
-    res.end();
   }
 };
 
@@ -2898,6 +2858,5 @@ module.exports = {
   getGitCredentials: exports.getGitCredentials,
   recordPush: exports.recordPush,
   getPullInfo: exports.getPullInfo,
-  streamProjectEvents: exports.streamProjectEvents,
   // clearChangesFlag: exports.clearChangesFlag
 };

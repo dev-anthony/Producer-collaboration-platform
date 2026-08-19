@@ -43,11 +43,46 @@ function App() {
     window.electronAPI?.restoreSessionWatchers?.().catch((error) => {
       console.error('[WATCHER] Could not restore session watchers:', error);
     });
-    const events = new EventSource('http://localhost:5000/api/projects/events', { withCredentials: true });
-    events.onopen = () => console.log('[REALTIME] Connected');
-    events.onerror = (error) => console.warn('[REALTIME] Connection interrupted; retrying automatically', error);
-    const handleProjectUpdate = async (event) => {
-      const project = JSON.parse(event.data);
+    let socket;
+    let reconnectTimer;
+    let reconnectDelay = 1000;
+    let disposed = false;
+    const connect = () => {
+      if (disposed) return;
+      const realtimeProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const realtimeHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'localhost:5000'
+        : window.location.host;
+      socket = new WebSocket(`${realtimeProtocol}//${realtimeHost}/realtime`);
+      socket.onopen = () => {
+        reconnectDelay = 1000;
+        console.log('[REALTIME-WS] Connected');
+      };
+      socket.onmessage = (event) => {
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (error) {
+          console.warn('[REALTIME-WS] Ignoring invalid event:', error);
+          return;
+        }
+        if (message.type !== 'project-updated') return;
+        handleProjectUpdate(message.project);
+      };
+      socket.onerror = (error) => console.warn('[REALTIME-WS] Connection interrupted:', error);
+      socket.onclose = async () => {
+        if (disposed) return;
+        try {
+          await fetch('http://localhost:5000/api/auth/me', { credentials: 'include' });
+        } catch (error) {
+          console.warn('[REALTIME-WS] Session refresh before reconnect failed:', error);
+        }
+        console.warn(`[REALTIME-WS] Disconnected; retrying in ${reconnectDelay}ms`);
+        reconnectTimer = setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      };
+    };
+    const handleProjectUpdate = async (project) => {
       if (!project.last_pushed_by || project.source_client_id === realtimeClientId.current) return;
       if (!project.source_client_id && (
         project.last_pushed_by === user?.email || project.last_pushed_by === user?.username
@@ -88,10 +123,11 @@ function App() {
         setToast({ type: 'error', message: 'We could not download the latest changes. You can retry from the project card.' });
       }
     };
-    events.addEventListener('project-updated', handleProjectUpdate);
+    connect();
     return () => {
-      events.removeEventListener('project-updated', handleProjectUpdate);
-      events.close();
+      disposed = true;
+      clearTimeout(reconnectTimer);
+      socket?.close();
     };
   }, [isAuthenticated, user?.email]);
 

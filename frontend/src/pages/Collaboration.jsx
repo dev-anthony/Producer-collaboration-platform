@@ -38,9 +38,12 @@ function Collaboration({ onLogout }) {
       });
     };
     window.addEventListener('prodcollab:local-synced', handleLocalSynced);
+    const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
+    window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
       }
@@ -362,9 +365,9 @@ function Collaboration({ onLogout }) {
     // Commit + push via simple-git
     const pushRes = await window.electronAPI.gitPush({
       folderPath,
-      message: `Update by ${user?.username || 'ProdCollab'}`,
-      username: user?.username,
-      email: user?.email,
+       message: `Update by ${creds.authorName || 'ProdCollab'}`,
+       username: creds.authorName,
+       email: creds.authorEmail,
       repoUrl: creds.repoUrl,
       token: creds.token
     });
@@ -378,7 +381,7 @@ function Collaboration({ onLogout }) {
         'Content-Type': 'application/json',
         'x-prodcollab-client-id': window.localStorage.getItem('prodcollab_realtime_client_id') || ''
       },
-      body: JSON.stringify({ commitMessage: `Update by ${user?.username || 'ProdCollab'}` })
+      body: JSON.stringify({ commitMessage: `Update by ${creds.authorName || 'ProdCollab'}` })
     });
     if (!recordResponse.ok) {
       console.error('[PUSH] Files reached GitHub, but realtime update recording failed:', await recordResponse.text());
@@ -717,6 +720,7 @@ function Collaboration({ onLogout }) {
                   <div key={project.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                     <ProjectCard
                       project={project}
+                      currentUser={user}
                       hasUnpushedChanges={project.hasUnpushedChanges}
                       onDelete={() => handleLeaveProject(project.id)}
                       onPushChanges={() => handlePushChanges(project.id)}

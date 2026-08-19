@@ -14,7 +14,6 @@ router.get('/', projectController.getUserProjects);
 
 
 router.get('/collaborated', projectController.getCollaboratedProjects);
-router.get('/events', projectController.streamProjectEvents);
 router.get('/share/:shareToken', projectController.getProjectByToken);
 router.post('/join', projectController.joinProject);
 

@@ -78,7 +78,7 @@ module.exports = {
         devContentSecurityPolicy:
           "default-src 'self' http://localhost:9000;" +
           " script-src 'self' 'unsafe-inline' 'unsafe-eval';" +
-          " connect-src 'self' http://localhost:5000 http://localhost:9000 ws://localhost:9000 wss://localhost:9000;" +
+          " connect-src 'self' http://localhost:5000 http://localhost:9000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000;" +
           " img-src 'self' data: https:;" +
           " style-src 'self' 'unsafe-inline';",
         renderer: {

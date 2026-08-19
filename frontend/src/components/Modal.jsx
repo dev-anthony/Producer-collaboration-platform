@@ -326,8 +326,9 @@ const handleNativeFolderSelect = async () => {
 
                 const pushRes = await window.electronAPI.gitPush({
                   folderPath: localFolderPath,
-                  message: 'Initial project files',
-                  username: creds.repoName || 'ProdCollab',
+                   message: 'Initial project files',
+                   username: creds.authorName || 'ProdCollab',
+                   email: creds.authorEmail,
                   repoUrl: creds.repoUrl,
                   token: creds.token
                 });

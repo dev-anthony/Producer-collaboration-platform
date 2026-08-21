@@ -32,8 +32,6 @@ const handleFolderSelect = (e) => {
   const selectedFiles = Array.from(e.target.files);
 
   if (selectedFiles.length === 0) {
-    // Empty folder via the browser input can't yield a path — guide the user to
-    // the native "Select folder" button instead of blocking them.
     setToast({
       type: 'info',
       message: 'This folder looks empty. Use "Select folder to sync" to link an empty folder.'
@@ -43,12 +41,11 @@ const handleFolderSelect = (e) => {
 
   addFiles(selectedFiles, true);
 
-  // Resolve the real absolute root folder path via webUtils (file.path removed in Electron 32+)
   const firstFile = selectedFiles[0];
   try {
     const absoluteFilePath = window.electronAPI?.getPathForFile?.(firstFile);
     if (absoluteFilePath) {
-      const relParts = firstFile.webkitRelativePath.split('/'); // e.g. ["MyFolder","sub","song.wav"]
+      const relParts = firstFile.webkitRelativePath.split('/');
       const sep = absoluteFilePath.includes('\\') ? '\\' : '/';
       const absParts = absoluteFilePath.split(/[\\/]/);
       const rootParts = absParts.slice(0, absParts.length - relParts.length + 1);
@@ -62,9 +59,6 @@ const handleFolderSelect = (e) => {
   }
 };
 
-// Native Electron folder picker — works for ANY folder, empty or not.
-// Captures the absolute path and (if present) loads existing files into the
-// upload/metadata list.
 const handleNativeFolderSelect = async () => {
   try {
     const folderPath = await window.electronAPI.selectFolder();
@@ -72,7 +66,6 @@ const handleNativeFolderSelect = async () => {
 
     setLocalFolderPath(folderPath);
 
-    // Load any existing files so they're part of the initial project (optional).
     try {
       const scan = await window.electronAPI.readFolderFiles(folderPath);
       const scanned = Array.isArray(scan) ? scan : (scan?.files || []);
@@ -84,12 +77,12 @@ const handleNativeFolderSelect = async () => {
           size: f.size,
           lastModified: f.lastModified,
           relativePath: `${folderName}/${f.relativePath || f.name}`,
-          // File bytes are pushed by the client via git; server upload no longer needed.
+          
           file: null
         }));
         setFolders([{ name: folderName, files: rebuilt }]);
       } else {
-        // Empty folder is fine — repo starts empty, files sync when added later.
+        
         setFolders([]);
         setToast({ type: 'info', message: `Empty folder linked. Files will sync once you add them to "${folderName}".` });
       }
@@ -228,8 +221,7 @@ const handleNativeFolderSelect = async () => {
     }
 
     const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
-    // Allow empty folders: a project can be created with no files as long as a
-    // sync folder is chosen (repo starts empty, files sync when added later).
+   
     if (totalFiles === 0 && !localFolderPath) {
       setToast({
         type: 'info',
@@ -238,8 +230,6 @@ const handleNativeFolderSelect = async () => {
       return;
     }
 
-    // Validate before creating the GitHub repo / Supabase project row. This
-    // prevents an orphaned project when the chosen folder is already linked.
     if (localFolderPath && window.electronAPI?.validateFolderLink) {
       const validation = await window.electronAPI.validateFolderLink(localFolderPath, null);
       if (!validation.valid) {
@@ -290,7 +280,7 @@ const handleNativeFolderSelect = async () => {
 
       const response = await fetch('http://localhost:5000/api/projects/create', {
         method: 'POST',
-        credentials: 'include', // ── Phase 4.15: cookie-based session ──
+        credentials: 'include', 
         body: apiFormData
       });
 
@@ -307,9 +297,7 @@ const handleNativeFolderSelect = async () => {
               await window.electronAPI.setupProjectFolder(localFolderPath);
             }
 
-            // ── Fix (repo divergence): the server now creates an EMPTY repo.
-            // Do the very first commit + push from the client so local and remote
-            // share one history (no README divergence on later pushes).
+           
             try {
               setProgress(prev => [...prev, { step: 'Pushing initial files to GitHub...', status: 'loading' }]);
               const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
@@ -334,7 +322,7 @@ const handleNativeFolderSelect = async () => {
                 });
                 if (!pushRes.success) throw new Error(pushRes.error || 'Initial push failed');
 
-                // Tell the server the push happened (clears has_changes)
+                
                 await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
                   method: 'POST',
                   credentials: 'include',
@@ -350,7 +338,7 @@ const handleNativeFolderSelect = async () => {
             await window.electronAPI.startWatching(projectId, localFolderPath);
           } catch (err) {
             console.warn('Could not save folder path after create:', err);
-            // Surface the "folder already linked to another project" guard to the user
+           
             if (String(err.message).includes('FOLDER_ALREADY_LINKED')) {
               setToast({
                 type: 'error',

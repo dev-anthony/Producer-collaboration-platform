@@ -269,10 +269,12 @@ function ProjectCard({
   return (
     <>
       <div
-        className={`group relative glass-strong rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 ${
+        className={`group relative overflow-hidden border border-border bg-card transition-colors duration-150 ${
           hasUnpushedChanges 
-            ? 'ring-2 ring-[hsl(45,100%,51%)] glow-warning' 
-            : 'hover:glow-primary'
+            ? 'border-l-2 border-l-warning' 
+            : remoteChangesAvailable
+              ? 'border-l-2 border-l-primary'
+              : 'hover:border-primary/40'
         }`}
       >
         {/* Status Badges */}
@@ -415,7 +417,7 @@ function ProjectCard({
             <button
               onClick={handlePushClick}
               disabled={!hasUnpushedChanges || pushState === 'pushing'}
-              className={`flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                 hasUnpushedChanges 
                   ? 'bg-[hsl(45,100%,51%)] hover:bg-[hsl(45,100%,51%)]/90 text-[hsl(220,20%,4%)]' 
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -428,7 +430,7 @@ function ProjectCard({
             <button
               onClick={handlePullFiles}
               disabled={isPulling}
-              className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-[hsl(142,76%,36%)]/15 hover:bg-[hsl(142,76%,36%)]/25 text-[hsl(142,76%,36%)] border border-[hsl(142,76%,36%)]/30 disabled:opacity-50"
+              className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm font-medium text-success transition-colors duration-150 hover:bg-success/20 disabled:opacity-50"
             >
               <Download className={`w-4 h-4 ${isPulling ? 'animate-bounce' : ''}`} />
             </button>

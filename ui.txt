@@ -1,0 +1,467 @@
+# ProdCollab — Lovable UI Prompt
+### Complete product UI generation prompt. Every screen, every state, every modal.
+
+---
+
+## PASTE THIS INTO LOVABLE:
+
+---
+
+Design the complete UI for ProdCollab — a dark, luxurious desktop application 
+for music producers that combines real-time collaboration, automatic cloud backup, 
+version control, and session management. Think of it as GitHub meets a studio 
+console. Producers use it to back up their work automatically and collaborate with 
+other producers in real time across any DAW.
+
+---
+
+## VISUAL FOUNDATION
+
+Base color: pure black #000000.
+Choose all other colors yourself based on what complements pure black.
+Maximum 2 accent colors beyond black. One for primary actions and presence.
+One for status/success states. Let everything else live in dark greys.
+
+Typography: modern, tight letter-spacing, clean hierarchy.
+Large project names. Small metadata. Never rounded or bubbly.
+Cards: 1px subtle borders, barely visible against black.
+No heavy shadows. Depth through layering and opacity.
+Spacing is generous. Darkness breathes.
+The product should feel like opening a high-end studio at 2am.
+Not a SaaS dashboard. A space.
+
+---
+
+## SCREENS TO DESIGN
+
+---
+
+### SCREEN 1 — AUTH / LOGIN
+- Centered card on pure black full-screen background
+- ProdCollab logo top center (wordmark or minimal icon)
+- Single button: "Continue with GitHub"
+- Below button: "Your projects are backed up privately.
+  No GitHub knowledge required."
+- No email field. No password field. GitHub OAuth only.
+- Bottom: version number, small and faded
+
+---
+
+### SCREEN 2 — ONBOARDING (first time user, 3 steps)
+
+Step 1: "What do you want to do?"
+- Two large option cards side by side:
+  LEFT: "Back up my work" — icon of a cloud/shield.
+    Subtext: "Push your sessions automatically. Never lose a take."
+  RIGHT: "Collaborate with someone" — icon of two people.
+    Subtext: "Work on the same project from different locations and DAWs."
+- Both can be selected. Not mutually exclusive.
+- Continue button at bottom.
+
+Step 2: "Create your first project"
+- Project name input field
+- DAW selector: FL Studio / Ableton / Logic / Pro Tools / Cubase / Other
+  (this is just for display/context — ProdCollab works on all of them)
+- Visibility toggle: Private (default) / Public
+- "Your project will be stored securely on GitHub. 
+   You'll never need to touch GitHub directly."
+- Continue button
+
+Step 3: "Connect your project folder"
+- Illustration of a folder with a subtle pulse
+- "Select the folder where your DAW saves your project files"
+- [Browse folder] button — opens native OS folder picker
+- Below: "ProdCollab will watch this folder automatically.
+   When you save in your DAW, we handle the rest."
+- Two subfolders shown being created automatically:
+  stems/ and exports/
+- Finish button
+
+---
+
+### SCREEN 3 — MAIN DASHBOARD
+
+LEFT SIDEBAR (56px wide, icon only):
+- ProdCollab logo/icon at top
+- Grid/dashboard icon (active state shown)
+- Git branch icon (version history)
+- Clock icon (session history)
+- Message/notes icon
+- Spacer
+- Settings gear icon
+- User avatar at bottom with online indicator dot
+
+TOPBAR:
+- "Projects" title with "X active" subtext
+- Online count pill: "● 2 online" (green)
+- New Project button (primary accent color)
+
+PROJECT GRID (main content area):
+Show 6 project cards in a 3-column grid.
+
+CARD STATES — show all of these across the 6 cards:
+
+CARD STATE A — Solo backup, synced:
+- Project name
+- "Your project · private"
+- No presence dots
+- Left border: neutral dark grey
+- Owner dot (accent color, single dot)
+- "Only you · no collaborators"
+- Invite row: dashed border "Share to invite" + "Copy link" button
+- Footer: "Last backup · 4 min ago" — "12 files"
+- Badge: "● Backed up" (blue-ish)
+
+CARD STATE B — Solo backup, changes pending:
+- Same as A but badge shows "● Changes pending" (amber)
+- Small timer text: "Auto-push in 6 min"
+
+CARD STATE C — Collaboration, both online and active:
+- Left border: green (strongest visual signal)
+- Slightly different background tint
+- Presence row: your dot + collaborator dot (both green)
+- "James · working now" in green
+- Last file pushed: small chip showing filename + "Get it →"
+- Badge: "● Changes pending" (amber)
+- Footer shows "Live" in green
+
+CARD STATE D — Collaboration, collaborator idle:
+- Left border: amber
+- Your dot green, collaborator dot amber
+- "James · idle 12 min ago"
+- Badge: "● Synced"
+
+CARD STATE E — Collaboration, sync failed:
+- Left border: red/dark red
+- Error badge: "● Sync failed"
+- Small "Retry" link in footer
+
+CARD STATE F — Archived project:
+- Everything faded and muted
+- Badge: "Archived"
+- No presence, no sync status
+
+---
+
+### SCREEN 4 — PROJECT DETAIL VIEW
+
+Show this for Card State C (active collaboration).
+
+HEADER:
+- Project name large
+- DAW tag pill (e.g. "FL Studio")
+- Collaborator chips: your chip + James's chip with green dot "working now"
+- Right side: "Start Session" button (voice/video call)
+
+THREE COLUMN LAYOUT:
+
+LEFT COLUMN — Session Story Timeline:
+Label: "Session Story"
+Vertical timeline showing:
+- Project created (amber dot)
+- James joined (green dot)
+- Anthony pushed 3 files — "Drums and bass foundation" — 2 days ago
+  Show 2 file tags: kick_v1.wav, bass_v1.wav
+- James pushed 1 file — "Melody on top, tell me what u think" — yesterday
+  Show 1 file tag: melody_v1.wav
+- Anthony pushed 2 files — "Updated drums to match" — today 9am
+- James pushing now... (animated, pending state)
+
+MIDDLE COLUMN — Files and Sync:
+Label: "Project Files"
+Two sections:
+  stems/ folder:
+    - kick_v1.wav · 4.2MB · Anthony · 2d ago
+    - bass_v1.wav · 3.8MB · Anthony · 2d ago
+    - melody_v1.wav · 5.1MB · James · yesterday
+  exports/ folder:
+    - (empty state: "No exports yet")
+
+At bottom: sync status bar
+"Auto-push in 8 min · 3 local changes detected"
+[Push now] button
+
+RIGHT COLUMN — Notes and Versions:
+Session Notes (shared text area):
+"bass needs more room around 200hz
+try melody an octave higher on hook"
+Both collaborators' cursors shown with initials
+
+Version History (compact list):
+- a3f9c12 · "melody v1 added" · James · yesterday
+- b82e441 · "drums + bass" · Anthony · 2d ago
+- c11fa90 · "project created" · Anthony · 3d ago
+[Restore] button per item
+
+---
+
+### SCREEN 5 — VOICE / VIDEO CALL OVERLAY
+
+Appears as a floating overlay on top of the project detail view.
+Does not take over the full screen — producers still see their project while on a call.
+
+Layout:
+- Dark card, top right corner of screen
+- Width 280px
+- James's video feed (small, rounded) or avatar if camera off
+- Your video feed (picture-in-picture, bottom corner of James's feed)
+- Green "● Live" indicator
+- Push-to-talk mic button (large, center bottom of the call card)
+  When held: "Talkback active · recording..."
+- Mute button, camera toggle, end call button
+- "Voice note" button — records a message that attaches to the next push
+- Call duration timer
+
+Below the call card:
+Small text: "Your DAW audio is not affected by this call"
+
+---
+
+### SCREEN 6 — PUSH VOICE NOTE RECORDER
+
+Appears when producer hits "Add voice note" before or after pushing files.
+Simple bottom sheet or modal:
+
+- "Leave a note for James about this push"
+- Large circular record button (hold to record)
+- Waveform visualization while recording
+- Max 30 seconds
+- After recording: playback bar with play button
+- "Send with push" button
+- "Skip" link
+
+---
+
+### SCREEN 7 — SESSION STORY SHARE CARD
+
+Generated after a collaboration session or when producer taps "Share story".
+Beautiful exportable card — dark background, clean typography.
+
+Shows:
+- ProdCollab logo small top left
+- Project name large
+- "Made by Anthony & James"
+- Timeline: 4 sessions · 5 days · 7 pushes
+- Each collaborator: avatar initial, name, what they contributed
+  "Anthony — drums, bass, mix"
+  "James — melody, keys"
+- Bottom: "Built on ProdCollab" wordmark
+- Export/share button
+
+---
+
+### SCREEN 8 — COLLABORATION CREDITS CARD
+
+Separate from session story. More formal. For royalties and portfolios.
+
+Shows:
+- Project name
+- Creation date — completion date
+- Produced by: Anthony Achibi
+- Melody: James Okonkwo
+- X sessions · Y files · Z days
+- Git commit count (shown as "X versions saved")
+- "Download as PDF" and "Share" buttons
+
+---
+
+### SCREEN 9 — SETTINGS
+
+LEFT: settings nav (General, Sync, Notifications, Collaboration, Account, Danger Zone)
+
+GENERAL:
+- App theme (dark only — no toggle needed, it's always dark)
+- DAW default
+
+SYNC:
+- Auto-push delay: 5 min / 10 min / 30 min / Manual only
+- Auto-pull when collaborator pushes: toggle on/off
+- Ignored file types: editable list (current: .tmp .bak Autosave/)
+
+NOTIFICATIONS:
+- Sound on sync: toggle + volume slider
+- Notify when collaborator joins: toggle
+- Notify when collaborator pushes: toggle
+- Push voice note auto-play: toggle
+
+COLLABORATION:
+- Default project visibility: Private / Public
+- Show presence to collaborators: toggle
+- Allow collaborators to see version history: toggle
+
+ACCOUNT:
+- Username, email from GitHub
+- Connected GitHub account
+- Storage used: X GB of unlimited
+
+DANGER ZONE:
+- Delete all projects (red, requires typing "DELETE")
+- Disconnect GitHub account
+- Delete account
+
+---
+
+## MODALS TO DESIGN
+
+---
+
+### MODAL 1 — Create New Project
+- Project name input
+- DAW selector (pills not dropdown)
+- Visibility: Private / Public toggle
+- Description (optional, one line)
+- [Create Project] button
+- After creation: immediately shows folder selection prompt
+
+---
+
+### MODAL 2 — Folder Selection Prompt
+Appears after project creation or when producer opens a project with no folder linked.
+- Icon: folder with pulse animation
+- "Connect your project folder"
+- Subtext: "Select where your DAW saves this project's files.
+   We'll watch it automatically."
+- [Browse] button
+- "ProdCollab will create stems/ and exports/ inside this folder"
+- Cancel link
+
+---
+
+### MODAL 3 — Share / Invite
+- Project name at top
+- "Invite a collaborator"
+- Share link displayed in a copyable field (styled like a code block)
+- [Copy Link] large button
+- OR enter their email/username (future feature, shown as coming soon)
+- "Anyone with this link can join as a collaborator"
+- Expiry note: "Link expires in 7 days"
+
+---
+
+### MODAL 4 — Join Project (via share link)
+- "You've been invited to join a project"
+- Project name shown (pulled from the token)
+- Owner name and avatar shown
+- "Select a folder on your machine for this project"
+- [Browse folder] button
+- After folder selected: [Join Project] button
+- "ProdCollab will download the project files into your selected folder"
+
+---
+
+### MODAL 5 — Restore Version Confirmation
+- "Restore to this version?"
+- Version hash, message, and date shown
+- "This will revert your local folder to this state.
+   Your current files are safe — they're still in your version history."
+- [Restore] button (accent color)
+- [Cancel] link
+
+---
+
+### MODAL 6 — Delete Project Confirmation
+- "Delete Lagos Summer 26?"
+- "This will delete the GitHub repo and all version history.
+   Your local folder will not be affected."
+- Type project name to confirm: input field
+- [Delete permanently] (dark red)
+- [Cancel]
+
+---
+
+### MODAL 7 — Leave Project Confirmation (collaborator leaving)
+- "Leave this project?"
+- "You'll lose access to all files and version history.
+   Your local folder will remain on your machine."
+- [Leave project]
+- [Cancel]
+
+---
+
+### MODAL 8 — Collaborator Joined Notification
+Full-screen centered modal, appears briefly when someone joins via the share link.
+- Green dot animation
+- "James just joined Lagos Summer 26"
+- James's GitHub avatar
+- "They can now push and pull files from this project"
+- [View Project] button
+- Auto-dismisses after 5 seconds
+
+---
+
+### MODAL 9 — Sync Failed
+- "Sync failed for Lagos Summer 26"
+- Error description in plain language (not technical)
+  e.g. "We couldn't reach GitHub. Check your internet connection."
+- [Retry] button
+- [Skip for now] link
+- "Your files are safe locally. Nothing was lost."
+
+---
+
+## NOTIFICATION / TOAST STATES
+
+Show these as a small stack in the bottom-right corner:
+
+1. SUCCESS: "Lagos Summer 26 backed up · 3 files"
+2. NEW FILES: "James pushed melody_v2.wav · 6.1MB [Get it]"
+3. PRESENCE: "James is now online in Lagos Summer 26"
+4. AUTO-PUSH: "Auto-pushing in 2 minutes... [Push now]"
+5. JOINED: "James joined your project"
+6. ERROR: "Sync failed · Check connection [Retry]"
+
+---
+
+## SYSTEM TRAY INDICATOR STATES
+(Show as a small tooltip/popup from the system tray icon)
+
+State 1 — All synced:
+Green icon. "All projects backed up"
+
+State 2 — Changes pending:
+Amber pulsing icon.
+"Lagos Summer 26 · auto-push in 6 min
+[Push now]"
+
+State 3 — Collaborator active:
+Violet icon.
+"James is working in Lagos Summer 26 right now"
+
+State 4 — Sync failed:
+Red icon.
+"Sync failed · Lagos Summer 26
+[Retry]"
+
+---
+
+## DESIGN RULES — DO NOT BREAK THESE
+
+- Base is pure black #000000. Never use dark grey as the base.
+- Presence dots are the only elements that should immediately pop with color.
+- Green means live and active. Only use it for that.
+- Left border color on project cards is the fastest signal of card state:
+  Neutral dark = solo. Green = collaboration live. Amber = idle. Red = error.
+- The session story timeline is the emotional heart of the product —
+  it should look beautiful, not like a git log.
+- Every destructive action (delete, leave) requires an extra confirmation step.
+- Sync state is always visible. Producers need to know their work is safe.
+- The video call overlay never takes over the full screen.
+  Producers see their project while on the call.
+- Push voice notes attach to pushes — they are not a chat system.
+- "Start Session" (video call) should never feel like Zoom.
+  It's a talkback channel, not a meeting room.
+
+---
+
+## WHAT THIS PRODUCT IS NOT
+
+Not a streaming platform.
+Not a plugin marketplace.
+Not a DAW.
+Not a chat app.
+Not Slack for producers.
+
+It is: a studio-grade collaboration layer that sits invisibly between
+a producer's DAW and their collaborators. So minimal it disappears.
+So reliable they forget it could fail.
+So beautiful they open it on purpose just to see the session story.

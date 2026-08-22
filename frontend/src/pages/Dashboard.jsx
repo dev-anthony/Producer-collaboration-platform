@@ -8,10 +8,6 @@ import JoinProjectModal from '../components/JoinProjectModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 
-
-//use the window.location.reload after a successful push..to reload the window to clear the changes flag
-
-// ── Phase 4.15: session via httpOnly cookie; no more jwtToken prop/headers ──
 function Dashboard({ onLogout }) {
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -25,21 +21,18 @@ function Dashboard({ onLogout }) {
   
   const ensureFolderPath = async (projectId) => {
     try {
-      // First check if Electron API is available
+      
       if (!window.electronAPI?.getFolderPath) {
         throw new Error('FOLDER_SELECTION_NOT_AVAILABLE');
       }
 
-      // Check if folder path exists
+      
       const folderPath = await window.electronAPI.getFolderPath(projectId);
       
       if (folderPath) {
-        // console.log(` Project ${projectId} already has path:`, folderPath);
         return folderPath;
       }
       
-      // No folder path - prompt user to select one
-      // console.log(` No folder path for project ${projectId}, prompting user...`);
       
       if (!window.electronAPI?.selectFolder) {
         throw new Error('FOLDER_SELECTION_NOT_AVAILABLE');
@@ -51,24 +44,22 @@ function Dashboard({ onLogout }) {
         throw new Error('FOLDER_SELECTION_CANCELLED');
       }
       
-      // Save the folder path
         await window.electronAPI.saveFolderPath(projectId, selectedPath);
       
-      // Start watching the folder
       await window.electronAPI.startWatching(projectId, selectedPath);
       
-      // console.log(` Folder path saved and watching started`);
+
       return selectedPath;
       
     } catch (error) {
-      // console.error('[FOLDER] Error ensuring folder path:', error);
+      
       setToast({
           type: 'error',
           message: error.message
         });
       
       if (error.message === 'FOLDER_SELECTION_NOT_AVAILABLE') {
-        // More user-friendly error
+       
         throw new Error('Folder selection is not available in this environment. Please restart the app.');
       }
       setToast({
@@ -83,7 +74,6 @@ function Dashboard({ onLogout }) {
     getProjects();
     getCollaboratedProjects();
 
-    // Listen for file changes from Electron
     if (window.electronAPI?.onFileChanged) {
       window.electronAPI.onFileChanged((data) => {
         console.log('[FILE-CHANGE]', data);
@@ -91,7 +81,6 @@ function Dashboard({ onLogout }) {
       });
     }
 
-    // Phase 6.4: when the debounce timer (or "push now") fires, auto-push silently
     if (window.electronAPI?.onAutoPushReady) {
       window.electronAPI.onAutoPushReady((data) => {
         console.log('[AUTO-PUSH]', data);
@@ -113,7 +102,6 @@ function Dashboard({ onLogout }) {
     const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
     window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
-    // Cleanup listener on unmount
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
@@ -126,12 +114,10 @@ function Dashboard({ onLogout }) {
     };
   }, []);
   const handleFileChange = (projectId, event, filePath) => {
-    // console.log(`[DASHBOARD] Change detected in project ${projectId}: ${event} - ${filePath}`);
-    
-    // Mark project as having unpushed changes
+ 
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
     
-    // Update project lists to reflect changes
+
     setProjects(prev => prev.map(p => 
       String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
     ))
@@ -601,7 +587,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden bg-grid-pattern">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar onLogout={onLogout} user={user} />
       <div className="flex-1 overflow-y-auto">
          
@@ -673,7 +659,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
               <div className="mb-8 flex items-center gap-4">
                 <button
                   onClick={toggleModal}
-                  className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] glow-primary"
+                  className="group flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85"
                 >
                   <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-200" />
                   Create Project
@@ -691,7 +677,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
               {/* Your Projects Section */}
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-1 h-6 bg-gradient-to-b from-primary to-primary/50 rounded-full"></div>
+                  <div className="h-6 w-1 rounded-full bg-primary"></div>
                   <h3 className="text-xl font-bold text-foreground">Your Projects</h3>
                 </div>
                 {projects.length === 0 ? (
@@ -725,7 +711,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
               {collaboratedProjects.length > 0 && (
                 <div className="mb-10">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-1 h-6 bg-gradient-to-b from-secondary to-secondary/50 rounded-full"></div>
+                    <div className="h-6 w-1 rounded-full bg-secondary"></div>
                     <h3 className="text-xl font-bold text-foreground">Collaborated Projects</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

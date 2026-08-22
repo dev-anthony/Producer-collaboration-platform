@@ -1,0 +1,73 @@
+# ProdCollab - V1 Plan
+
+## Phase A: Product Core Verification
+
+- [x] Test create project. Implementation path verified; live test pending.
+- [x] Test join project. Implementation path verified; live test pending.
+- [x] Test push from Account A. Implementation path verified; live test pending.
+- [x] Test push from Account B. Implementation path verified; live test pending.
+- [x] Test realtime notification. WebSocket path verified; live test pending.
+- [x] Test pull. Incremental Git path verified; live test pending.
+- [x] Test automatic pull. Implementation path verified; live test pending.
+- [x] Test conflict handling. Implementation path verified; live test pending.
+- [x] Test conflict resolution. Implementation path verified; live test pending.
+- [x] Test version history. Implementation path verified; live test pending.
+- [x] Test restore. Safe restore-commit path verified; live test pending.
+- [x] Verify author identity for both accounts. Server-derived identity path verified; live test pending.
+
+## Phase B: V1 UI Overhaul
+
+- [x] Login and signup. Initial black/warm-accent pass complete; final polish pending.
+- [x] Dashboard and cards. Initial black/warm-accent pass complete; final polish pending.
+- [ ] Create/join modals.
+- [x] Progress activity strip. Initial visual pass complete; final polish pending.
+- [x] Conflict panel. Initial visual pass complete; final polish pending.
+- [x] Version history panel. Initial visual pass complete; final polish pending.
+- [ ] Settings.
+- [ ] Empty states.
+- [ ] Error boundary.
+- [ ] Escape handling.
+- [ ] Responsive desktop layout.
+- [x] Development account labels.
+
+## Phase C: V1 Sync Settings
+
+- [ ] Auto-push delay:
+  - [ ] 5 minutes.
+  - [ ] 10 minutes.
+  - [ ] 30 minutes.
+  - [ ] Manual.
+- [ ] Auto-pull toggle.
+- [ ] Desktop notification toggle.
+- [ ] Notification preference storage.
+
+## Phase D: V1 Production Hardening
+
+- [ ] Input validation.
+- [ ] Auth rate limiting.
+- [ ] API URL configuration.
+- [ ] Production CORS.
+- [ ] Real logger.
+- [ ] Critical endpoint tests.
+- [ ] Clean .exe test.
+- [ ] Server deployment.
+
+## Phase E: Post-V1 Collaboration
+
+- [ ] Project detail page.
+- [ ] Presence.
+- [ ] Session story.
+- [ ] Notes.
+- [ ] Collaboration requests.
+- [ ] Producer profiles.
+- [ ] Search.
+- [ ] Messages.
+
+## Phase F: Later Product Expansion
+
+- [ ] Voice/video sessions.
+- [ ] Voice notes.
+- [ ] Credits.
+- [ ] Instagram invite flow.
+- [ ] Social discovery.
+- [ ] Landing page and waitlist.

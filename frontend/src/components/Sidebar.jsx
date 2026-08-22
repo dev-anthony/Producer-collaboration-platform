@@ -1,36 +1,31 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, FolderGit2, Users, Settings, LogOut, Music } from "lucide-react";
-import AudioWaveform from "./AudioWaveform";
+import { Home, FolderGit2, Users, Settings, LogOut, Music, GitBranch, CircleUserRound } from "lucide-react";
 
 const navItems = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: FolderGit2, label: "Projects", path: "/projects" },
   { icon: Users, label: "Collaborations", path: "/collaboration" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: GitBranch, label: "Version history", path: "/projects" },
 ];
 
 const Sidebar = ({ onLogout, user }) => {
   const location = useLocation();
 
   return (
-    <div className="w-64 glass-strong border-r border-white/5 flex flex-col animate-slide-in-left">
+    <div className="w-16 bg-background border-r border-border flex flex-col items-center animate-slide-in-left">
       {/* Logo */}
-      <div className="p-6 border-b border-white/5">
-        <Link to="/dashboard" className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-neon-pink flex items-center justify-center hover:scale-105 hover:rotate-6 transition-all duration-300 cursor-pointer">
+      <div className="p-3 border-b border-border">
+        <Link to="/dashboard" title="ProdCollab" className="flex items-center justify-center">
+          <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center transition-colors hover:bg-primary/85">
             <Music className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div>
-            <span className="text-xl font-bold gradient-text">ProdCollab</span>
-            <AudioWaveform barCount={5} className="h-3 mt-1" />
           </div>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-3">
         <div className="space-y-2">
           {navItems.map((item, index) => {
             const isActive = location.pathname === item.path;
@@ -39,17 +34,17 @@ const Sidebar = ({ onLogout, user }) => {
               <Link
                 key={item.label}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 hover:translate-x-1 ${
+                title={item.label}
+                className={`relative flex items-center justify-center p-3 rounded-md transition-colors ${
                   isActive
-                    ? "bg-primary/20 text-foreground border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 } animate-fade-in`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <item.icon className={`w-5 h-5 ${isActive ? "text-primary" : ""}`} />
-                <span className="font-medium">{item.label}</span>
                 {isActive && (
-                  <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <div className="absolute left-0 h-5 w-0.5 rounded-r bg-primary" />
                 )}
               </Link>
             );
@@ -58,35 +53,19 @@ const Sidebar = ({ onLogout, user }) => {
       </nav>
 
       {/* User Section */}
-      <div className="p-4 border-t border-white/5">
+      <div className="w-full p-3 border-t border-border">
         {user && (
-          <div className="glass rounded-xl p-4 mb-4 animate-fade-in" style={{ animationDelay: '300ms' }}>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <img
-                  src={user.avatar_url}
-                  alt="Avatar"
-                  className="w-12 h-12 rounded-full ring-2 ring-primary/50"
-                />
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-background animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-foreground font-medium text-sm truncate">
-                  {user.login || user.username}
-                </p>
-                <p className="text-muted-foreground text-xs truncate">
-                  {user.email || "Producer"}
-                </p>
-              </div>
-            </div>
+          <div title={user.username || user.email} className="relative mb-3 flex justify-center">
+            {user.avatar_url ? <img src={user.avatar_url} alt="Avatar" className="h-9 w-9 rounded-full" /> : <CircleUserRound className="h-9 w-9 text-muted-foreground" />}
+            <div className="absolute bottom-0 right-1 h-2.5 w-2.5 rounded-full border-2 border-background bg-success" />
           </div>
         )}
         <button
           onClick={onLogout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all duration-300 border border-transparent hover:border-destructive/30 hover:scale-105 active:scale-95"
+          title="Log out"
+          className="flex w-full items-center justify-center rounded-md p-3 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
           <LogOut className="w-5 h-5" />
-          <span className="font-medium">Logout</span>
         </button>
       </div>
     </div>

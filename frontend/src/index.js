@@ -24,7 +24,7 @@ const isBackendRunning = () => new Promise((resolve) => {
   request.on('error', () => resolve(false));
 });
 
-// Initialize persistent storage for folder paths
+
 const store = new Store({ name: 'project-folders' });
 global.projectStore = store;
 
@@ -33,12 +33,13 @@ console.log('[MAIN] Store initialized →', store.path);
 const windows = [];
 const watchers = new Map(); // projectId -> watcher instance
 const watcherDetails = new Map(); // watcherKey -> routing details
-// ── Phase 6.1: debounced auto-push timers (projectId -> timeout handle) ──
+// auto-push timers (projectId -> timeout handle) ──
 const pushTimers = new Map();
 const pendingPushPaths = new Map();
 const activeGitOperations = new Set();
 const syncSuppressedFolders = new Set();
 const PUSH_DELAY = 10 * 60 * 1000; // 10 minutes
+const GITHUB_FILE_LIMIT = 100 * 1024 * 1024;
 
 const normalizeFolderPath = (folderPath) => path.resolve(folderPath).toLowerCase();
 const isSyncSuppressed = (folderPath) => syncSuppressedFolders.has(normalizeFolderPath(folderPath));
@@ -96,46 +97,7 @@ const getProjectKey = (scope, projectId) => (
   scope === 'default' ? String(projectId) : `${scope}::${String(projectId)}`
 );
 const DEV_ACCOUNT_A_SCOPE = 'persist:prodcollab-dev-account-a';
-// ──────────────────────────────────────────────────────────────────────────────
-// OAUTH PROTOCOL HANDLER (for production)
-// ── Phase 4.16: removed — GitHub OAuth replaced by email/password auth. ──
-// ──────────────────────────────────────────────────────────────────────────────
-// if (process.defaultApp) {
-//   if (process.argv.length >= 2) {
-//     app.setAsDefaultProtocolClient('prodcollab', process.execPath, [path.resolve(process.argv[1])]);
-//   }
-// } else {
-//   app.setAsDefaultProtocolClient('prodcollab');
-// }
 
-// Handle the protocol URL when app is already running (macOS)
-// app.on('open-url', (event, url) => {
-//   event.preventDefault();
-//   console.log('[OAUTH] Protocol URL received:', url);
-//
-//   if (url.startsWith('prodcollab://')) {
-//     try {
-//       const urlObj = new URL(url);
-//       const code = urlObj.searchParams.get('code');
-//
-//       if (code) {
-//         console.log('[OAUTH]   Code from protocol:', code);
-//
-//         // Send to all windows
-//         windows.forEach(win => {
-//           if (!win.isDestroyed()) {
-//             win.webContents.send('oauth-code', code);
-//           }
-//         });
-//       }
-//     } catch (err) {
-//       console.error('[OAUTH] Protocol parsing error:', err);
-//     }
-//   }
-// });
-
-// Handle second instance (Windows/Linux) — keep single-instance focus behavior,
-// OAuth protocol URL handling removed (Phase 4.16).
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -149,24 +111,6 @@ if (!gotTheLock) {
       win.focus();
     }
 
-    // ── Phase 4.16: OAuth protocol URL handling removed ──
-    // const url = commandLine.find(arg => arg.startsWith('prodcollab://'));
-    // if (url) {
-    //   console.log('[OAUTH] Second instance protocol URL:', url);
-    //   try {
-    //     const urlObj = new URL(url);
-    //     const code = urlObj.searchParams.get('code');
-    //     if (code) {
-    //       windows.forEach(win => {
-    //         if (!win.isDestroyed()) {
-    //           win.webContents.send('oauth-code', code);
-    //         }
-    //       });
-    //     }
-    //   } catch (err) {
-    //     console.error('[OAUTH] Second instance parsing error:', err);
-    //   }
-    // }
   });
 }
 
@@ -1537,6 +1481,18 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
         const normalizedPath = filePath.replace(/\\/g, '/');
         return !deletedPaths.has(normalizedPath) && !protectedPaths.has(normalizedPath);
       });
+    const oversizedFiles = [];
+    for (const filePath of changedPaths) {
+      try {
+        const stats = await fs.stat(path.join(folderPath, filePath));
+        if (stats.size > GITHUB_FILE_LIMIT) oversizedFiles.push({ path: filePath, size: stats.size });
+      } catch {
+        // Deleted paths are already excluded from changedPaths.
+      }
+    }
+    if (oversizedFiles.length > 0) {
+      return { success: false, code: 'FILE_TOO_LARGE', files: oversizedFiles };
+    }
     const candidatePaths = new Set([
       ...statusBeforeCommit.staged,
       ...statusBeforeCommit.not_added,

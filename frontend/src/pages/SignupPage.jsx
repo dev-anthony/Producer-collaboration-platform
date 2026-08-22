@@ -49,86 +49,82 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-grid-pattern bg-[size:50px_50px] opacity-30"></div>
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-
-      <div className="relative z-10 max-w-md w-full animate-fade-in">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/60 mb-6 glow-primary">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-sm animate-fade-in">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-md bg-primary">
             <svg className="w-10 h-10 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18V5l12-2v13" strokeLinecap="round" strokeLinejoin="round"/>
               <circle cx="6" cy="18" r="3"/>
               <circle cx="18" cy="16" r="3"/>
             </svg>
           </div>
-          <h1 className="text-4xl font-bold text-foreground mb-2 tracking-tight">Create your account</h1>
-          <p className="text-muted-foreground text-lg">Start collaborating in minutes</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Create your account</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Start collaborating in minutes.</p>
         </div>
 
-        <div className="glass-strong rounded-3xl p-8 shadow-2xl">
+        <div className="border border-border bg-card p-7">
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center">
+            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {errorMsg}
             </div>
           )}
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Username</label>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="producer_name"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="you@example.com"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Confirm Password</label>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Confirm password</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl py-4 px-6 font-semibold bg-primary text-primary-foreground transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+              className="w-full rounded-md bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-60"
             >
               {loading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
-          <p className="text-center text-muted-foreground text-sm mt-6">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
             <button
               onClick={onNavigateLogin}

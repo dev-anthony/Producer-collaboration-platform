@@ -668,7 +668,7 @@ function Projects({ onLogout }) {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden bg-grid-pattern">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar onLogout={onLogout} user={user} />
       <div className="flex-1 overflow-y-auto">
         {toast && (
@@ -712,7 +712,7 @@ function Projects({ onLogout }) {
           <div className="mb-8 flex items-center gap-4">
             <button
               onClick={toggleModal}
-              className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] glow-primary"
+              className="group flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85"
             >
               <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-200" />
               Create Project
@@ -722,7 +722,7 @@ function Projects({ onLogout }) {
           {/* Projects Section */}
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-primary to-primary/50 rounded-full"></div>
+              <div className="h-6 w-1 rounded-full bg-primary"></div>
               <h3 className="text-xl font-bold text-foreground">Your Projects</h3>
             </div>
             {projects.length === 0 ? (

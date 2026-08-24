@@ -245,7 +245,7 @@ function JoinProjectModal({ toggleModal }) {
                     value={shareLink}
                     onChange={(e) => setShareLink(e.target.value)}
                     placeholder="Paste the share link here..."
-                    className="w-full px-4 py-3 pl-11 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary transition-all"
+                    className="w-full border border-border bg-input px-4 py-3 pl-11 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -274,7 +274,7 @@ function JoinProjectModal({ toggleModal }) {
           {step === 2 && projectInfo && (
             <>
               {/* Project Preview */}
-              <div className="bg-accent/50 rounded-xl p-4 border border-border">
+              <div className="border border-border bg-accent/50 p-4">
                 <div className="flex items-start gap-4">
                    <div className="bg-primary p-3 rounded-md">
                     <Github className="w-8 h-8 text-white" />
@@ -310,7 +310,7 @@ function JoinProjectModal({ toggleModal }) {
                 </label>
                 <button
                   onClick={handleChooseFolder}
-                  className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground hover:bg-accent transition-all flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 border border-border bg-input px-4 py-3 text-foreground transition-colors hover:border-primary/40"
                 >
                   <FolderOpen className="w-5 h-5" />
                   {localPath ? localPath : 'Select Folder'}
@@ -318,7 +318,7 @@ function JoinProjectModal({ toggleModal }) {
                 
                 {/* Folder Status Indicator */}
                 {selectedFolderHandle && (
-                  <div className={`mt-2 p-3 rounded-lg border ${
+                  <div className={`mt-2 border p-3 ${
                     selectedFolderHandle.isEmpty 
                       ? 'bg-green-500/10 border-green-500/30' 
                       : 'bg-blue-500/10 border-blue-500/30'
@@ -357,7 +357,7 @@ function JoinProjectModal({ toggleModal }) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3 px-4 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border"
+                  className="flex-1 border border-border bg-background px-4 py-3 font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Back
                 </button>
@@ -376,7 +376,7 @@ function JoinProjectModal({ toggleModal }) {
           {step === 3 && projectInfo && (
             <>
               {/* Final Confirmation */}
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+              <div className="border border-green-500/30 bg-green-500/10 p-4">
                 <h4 className="text-green-400 font-semibold mb-2 flex items-center gap-2">
                   <Check className="w-5 h-5" />
                   Ready to Join!
@@ -397,7 +397,7 @@ function JoinProjectModal({ toggleModal }) {
                 </div>
               </div>
 
-              <div className="bg-secondary/10 border border-secondary/30 rounded-xl p-3">
+              <div className="border border-primary/30 bg-primary/10 p-3">
                  <p className="text-primary text-xs">
                   ℹ️ After joining, {selectedFolderHandle?.isEmpty 
                     ? 'files added to your folder will be detected and you can push them to the repository.' 
@@ -408,7 +408,7 @@ function JoinProjectModal({ toggleModal }) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setStep(2)}
-                  className="flex-1 py-3 px-4 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border"
+                  className="flex-1 border border-border bg-background px-4 py-3 font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Back
                 </button>

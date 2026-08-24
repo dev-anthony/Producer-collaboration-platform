@@ -23,11 +23,11 @@
 - [x] Progress activity strip. Blue-on-black visual pass complete.
 - [x] Conflict panel. Blue-on-black visual pass complete.
 - [x] Version history panel. Blue-on-black visual pass complete.
-- [x] Settings.
-- [x] Empty states.
+- [x] Settings. Shared shell and custom toggles complete.
+- [x] Empty states. Producer-focused empty states complete.
 - [x] Error boundary.
 - [x] Escape handling.
-- [x] Responsive desktop layout.
+- [x] Responsive desktop layout. Shared headers/sidebar and history popup complete.
 - [x] Development account labels.
 
 ## Phase C: V1 Sync Settings

@@ -398,25 +398,27 @@ const handleNativeFolderSelect = async () => {
       {toast && (
         <Toast message={toast.message} type={toast.type} duration={5000} onClose={() => setToast(null)} />
       )}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={toggleModal} />
+      <div className="absolute inset-0 bg-black/80" onClick={toggleModal} />
 
-      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-border bg-card animate-scale-in">
-        <div className="sticky top-0 glass-strong border-b border-border px-6 py-4 flex items-center justify-between z-20">
+      <div className="relative z-10 flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden border border-border bg-card animate-scale-in shadow-[0_24px_80px_rgba(0,0,0,0.9)]">
+        <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5">
           <div className="flex items-center gap-3">
              <div className="rounded-md bg-primary p-2">
                   <Github className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-foreground">Create New Project</h2>
-              <p className="text-sm text-muted-foreground">Create a GitHub repository for your project</p>
+               <h2 className="text-lg font-semibold text-foreground">Create a project</h2>
+               <p className="text-xs text-muted-foreground">Connect a studio folder and start protecting your work.</p>
             </div>
           </div>
-          <button onClick={toggleModal} className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-            <X className="w-6 h-6" />
+          <button onClick={toggleModal} className="p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="modal-scrollbar overflow-y-auto p-5">
+          <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Project Name <span className="text-destructive">*</span>
@@ -427,7 +429,7 @@ const handleNativeFolderSelect = async () => {
               value={formData.projectName}
               onChange={handleInputChange}
               placeholder="my-awesome-beat"
-              className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              className="w-full border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground mt-1">This will be your GitHub repository name</p>
           </div>
@@ -439,13 +441,13 @@ const handleNativeFolderSelect = async () => {
               value={formData.description}
               onChange={handleInputChange}
               placeholder="Describe your project..."
-              rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none"
+              rows={2}
+              className="w-full resize-none border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Repository Visibility</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Visibility</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="visibility" value="private" checked={formData.visibility === 'private'} onChange={handleInputChange} className="w-4 h-4 text-primary focus:ring-primary" />
@@ -457,7 +459,9 @@ const handleNativeFolderSelect = async () => {
               </label>
             </div>
           </div>
+          </div>
 
+          <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Upload Files & Folders <span className="text-destructive">*</span>
@@ -466,15 +470,15 @@ const handleNativeFolderSelect = async () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+              className={`border border-dashed p-5 text-center transition-colors ${
                 isDragging ? 'border-primary bg-primary/10' : 'border-border glass'
               }`}
             >
-              <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-foreground mb-4">Drag and drop files or folders here, or</p>
-              <div className="flex gap-3 justify-center">
-                <label className="inline-flex items-center gap-2 bg-primary hover:bg-primary/80 text-primary-foreground px-4 py-2 rounded-lg cursor-pointer transition-all hover:scale-105 active:scale-95">
-                  <FileAudio className="w-5 h-5" />
+              <Upload className="mx-auto mb-2 h-7 w-7 text-muted-foreground" />
+              <p className="mb-3 text-sm text-foreground">Drop files here or connect the full project folder.</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <label className="inline-flex cursor-pointer items-center gap-2 bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85">
+                  <FileAudio className="w-4 h-4" />
                   Browse Files
                   <input
                     type="file"
@@ -489,13 +493,11 @@ const handleNativeFolderSelect = async () => {
                   onClick={handleNativeFolderSelect}
                   className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
-                  <FolderOpen className="w-5 h-5" />
-                  Select Folder to Sync
+                  <FolderOpen className="w-4 h-4" />
+                  Connect folder
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Supported: WAV, MP3, MP4, FLAC, AIFF, OGG, M4A, MPEG, AVI, MOV, FLV, MIDI
-              </p>
+              <p className="mt-2 text-[10px] text-muted-foreground">Audio, MIDI, DAW projects, stems, and exports.</p>
               {localFolderPath && (
                 <p className="text-xs text-primary mt-2 flex items-center justify-center gap-1">
                   <Folder className="w-3.5 h-3.5" /> Syncing with: {localFolderPath}
@@ -507,9 +509,9 @@ const handleNativeFolderSelect = async () => {
           {folders.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-foreground mb-3">Selected Folders ({folders.length})</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="history-scrollbar space-y-1.5 max-h-28 overflow-y-auto">
                 {folders.map((folder) => (
-                  <div key={folder.id} className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
+                  <div key={folder.id} className="flex items-center justify-between border border-border bg-background/50 p-2 transition-colors hover:border-primary/30">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Folder className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -529,9 +531,9 @@ const handleNativeFolderSelect = async () => {
           {files.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-foreground mb-3">Individual Files ({files.length})</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="history-scrollbar space-y-1.5 max-h-28 overflow-y-auto">
                 {files.map((fileData) => (
-                  <div key={fileData.id} className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
+                  <div key={fileData.id} className="flex items-center justify-between border border-border bg-background/50 p-2 transition-colors hover:border-primary/30">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getFileIcon(fileData.type)}
                       <div className="flex-1 min-w-0">
@@ -549,7 +551,7 @@ const handleNativeFolderSelect = async () => {
           )}
 
           {showProgress && (
-            <div className="glass rounded-lg p-4 border border-primary/30">
+            <div className="border border-primary/30 bg-primary/5 p-3">
               <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
                 <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -572,22 +574,24 @@ const handleNativeFolderSelect = async () => {
           )}
 
           {totalFiles > 0 && (
-            <div className="glass border border-primary/30 rounded-lg p-3">
+            <div className="border border-primary/30 bg-primary/5 p-2.5">
               <p className="text-primary text-sm">
                 Total: {totalFiles} file{totalFiles !== 1 ? 's' : ''} ready to upload
               </p>
             </div>
           )}
 
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={toggleModal} className="flex-1 py-3 px-4 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border">
+          </div>
+          </div>
+          <div className="flex gap-3 border-t border-border px-5 py-3.5">
+            <button type="button" onClick={toggleModal} className="flex-1 border border-border bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>

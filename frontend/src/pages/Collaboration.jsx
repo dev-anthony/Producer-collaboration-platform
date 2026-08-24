@@ -670,7 +670,7 @@ function Collaboration({ onLogout }) {
         {/* Content */}
         <div className="p-8">
           {error && (
-            <div className="glass rounded-2xl p-6 border border-red-500/20 bg-red-500/10 mb-6">
+            <div className="mb-6 border border-destructive/30 bg-destructive/10 p-6">
               <p className="text-red-400">{error}</p>
             </div>
           )}
@@ -693,8 +693,8 @@ function Collaboration({ onLogout }) {
               <h3 className="text-xl font-bold text-foreground">Collaborated Projects</h3>
             </div>
             {collaboratedProjects.length === 0 ? (
-              <div className="glass rounded-2xl p-12 text-center border-dashed border-2 border-border">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+              <div className="border-2 border-dashed border-border bg-card p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-muted flex items-center justify-center">
                   <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.582V9" />
                   </svg>

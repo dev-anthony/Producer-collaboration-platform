@@ -691,7 +691,7 @@ function Projects({ onLogout }) {
         {/* Content */}
         <div className="p-8">
           {error && (
-            <div className="glass rounded-2xl p-6 border border-red-500/20 bg-red-500/10 mb-6">
+            <div className="mb-6 border border-destructive/30 bg-destructive/10 p-6">
               <p className="text-red-400">{error}</p>
             </div>
           )}
@@ -714,8 +714,8 @@ function Projects({ onLogout }) {
               <h3 className="text-xl font-bold text-foreground">Your Projects</h3>
             </div>
             {projects.length === 0 ? (
-              <div className="glass rounded-2xl p-12 text-center border-dashed border-2 border-border">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+              <div className="border-2 border-dashed border-border bg-card p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-muted flex items-center justify-center">
                   <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                   </svg>

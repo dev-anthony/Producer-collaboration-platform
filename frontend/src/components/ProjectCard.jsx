@@ -278,7 +278,7 @@ function ProjectCard({
       <div
         className={`group relative overflow-hidden border border-border bg-card transition-colors duration-150 ${
           hasUnpushedChanges 
-            ? 'border-l-2 border-l-warning' 
+            ? 'border-l-2 border-l-primary'
             : remoteChangesAvailable
               ? 'border-l-2 border-l-primary'
               : 'hover:border-primary/40'
@@ -303,7 +303,7 @@ function ProjectCard({
               Update available
             </span>
           ) : hasUnpushedChanges ? (
-            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning">
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
               <CircleDashed className="w-3 h-3" />
               Changes pending
             </span>
@@ -363,7 +363,7 @@ function ProjectCard({
 
           {/* Folder Info */}
           {projectFolderName && (
-            <div className="mb-4 p-3 rounded-xl bg-muted/50 border border-border/50">
+            <div className="mb-4 border border-border/50 bg-muted/50 p-3">
               <div className="flex items-center gap-2 text-sm">
                 <Folder className="w-4 h-4 text-[hsl(185,85%,50%)]" />
                 <span className="text-muted-foreground">Project folder:</span>
@@ -375,7 +375,7 @@ function ProjectCard({
           )}
 
           {conflicts.length > 0 && (
-            <div className="mb-4 rounded-md border border-primary/30 bg-primary/10 p-4">
+            <div className="mb-4 border border-primary/30 bg-primary/10 p-4">
               <div className="mb-3 flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-primary" />
                 <div>
@@ -474,7 +474,7 @@ function ProjectCard({
       {/* Share Modal */}
       {showShareModal && createPortal (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-up">
-          <div className="glass-strong rounded-2xl shadow-2xl w-full max-w-md border border-border overflow-hidden">
+          <div className="w-full max-w-md overflow-hidden border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.9)]">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -495,7 +495,7 @@ function ProjectCard({
                 Share this link with others to let them join as collaborators.
               </p>
               
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50 border border-border/50 mb-4">
+              <div className="mb-4 flex items-center gap-2 border border-border/50 bg-muted/50 p-3">
                 <input
                   type="text"
                   value={shareLink}
@@ -514,7 +514,7 @@ function ProjectCard({
                 </button>
               </div>
               
-              <div className="p-3 rounded-xl bg-[hsl(185,85%,50%)]/10 border border-[hsl(185,85%,50%)]/20">
+              <div className="border border-primary/20 bg-primary/10 p-3">
                 <p className="text-[hsl(185,85%,50%)] text-xs flex items-start gap-2">
                   <span className="text-base">💡</span>
                   Anyone with this link can join and push changes to the project.

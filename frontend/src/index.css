@@ -87,6 +87,23 @@
     background: hsl(var(--primary) / 0.75);
   }
 
+  .modal-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.4) transparent;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .modal-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.4);
+  }
+
   /* Glassmorphism effect */
 .glass {
     background: hsl(var(--card));

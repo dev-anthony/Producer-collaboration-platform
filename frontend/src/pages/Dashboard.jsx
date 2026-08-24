@@ -626,7 +626,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
             <button
               onClick={getUserData}
               disabled={loading}
-              className="group px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/80 text-accent-foreground font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border border-border flex items-center gap-2"
+              className="group flex items-center gap-2 border border-border bg-card px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               <svg className="w-4 h-4 transition-transform group-hover:rotate-180 duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -638,7 +638,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
 
         <div className="p-8">
           {error && (
-            <div className="glass rounded-xl p-4 mb-6 border border-destructive/30 bg-destructive/5 animate-fade-in">
+            <div className="mb-6 border border-destructive/30 bg-destructive/5 p-4 animate-fade-in">
               <p className="text-destructive flex items-center gap-2">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
@@ -676,8 +676,8 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                   <div><h3 className="text-lg font-semibold text-foreground">My sessions</h3><p className="mt-1 text-xs text-muted-foreground">Work you own and protect.</p></div>
                 </div>
                 {projects.length === 0 ? (
-                  <div className="glass rounded-2xl p-12 text-center border-dashed border-2 border-border">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+                   <div className="border-2 border-dashed border-border bg-card p-12 text-center">
+                     <div className="w-16 h-16 mx-auto mb-4 bg-muted flex items-center justify-center">
                       <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                       </svg>

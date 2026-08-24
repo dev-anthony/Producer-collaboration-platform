@@ -55,11 +55,11 @@ const Sidebar = ({ onLogout, user }) => {
       {/* User Section */}
       <div className="w-full p-4">
         {user && (
-          <div title={user.username || user.email} className="relative mb-3 flex items-center gap-3">
+          <Link to="/profile" title="Profile" className="relative mb-3 flex items-center gap-3 transition-colors hover:text-primary">
             {user.avatar_url ? <img src={user.avatar_url} alt="Avatar" className="h-9 w-9 rounded-full" /> : <CircleUserRound className="h-9 w-9 text-muted-foreground" />}
             <div className="absolute bottom-0 right-1 h-2.5 w-2.5 rounded-full border-2 border-background bg-success" />
             <span className="min-w-0 truncate text-xs text-muted-foreground">{user.username || user.email}</span>
-          </div>
+          </Link>
         )}
         <button
           onClick={onLogout}

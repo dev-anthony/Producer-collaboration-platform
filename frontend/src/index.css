@@ -65,6 +65,28 @@
    CUSTOM UTILITIES
    ============================================ */
 @layer utilities {
+  .history-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.45) transparent;
+  }
+
+  .history-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .history-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .history-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.45);
+    border-radius: 999px;
+  }
+
+  .history-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.75);
+  }
+
   /* Glassmorphism effect */
 .glass {
     background: hsl(var(--card));

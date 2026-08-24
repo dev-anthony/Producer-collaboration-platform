@@ -9,6 +9,8 @@ import Toast from './components/Toast.jsx';
 import Collaboration from './pages/Collaboration.jsx';
 import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
+import Profile from './pages/Profile.jsx';
+import History from './pages/History.jsx';
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
@@ -300,13 +302,17 @@ function App() {
           path="/history"
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <Projects onLogout={handleLogout} />
+              <History onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />
         <Route
           path="/settings"
           element={<ProtectedRoute isAuthenticated={isAuthenticated}><Settings onLogout={handleLogout} /></ProtectedRoute>}
+        />
+        <Route
+          path="/profile"
+          element={<ProtectedRoute isAuthenticated={isAuthenticated}><Profile onLogout={handleLogout} /></ProtectedRoute>}
         />
         <Route
           path="/"

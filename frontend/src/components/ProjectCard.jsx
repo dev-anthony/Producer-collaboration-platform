@@ -278,39 +278,32 @@ function ProjectCard({
         }`}
       >
         {/* Status Badges */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-          {remoteChangesAvailable && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(210,90%,55%)]/20 text-[hsl(210,90%,65%)] border border-[hsl(210,90%,55%)]/30">
-              <Download className="w-3 h-3" />
-              Update available
-            </span>
-          )}
+        <div className="absolute right-4 top-4 z-10 flex max-w-[48%] flex-wrap justify-end gap-1.5">
           {/* Phase 6.10: subtle sync status indicator */}
           {pushState === 'pushing' ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(185,85%,50%)]/20 text-[hsl(185,85%,50%)] border border-[hsl(185,85%,50%)]/30">
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
               Pushing…
             </span>
           ) : pushState === 'failed' ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-destructive/20 text-destructive border border-destructive/30">
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive">
               <AlertTriangle className="w-3 h-3" />
               Push failed
             </span>
+          ) : remoteChangesAvailable ? (
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+              <Download className="w-3 h-3" />
+              Update available
+            </span>
           ) : hasUnpushedChanges ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(45,100%,51%)] text-[hsl(220,20%,4%)] animate-pulse-glow">
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning">
               <CircleDashed className="w-3 h-3" />
               Changes pending
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(142,76%,36%)]/15 text-[hsl(142,76%,36%)] border border-[hsl(142,76%,36%)]/30">
+            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
               <CheckCircle2 className="w-3 h-3" />
               Synced
-            </span>
-          )}
-          {isCollaborator && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(35,90%,55%)]/20 text-[hsl(35,90%,55%)] border border-[hsl(35,90%,55%)]/30">
-              <Users className="w-3 h-3" />
-              Collaborator
             </span>
           )}
         </div>
@@ -320,11 +313,7 @@ function ProjectCard({
           {/* Header */}
           <div className="flex items-start gap-4 mb-4">
             <div 
-              className={`flex-shrink-0 p-3 rounded-xl transition-all duration-300 ${
-                isCollaborator 
-                  ? 'bg-[hsl(35,90%,55%)]/15 text-[hsl(35,90%,55%)] group-hover:bg-[hsl(35,90%,55%)]/25' 
-                  : 'bg-[hsl(185,85%,50%)]/15 text-[hsl(185,85%,50%)] group-hover:bg-[hsl(185,85%,50%)]/25'
-              }`}
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border border-white/15 bg-black text-white transition-colors duration-150 group-hover:border-white/35"
             >
               <Github className="w-5 h-5" />
             </div>
@@ -338,8 +327,13 @@ function ProjectCard({
               </p>
               {isCollaborator && project.owner && (
                 <p className="text-xs text-muted-foreground/70 mt-1.5 flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-[hsl(35,90%,55%)]" />
+                  <span className="w-1 h-1 rounded-full bg-success" />
                   Owner: {project.owner.username}
+                </p>
+              )}
+              {isCollaborator && (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-success">
+                  <Users className="h-3 w-3" /> Shared collaboration
                 </p>
               )}
             </div>
@@ -374,21 +368,21 @@ function ProjectCard({
           )}
 
           {conflicts.length > 0 && (
-            <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+            <div className="mb-4 rounded-md border border-primary/30 bg-primary/10 p-4">
               <div className="mb-3 flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-400" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-primary" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Review local version</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Protected from pushes until you choose what to keep.</p>
                 </div>
               </div>
               {conflicts.map((conflict) => (
-                <div key={conflict.preservedPath} className="border-t border-amber-400/20 pt-3 first:border-0 first:pt-0">
+                <div key={conflict.preservedPath} className="border-t border-primary/20 pt-3 first:border-0 first:pt-0">
                   <p className="mb-2 truncate text-xs font-medium text-foreground" title={conflict.originalPath}>{conflict.originalPath}</p>
                   <div className="flex flex-wrap gap-2">
                     <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-remote')} className="rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">Use remote</button>
                     <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'keep-both')} className="rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs text-primary disabled:opacity-50">Keep both</button>
-                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-local')} className="rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-semibold text-black disabled:opacity-50">Use local</button>
+                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-local')} className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50">Use local</button>
                   </div>
                 </div>
               ))}

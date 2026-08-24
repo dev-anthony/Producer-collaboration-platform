@@ -10,6 +10,7 @@ import Collaboration from './pages/Collaboration.jsx';
 import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
 import { Loader2 } from 'lucide-react';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 function ProtectedRoute({ isAuthenticated, children }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -40,6 +41,9 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
+    window.electronAPI?.setAutoPushDelay?.(
+      window.localStorage.getItem('prodcollab_auto_push_delay') || '10'
+    );
     window.electronAPI?.restoreSessionWatchers?.().catch((error) => {
       console.error('[WATCHER] Could not restore session watchers:', error);
     });
@@ -94,7 +98,9 @@ function App() {
       setToast({ type: 'info', message });
       window.localStorage.setItem(`prodcollab_remote_ahead_${project.id}`, pushKey);
       window.dispatchEvent(new CustomEvent('prodcollab:remote-change', { detail: project }));
-      window.electronAPI?.showNotification({ title: 'ProdCollab update', body: message });
+      if (window.localStorage.getItem('prodcollab_desktop_notifications') !== 'false') {
+        window.electronAPI?.showNotification({ title: 'ProdCollab update', body: message });
+      }
       if (window.localStorage.getItem('prodcollab_auto_pull') !== 'true') return;
       try {
         const folderPath = await window.electronAPI?.getFolderPath(project.id);
@@ -114,7 +120,7 @@ function App() {
         window.localStorage.removeItem(`prodcollab_remote_ahead_${project.id}`);
         window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: project.id } }));
         window.dispatchEvent(new CustomEvent('prodcollab:local-synced', { detail: { id: project.id } }));
-        window.electronAPI?.showNotification({
+        if (window.localStorage.getItem('prodcollab_desktop_notifications') !== 'false') window.electronAPI?.showNotification({
           title: 'ProdCollab synced',
           body: `${project.repo_name} was updated in your local folder.`
         });
@@ -245,7 +251,7 @@ function App() {
           </div>
         </div>
       )}
-      <Routes>
+      <ErrorBoundary><Routes>
         <Route
           path="/login"
           element={
@@ -302,7 +308,7 @@ function App() {
           path="*"
           element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
         />
-      </Routes>
+      </Routes></ErrorBoundary>
     </HashRouter>
   );
 }

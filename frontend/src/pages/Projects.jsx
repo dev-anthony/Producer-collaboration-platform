@@ -38,11 +38,14 @@ function Projects({ onLogout }) {
       });
     };
     window.addEventListener('prodcollab:local-synced', handleLocalSynced);
+    const refreshProjects = () => getProjects();
+    window.addEventListener('prodcollab:projects-refresh', refreshProjects);
     const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
     window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
@@ -473,7 +476,7 @@ function Projects({ onLogout }) {
     if (pushResOld.ok) {
       setTimeout(() => {
         setToast({ type: 'success', message: `Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.` });
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
       }, 1000);
     } else {
       throw new Error(pushData.error || pushData.message || 'Push failed');
@@ -485,6 +488,8 @@ function Projects({ onLogout }) {
       type: 'error',
       message: err.message === 'SYNC_IN_PROGRESS'
         ? 'This project is already syncing. Please wait a moment.'
+        : err.message === 'FILE_TOO_LARGE'
+          ? 'One or more files are over GitHub’s 100 MB limit. Move them out of the project or export a smaller version before pushing.'
         : err.message === 'PUSH_RECORD_FAILED'
           ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
         : err.message === 'DUPLICATE_CONTENT'

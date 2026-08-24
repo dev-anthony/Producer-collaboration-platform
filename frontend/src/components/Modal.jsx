@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Upload, FolderOpen, Github, Music, Film, FileAudio, Folder } from 'lucide-react';
 import Toast from '../components/Toast';
 
 function Modal({ toggleModal }) {
+  useEffect(() => {
+    const closeOnEscape = (event) => { if (event.key === 'Escape') toggleModal(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [toggleModal]);
   const [formData, setFormData] = useState({
     projectName: '',
     description: '',
@@ -208,7 +213,7 @@ const handleNativeFolderSelect = async () => {
 
   const getFileIcon = (type) => {
     if (type.startsWith('audio/')) return <Music className="w-5 h-5 text-primary" />;
-    if (type.startsWith('video/')) return <Film className="w-5 h-5 text-secondary" />;
+                    if (type.startsWith('video/')) return <Film className="w-5 h-5 text-primary" />;
     return <FileAudio className="w-5 h-5 text-muted-foreground" />;
   };
 
@@ -363,7 +368,7 @@ const handleNativeFolderSelect = async () => {
             message: `Project "${formData.projectName}" created successfully on GitHub!`
           });
           toggleModal();
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
         }, 1500);
       } else {
         setProgress(prev => [...prev, { step: ` Error: ${data.message || data.error}`, status: 'error' }]);
@@ -395,11 +400,11 @@ const handleNativeFolderSelect = async () => {
       )}
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={toggleModal} />
 
-      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto glass-strong rounded-2xl animate-scale-in border border-border">
+      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-border bg-card animate-scale-in">
         <div className="sticky top-0 glass-strong border-b border-border px-6 py-4 flex items-center justify-between z-20">
           <div className="flex items-center gap-3">
-            <div className="bg-primary p-2 rounded-lg glow-primary">
-              <Github className="w-6 h-6 text-primary-foreground" />
+             <div className="rounded-md bg-primary p-2">
+                  <Github className="w-6 h-6 text-white" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">Create New Project</h2>
@@ -482,7 +487,7 @@ const handleNativeFolderSelect = async () => {
                 <button
                   type="button"
                   onClick={handleNativeFolderSelect}
-                  className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-lg cursor-pointer transition-all hover:scale-105 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <FolderOpen className="w-5 h-5" />
                   Select Folder to Sync
@@ -506,7 +511,7 @@ const handleNativeFolderSelect = async () => {
                 {folders.map((folder) => (
                   <div key={folder.id} className="glass rounded-lg p-3 flex items-center justify-between hover:bg-accent/50 transition-colors">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Folder className="w-5 h-5 text-secondary flex-shrink-0" />
+                      <Folder className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-foreground text-sm font-medium truncate">{folder.name}</p>
                         <p className="text-muted-foreground text-xs">{folder.fileCount} files</p>
@@ -582,7 +587,7 @@ const handleNativeFolderSelect = async () => {
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>

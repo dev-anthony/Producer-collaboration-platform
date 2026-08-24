@@ -17,40 +17,45 @@
 
 ## Phase B: V1 UI Overhaul
 
-- [x] Login and signup. Initial black/warm-accent pass complete; final polish pending.
-- [x] Dashboard and cards. Initial black/warm-accent pass complete; final polish pending.
-- [ ] Create/join modals.
-- [x] Progress activity strip. Initial visual pass complete; final polish pending.
-- [x] Conflict panel. Initial visual pass complete; final polish pending.
-- [x] Version history panel. Initial visual pass complete; final polish pending.
-- [ ] Settings.
-- [ ] Empty states.
-- [ ] Error boundary.
-- [ ] Escape handling.
-- [ ] Responsive desktop layout.
+- [x] Login and signup. Blue-on-black visual pass complete with Poppins typography.
+- [x] Dashboard and cards. Blue-on-black visual pass complete with compact status layout and producer-focused header.
+- [x] Create/join modals. Blue-on-black visual pass complete.
+- [x] Progress activity strip. Blue-on-black visual pass complete.
+- [x] Conflict panel. Blue-on-black visual pass complete.
+- [x] Version history panel. Blue-on-black visual pass complete.
+- [x] Settings.
+- [x] Empty states.
+- [x] Error boundary.
+- [x] Escape handling.
+- [x] Responsive desktop layout.
 - [x] Development account labels.
 
 ## Phase C: V1 Sync Settings
 
-- [ ] Auto-push delay:
-  - [ ] 5 minutes.
-  - [ ] 10 minutes.
-  - [ ] 30 minutes.
-  - [ ] Manual.
-- [ ] Auto-pull toggle.
-- [ ] Desktop notification toggle.
-- [ ] Notification preference storage.
+- [x] Auto-push delay:
+  - [x] 5 minutes.
+  - [x] 10 minutes.
+  - [x] 30 minutes.
+  - [x] Manual.
+- [x] Auto-pull toggle.
+- [x] Desktop notification toggle.
+- [x] Notification preference storage.
 
 ## Phase D: V1 Production Hardening
 
 - [ ] Input validation.
-- [ ] Auth rate limiting.
+- [x] Auth rate limiting.
+- [x] Large-file protection for GitHub's 100 MB file limit.
+- [x] Collision-safe repository naming.
+- [x] Shared repository creation helper extracted from the project controller.
 - [ ] API URL configuration.
 - [ ] Production CORS.
 - [ ] Real logger.
 - [ ] Critical endpoint tests.
 - [ ] Clean .exe test.
 - [ ] Server deployment.
+- [x] Block files over GitHub's 100 MB limit with a clear producer-facing message.
+- [x] Handle duplicate project names by generating a unique repository name behind the scenes.
 
 ## Phase E: Post-V1 Collaboration
 

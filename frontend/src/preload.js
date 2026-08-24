@@ -155,6 +155,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto-push / silent sync — Phase 6
   pushNow: (projectId) => ipcRenderer.invoke('push-now', { projectId }),
   setupProjectFolder: (folderPath) => ipcRenderer.invoke('setup-project-folder', { folderPath }),
+  setAutoPushDelay: (delay) => ipcRenderer.invoke('set-auto-push-delay', { delay }),
   onAutoPushReady: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('auto-push-ready', handler);

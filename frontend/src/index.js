@@ -38,7 +38,8 @@ const pushTimers = new Map();
 const pendingPushPaths = new Map();
 const activeGitOperations = new Set();
 const syncSuppressedFolders = new Set();
-const PUSH_DELAY = 10 * 60 * 1000; // 10 minutes
+const DEFAULT_PUSH_DELAY = 10 * 60 * 1000;
+const autoPushDelays = new Map();
 const GITHUB_FILE_LIMIT = 100 * 1024 * 1024;
 
 const normalizeFolderPath = (folderPath) => path.resolve(folderPath).toLowerCase();
@@ -68,11 +69,13 @@ function scheduleAutoPush(watcherKey, pid, target, filePath) {
   pending.add(filePath);
   pendingPushPaths.set(watcherKey, pending);
   if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
+  const pushDelay = autoPushDelays.get(target?.id) ?? DEFAULT_PUSH_DELAY;
+  if (pushDelay === null) return;
   const timer = setTimeout(() => {
     pushTimers.delete(watcherKey);
     pendingPushPaths.delete(watcherKey);
     if (target && !target.isDestroyed()) target.send('auto-push-ready', { projectId: pid });
-  }, PUSH_DELAY);
+  }, pushDelay);
   pushTimers.set(watcherKey, timer);
 }
 
@@ -517,13 +520,13 @@ function refreshTray() {
       : null;
     const accountLabel = targetWindow?.devSessionName ? ` [${targetWindow.devSessionName}]` : '';
     return {
-      label: `Push now${accountLabel} - ${folderPath ? path.basename(folderPath) : pid}`,
+       label: `Sync now${accountLabel} · ${folderPath ? path.basename(folderPath) : pid}`,
       click: () => triggerPushNow(pid, scope, targetWindow?.webContents || null),
     };
   });
 
   const template = [
-    { label: 'ProdCollab', enabled: false },
+    { label: 'ProdCollab · Studio sync', enabled: false },
     { type: 'separator' },
     ...(projectItems.length > 0
       ? projectItems
@@ -552,7 +555,7 @@ function buildTray() {
       icon = nativeImage.createEmpty();
     }
     tray = new Tray(icon);
-    tray.setToolTip('ProdCollab');
+    tray.setToolTip('ProdCollab · Projects protected');
     tray.on('click', () => focusMainWindow());
     refreshTray();
   } catch (err) {
@@ -1832,6 +1835,11 @@ ipcMain.handle('push-now', async (event, { projectId }) => {
   return { success: true };
 });
 
+ipcMain.handle('set-auto-push-delay', async (event, { delay }) => {
+  autoPushDelays.set(event.sender.id, delay === 'manual' ? null : Number(delay) * 60 * 1000);
+  return { success: true };
+});
+
 // 6.5 — Auto-create the standard stems/ and exports/ subfolders for a project.
 ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
   try {
@@ -1934,6 +1942,6 @@ ipcMain.handle('copy-text', (_, text) => {
 
 ipcMain.handle('show-notification', (_, { title, body }) => {
   if (!Notification.isSupported()) return { success: false };
-  new Notification({ title, body }).show();
+  new Notification({ title: title || 'ProdCollab', body, icon: path.join(__dirname, '../assets/icon.ico') }).show();
   return { success: true };
 });

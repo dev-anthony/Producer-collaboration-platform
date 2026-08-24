@@ -28,6 +28,21 @@ app.use(cors({
 
 const port = process.env.PORT || 5000;
 
+const authAttempts = new Map();
+const authRateLimit = (req, res, next) => {
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const recent = (authAttempts.get(key) || []).filter((time) => now - time < 15 * 60 * 1000);
+  if (recent.length >= 10) {
+    return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' });
+  }
+  recent.push(now);
+  authAttempts.set(key, recent);
+  next();
+};
+
+app.use('/api/auth/login', authRateLimit);
+app.use('/api/auth/signup', authRateLimit);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 

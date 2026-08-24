@@ -37,9 +37,9 @@ function StatsCard({ icon, title, value, color = 'primary' }) {
   };
 
   return (
-    <div className="group glass rounded-2xl p-6 border border-border hover:border-primary/30 transition-all duration-300 hover:scale-[1.02]">
+    <div className="group border border-border bg-card p-5 transition-colors duration-150 hover:border-primary/40">
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorStyles[color]} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-md border ${colorStyles[color].replace(/from-[^ ]+ to-[^ ]+ /, '')}`}>
           {icon}
         </div>
         <div className="w-2 h-2 rounded-full bg-primary/50 animate-pulse"></div>

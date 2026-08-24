@@ -38,11 +38,14 @@ function Collaboration({ onLogout }) {
       });
     };
     window.addEventListener('prodcollab:local-synced', handleLocalSynced);
+    const refreshProjects = () => getCollaboratedProjects();
+    window.addEventListener('prodcollab:projects-refresh', refreshProjects);
     const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
     window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
@@ -480,7 +483,7 @@ function Collaboration({ onLogout }) {
     if (pushResOld.ok) {
       setTimeout(() => {
         setToast({ type: 'success', message: `Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.` });
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
       }, 1000);
     } else {
       throw new Error(pushData.error || pushData.message || 'Push failed');
@@ -492,6 +495,8 @@ function Collaboration({ onLogout }) {
       type: 'error',
       message: err.message === 'SYNC_IN_PROGRESS'
         ? 'This project is already syncing. Please wait a moment.'
+        : err.message === 'FILE_TOO_LARGE'
+          ? 'One or more files are over GitHub’s 100 MB limit. Move them out of the project or export a smaller version before pushing.'
         : err.message === 'PUSH_RECORD_FAILED'
           ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
         : err.message === 'DUPLICATE_CONTENT'
@@ -691,7 +696,7 @@ function Collaboration({ onLogout }) {
           <div className="mb-8 flex items-center gap-4">
             <button
               onClick={() => setIsJoinModalOpen(true)}
-              className="group flex items-center gap-2 rounded-md bg-secondary px-5 py-2.5 font-semibold text-secondary-foreground transition-colors duration-150 hover:bg-secondary/80"
+              className="group flex items-center gap-2 rounded-md border border-border bg-card px-5 py-2.5 font-semibold text-foreground transition-colors duration-150 hover:border-primary/40 hover:text-primary"
             >
               <Users className="w-5 h-5 transition-transform group-hover:scale-110 duration-200" />
               Join Project
@@ -701,7 +706,7 @@ function Collaboration({ onLogout }) {
           {/* Collaborated Projects Section */}
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-6 w-1 rounded-full bg-secondary"></div>
+              <div className="h-6 w-1 rounded-full bg-primary"></div>
               <h3 className="text-xl font-bold text-foreground">Collaborated Projects</h3>
             </div>
             {collaboratedProjects.length === 0 ? (

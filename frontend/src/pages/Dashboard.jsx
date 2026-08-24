@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import StatsCard from '../components/StatsCard';
 import ProjectCard from '../components/ProjectCard';
 import { Plus, Users } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -18,6 +17,19 @@ function Dashboard({ onLogout }) {
   const [collaboratedProjects, setCollaboratedProjects] = useState([]);
   const [projectsWithChanges, setProjectsWithChanges] = useState(new Set());
   const [toast, setToast] = useState(null);
+  const [timeOfDay, setTimeOfDay] = useState(() => {
+    const hour = new Date().getHours();
+    return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  });
+
+  useEffect(() => {
+    const updateTimeOfDay = () => {
+      const hour = new Date().getHours();
+      setTimeOfDay(hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
+    };
+    const timer = setInterval(updateTimeOfDay, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   const ensureFolderPath = async (projectId) => {
     try {
@@ -99,11 +111,14 @@ function Dashboard({ onLogout }) {
       });
     };
     window.addEventListener('prodcollab:local-synced', handleLocalSynced);
+    const refreshProjects = () => { getProjects(); getCollaboratedProjects(); };
+    window.addEventListener('prodcollab:projects-refresh', refreshProjects);
     const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
     window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
@@ -396,7 +411,7 @@ function Dashboard({ onLogout }) {
           type: 'success',
           message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
         });
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
         }, 1000)
       }else{
        throw new Error(pushData.error || pushData.message || 'Push failed')
@@ -408,6 +423,8 @@ function Dashboard({ onLogout }) {
         type: 'error',
         message: err.message === 'SYNC_IN_PROGRESS'
           ? 'This project is already syncing. Please wait a moment.'
+          : err.message === 'FILE_TOO_LARGE'
+            ? 'One or more files are over GitHub’s 100 MB limit. Move them out of the project or export a smaller version before pushing.'
           : err.message === 'PUSH_RECORD_FAILED'
             ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
           : err.message === 'DUPLICATE_CONTENT'
@@ -600,11 +617,11 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         />
       )}
         {/* Header */}
-        <div className="sticky top-0 z-10 glass-strong border-b border-border px-8 py-6">
+        <div className="sticky top-0 z-10 bg-background px-8 py-7">
           <div className="flex items-center justify-between">
             <div className="animate-slide-in-left">
-              <h2 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h2>
-              <p className="text-muted-foreground mt-1">Welcome back, <span className="text-primary">{user?.username}</span></p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">Studio workspace</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{timeOfDay}, {user?.username || 'producer'}.</h2>
             </div>
             <button
               onClick={getUserData}
@@ -633,28 +650,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
 
           {user && (
             <>
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <StatsCard
-                  icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 100 4v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2a2 2 0 100-4V6z"/></svg>}
-                  title="Public Repos"
-                  value={user?.public_repos ?? 0}
-                  color="primary"
-                />
-                <StatsCard
-                  icon={<svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd"/></svg>}
-                  title="Your Projects"
-                  value={projects.length}
-                  color="secondary"
-                />
-                <StatsCard
-                  icon={<Users className="w-6 h-6" />}
-                  title="Collaborated Projects"
-                  value={collaboratedProjects.length}
-                  color="primary"
-                />
-              </div>
-
               {/* Action Buttons */}
               <div className="mb-8 flex items-center gap-4">
                 <button
@@ -662,15 +657,15 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                   className="group flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85"
                 >
                   <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-200" />
-                  Create Project
+                  Start a project
                 </button>
                 
                 <button
                   onClick={() => setIsJoinModalOpen(true)}
-                  className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  className="group flex items-center gap-2 rounded-md border border-border bg-card px-5 py-2.5 font-semibold text-foreground transition-colors duration-150 hover:border-primary/40 hover:text-primary"
                 >
                   <Users className="w-5 h-5 transition-transform group-hover:scale-110 duration-200" />
-                  Join Project
+                  Join a session
                 </button>
               </div>
 
@@ -678,7 +673,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-6 w-1 rounded-full bg-primary"></div>
-                  <h3 className="text-xl font-bold text-foreground">Your Projects</h3>
+                  <div><h3 className="text-lg font-semibold text-foreground">My sessions</h3><p className="mt-1 text-xs text-muted-foreground">Work you own and protect.</p></div>
                 </div>
                 {projects.length === 0 ? (
                   <div className="glass rounded-2xl p-12 text-center border-dashed border-2 border-border">
@@ -712,7 +707,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                 <div className="mb-10">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="h-6 w-1 rounded-full bg-secondary"></div>
-                    <h3 className="text-xl font-bold text-foreground">Collaborated Projects</h3>
+                    <div><h3 className="text-lg font-semibold text-foreground">Shared sessions</h3><p className="mt-1 text-xs text-muted-foreground">Projects you are making with other producers.</p></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {collaboratedProjects.map((project, i) => (

@@ -6,9 +6,9 @@ const AudioWaveform = ({ barCount = 5, className = "" }) => {
       {Array.from({ length: barCount }).map((_, i) => (
         <div
           key={i}
-          className="flex-1 bg-gradient-to-t from-primary to-neon-pink rounded-full animate-wave"
+          className="flex-1 rounded-sm bg-primary animate-wave"
           style={{
-            height: `${30 + Math.random() * 70}%`,
+             height: `${35 + ((i * 23) % 60)}%`,
             animationDelay: `${i * 100}ms`,
           }}
         />

@@ -17,6 +17,12 @@ function JoinProjectModal({ toggleModal }) {
     });
   }, []);
 
+  useEffect(() => {
+    const closeOnEscape = (event) => { if (event.key === 'Escape') toggleModal(); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [toggleModal]);
+
   const extractTokenFromLink = (link) => {
     const match = link.match(/\/join\/([a-f0-9]+)/i);
     return match ? match[1] : link;
@@ -178,9 +184,8 @@ function JoinProjectModal({ toggleModal }) {
           ? `Successfully joined "${projectInfo.name}"!\n\nEmpty folder linked. Files will be synced when added to: ${localPath}`
           : `Successfully joined "${projectInfo.name}"!\n\nFiles will be synced to: ${localPath}`;
         
-        alert(message);
         toggleModal();
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
       } else {
         if (data.code === 'PROJECT_OWNER_CANNOT_JOIN') {
           alert('You already own this project. Log in with a different ProdCollab account to join as a collaborator.');
@@ -200,12 +205,12 @@ function JoinProjectModal({ toggleModal }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80"
         onClick={toggleModal}
       ></div>
       
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl glass-strong rounded-2xl p-8 animate-scale-in border border-border">
+      <div className="relative z-10 w-full max-w-2xl border border-border bg-card p-7 animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -251,7 +256,7 @@ function JoinProjectModal({ toggleModal }) {
               <button
                 onClick={handleFetchProject}
                 disabled={loading || !shareLink.trim()}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                 className="w-full rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -271,8 +276,8 @@ function JoinProjectModal({ toggleModal }) {
               {/* Project Preview */}
               <div className="bg-accent/50 rounded-xl p-4 border border-border">
                 <div className="flex items-start gap-4">
-                  <div className="bg-gradient-to-br from-secondary to-secondary/80 p-3 rounded-lg">
-                    <Github className="w-8 h-8 text-secondary-foreground" />
+                   <div className="bg-primary p-3 rounded-md">
+                    <Github className="w-8 h-8 text-white" />
                   </div>
                   <div className="flex-1">
                     <h4 className="text-lg font-bold text-foreground mb-1">
@@ -359,7 +364,7 @@ function JoinProjectModal({ toggleModal }) {
                 <button
                   onClick={() => setStep(3)}
                   disabled={!localPath}
-                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                   className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continue
                 </button>
@@ -393,7 +398,7 @@ function JoinProjectModal({ toggleModal }) {
               </div>
 
               <div className="bg-secondary/10 border border-secondary/30 rounded-xl p-3">
-                <p className="text-secondary text-xs">
+                 <p className="text-primary text-xs">
                   ℹ️ After joining, {selectedFolderHandle?.isEmpty 
                     ? 'files added to your folder will be detected and you can push them to the repository.' 
                     : 'you can pull files from GitHub to your local folder and push your changes back to the repository.'}
@@ -410,7 +415,7 @@ function JoinProjectModal({ toggleModal }) {
                 <button
                   onClick={handleJoinProject}
                   disabled={loading}
-                  className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-green-600 to-green-600/80 text-white font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                   className="flex-1 rounded-md bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>

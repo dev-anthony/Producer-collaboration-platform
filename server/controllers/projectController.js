@@ -25,6 +25,7 @@ const broadcastProjectUpdate = (project, sourceClientId = null) => {
 // ── Phase 4.2/4.4: use the single shared ProdCollab Octokit + fixed owner ──
 // (replaces per-user Octokit built from github_tokens.access_token)
 const { octokit: prodOctokit, GITHUB_OWNER } = require('../config/github');
+const { createAvailableRepository } = require('../services/repositoryService');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -260,27 +261,10 @@ exports.createProjectRepo = async (req, res) => {
       try {
         const octokit = prodOctokit;
 
-        const sanitizedProjectName = projectName
-          .toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-_]/g, '');
-
         let githubRepo;
         try {
-          const { data } = await octokit.repos.createForAuthenticatedUser({
-            name: sanitizedProjectName,
-            description: description || '',
-            private: visibility === 'private',
-            auto_init: false
-          });
-          githubRepo = data;
+          githubRepo = await createAvailableRepository(octokit, projectName, description, visibility);
         } catch (repoError) {
-          if (repoError.message.includes('name already exists')) {
-            return res.status(400).json({
-              error: 'Repository name already exists',
-              message: `A repository named "${sanitizedProjectName}" already exists on the ProdCollab account. Please choose a different project name.`
-            });
-          }
           throw repoError;
         }
 
@@ -295,7 +279,7 @@ exports.createProjectRepo = async (req, res) => {
           .from('projects')
           .insert({
             user_id: userId,
-            repo_name: sanitizedProjectName,
+            repo_name: githubRepo.name,
             repo_url: githubRepo.html_url,
             description: description || '',
             visibility: visibility,
@@ -316,7 +300,7 @@ exports.createProjectRepo = async (req, res) => {
           message: 'Project created successfully',
           project: {
             id: projectId,
-            name: sanitizedProjectName,
+            name: githubRepo.name,
             description: githubRepo.description,
             url: githubRepo.html_url,
             visibility,
@@ -325,7 +309,7 @@ exports.createProjectRepo = async (req, res) => {
           },
           repo: {
             id: githubRepo.id,
-            name: sanitizedProjectName,
+            name: githubRepo.name,
             full_name: githubRepo.full_name,
             url: githubRepo.html_url,
             clone_url: githubRepo.clone_url

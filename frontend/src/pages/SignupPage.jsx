@@ -55,14 +55,14 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
           <p className="mt-2 text-sm text-muted-foreground">Start collaborating in minutes.</p>
         </div>
 
-        <div className="border border-border bg-card p-7">
+        <div className="border border-border bg-card p-7 text-center">
           {errorMsg && (
             <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {errorMsg}
             </div>
           )}
 
-          <form onSubmit={handleSignup} className="space-y-4">
+          <form onSubmit={handleSignup} className="space-y-4 text-center">
             <div>
               <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
               <input
@@ -70,7 +70,7 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="producer_name"
               />
             </div>
@@ -81,7 +81,7 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -92,7 +92,7 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>
@@ -103,7 +103,7 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>

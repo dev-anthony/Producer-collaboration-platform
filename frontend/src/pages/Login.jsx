@@ -46,7 +46,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
           <p className="mt-2 text-sm text-muted-foreground">Your studio. Anywhere.</p>
         </div>
 
-        <div className="border border-border bg-card p-7">
+        <div className="border border-border bg-card p-7 text-center">
           <h2 className="mb-1 text-xl font-semibold text-foreground">Sign in</h2>
           <p className="mb-7 text-sm text-muted-foreground">Access your studio workspace.</p>
 
@@ -56,7 +56,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4 text-center">
             <div>
               <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
               <input
@@ -64,7 +64,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -75,7 +75,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>

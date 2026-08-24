@@ -66,6 +66,13 @@ function ProjectCard({
   }, [project.id]);
 
   useEffect(() => {
+    if (!showHistory) return undefined;
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowHistory(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showHistory]);
+
+  useEffect(() => {
     const handleRemoteChange = (event) => {
       if (String(event.detail?.id) === String(project.id)) setRemoteChangesAvailable(true);
     };
@@ -396,13 +403,6 @@ function ProjectCard({
             <Clock3 className="h-3.5 w-3.5" />
             {showHistory ? 'Hide version history' : 'View version history'}
           </button>
-          {showHistory && (
-            <VersionHistory
-              folderPath={folderPath}
-              currentUser={currentUser}
-              onRestored={() => window.dispatchEvent(new CustomEvent('prodcollab:history-restored', { detail: { id: project.id } }))}
-            />
-          )}
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
@@ -448,6 +448,28 @@ function ProjectCard({
           </div>
         </div>
       </div>
+
+      {showHistory && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowHistory(false); }}>
+          <section className="flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.9)]">
+            <header className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-primary">Version history</p>
+                <h2 className="mt-1 truncate text-lg font-semibold text-foreground">{project.name}</h2>
+              </div>
+              <button onClick={() => setShowHistory(false)} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close version history"><X className="h-5 w-5" /></button>
+            </header>
+            <div className="overflow-y-auto px-5 pb-5">
+              <VersionHistory
+                folderPath={folderPath}
+                currentUser={currentUser}
+                onRestored={() => window.dispatchEvent(new CustomEvent('prodcollab:history-restored', { detail: { id: project.id } }))}
+              />
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
 
       {/* Share Modal */}
       {showShareModal && createPortal (

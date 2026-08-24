@@ -7,14 +7,15 @@ const navItems = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: FolderGit2, label: "Projects", path: "/projects" },
   { icon: Users, label: "Collaborations", path: "/collaboration" },
-  { icon: GitBranch, label: "Version history", path: "/projects" },
+  { icon: GitBranch, label: "Version history", path: "/history" },
+  { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 const Sidebar = ({ onLogout, user }) => {
   const location = useLocation();
 
   return (
-    <div className="w-56 bg-background flex flex-col animate-slide-in-left">
+    <div className="w-56 bg-card/40 border-r border-border shadow-[8px_0_24px_rgba(0,0,0,0.35)] flex flex-col animate-slide-in-left">
       {/* Logo */}
       <div className="p-4">
         <Link to="/dashboard" title="ProdCollab" className="flex items-center gap-3">

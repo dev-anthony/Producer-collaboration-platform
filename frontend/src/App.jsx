@@ -297,6 +297,14 @@ function App() {
           }
         />
         <Route
+          path="/history"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <Projects onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/settings"
           element={<ProtectedRoute isAuthenticated={isAuthenticated}><Settings onLogout={handleLogout} /></ProtectedRoute>}
         />

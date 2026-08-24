@@ -617,7 +617,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         />
       )}
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background px-8 py-7">
+        <div className="sticky top-0 z-10 bg-background px-8 py-7 shadow-[0_22px_44px_rgba(0,0,0,0.95)]">
           <div className="flex items-center justify-between">
             <div className="animate-slide-in-left">
               <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-primary">Studio workspace</p>

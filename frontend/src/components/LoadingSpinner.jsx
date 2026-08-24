@@ -1,27 +1,18 @@
-import React from "react";
+import React from 'react';
+import { Loader2 } from 'lucide-react';
 
-import AudioWaveform from "./AudioWaveform";
-
-const LoadingSpinner = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      {/* Background glow effects */}
-      <div className="relative z-10 text-center animate-fade-in">
-        {/* Logo spinner */}
-        <div className="relative w-24 h-24 mx-auto mb-8">
-          <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-spin-slow" />
-          <div className="absolute inset-2 rounded-full border-2 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin-reverse" />
-          <div className="absolute inset-4 rounded-md bg-primary flex items-center justify-center">
-            <AudioWaveform barCount={3} className="h-6" />
-          </div>
-        </div>
-
-        <p className="text-xl text-foreground font-medium animate-pulse">
-          Loading...
-        </p>
+const LoadingSpinner = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background px-6">
+    <div className="flex w-full max-w-xs flex-col items-center text-center">
+      <div className="mb-5 flex h-12 w-12 items-center justify-center border border-primary/30 bg-primary/10">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      </div>
+      <p className="text-sm font-medium text-foreground">Preparing your studio</p>
+      <div className="mt-4 h-0.5 w-full overflow-hidden bg-muted">
+        <div className="h-full w-1/3 animate-pulse bg-primary" />
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 export default LoadingSpinner;

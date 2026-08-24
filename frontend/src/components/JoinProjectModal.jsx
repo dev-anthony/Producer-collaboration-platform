@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Link2, FolderOpen, Users, Github, Loader, Check, AlertCircle } from 'lucide-react';
+import { X, Link2, FolderOpen, Music, Loader, Check, AlertCircle } from 'lucide-react';
 
 function JoinProjectModal({ toggleModal }) {
   const [shareLink, setShareLink] = useState('');
@@ -157,7 +157,7 @@ function JoinProjectModal({ toggleModal }) {
                 token: creds.token
               });
               if (!cloneRes.success) {
-                throw new Error(cloneRes.error || 'Git clone failed');
+                throw new Error(cloneRes.error || 'Project download failed');
               }
               cloneCompleted = true;
             }
@@ -168,7 +168,7 @@ function JoinProjectModal({ toggleModal }) {
           }
 
           if (!cloneCompleted) {
-            throw new Error('The project was joined, but its files could not be cloned into the selected folder.');
+            throw new Error('The project was joined, but its files could not be downloaded into the selected folder.');
           }
 
           // Persist locally and start watching only after clone/merge succeeds.
@@ -176,7 +176,7 @@ function JoinProjectModal({ toggleModal }) {
           await window.electronAPI.startWatching(joinedProjectId, localPath);
         } catch (cloneErr) {
           console.error('[JOIN] Clone step failed:', cloneErr);
-          alert(`Project joined, but file sync failed:\n\n${cloneErr.message}\n\nYou can retry the same join link after checking your connection.`);
+          alert('You joined the project, but the files could not be downloaded. Check your connection and try the invitation again.');
           return;
         }
 
@@ -188,7 +188,7 @@ function JoinProjectModal({ toggleModal }) {
         window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
       } else {
         if (data.code === 'PROJECT_OWNER_CANNOT_JOIN') {
-          alert('You already own this project. Log in with a different ProdCollab account to join as a collaborator.');
+          alert('This project already belongs to your account. Use another account to join as a collaborator.');
         } else {
           alert(data.error || 'Failed to join project');
         }
@@ -214,7 +214,7 @@ function JoinProjectModal({ toggleModal }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-xl font-bold text-foreground">Join a Project</h3>
+             <h3 className="text-xl font-semibold text-foreground">Join a project</h3>
             <p className="text-sm text-muted-foreground mt-1">
               {step === 1 && 'Enter collaboration link'}
               {step === 2 && 'Choose local folder'}
@@ -236,7 +236,7 @@ function JoinProjectModal({ toggleModal }) {
             <>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Project Share Link <span className="text-red-400">*</span>
+                   Invitation link <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
                   <Link2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -244,12 +244,12 @@ function JoinProjectModal({ toggleModal }) {
                     type="text"
                     value={shareLink}
                     onChange={(e) => setShareLink(e.target.value)}
-                    placeholder="Paste the share link here..."
+                    placeholder="Paste your invitation link..."
                     className="w-full border border-border bg-input px-4 py-3 pl-11 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  The project owner will share a link with you
+                  Ask the producer who invited you for this link.
                 </p>
               </div>
 
@@ -276,8 +276,8 @@ function JoinProjectModal({ toggleModal }) {
               {/* Project Preview */}
               <div className="border border-border bg-accent/50 p-4">
                 <div className="flex items-start gap-4">
-                   <div className="bg-primary p-3 rounded-md">
-                    <Github className="w-8 h-8 text-white" />
+                   <div className="bg-primary/10 p-3 text-primary">
+                    <Music className="w-8 h-8" />
                   </div>
                   <div className="flex-1">
                     <h4 className="text-lg font-bold text-foreground mb-1">
@@ -400,8 +400,8 @@ function JoinProjectModal({ toggleModal }) {
               <div className="border border-primary/30 bg-primary/10 p-3">
                  <p className="text-primary text-xs">
                   ℹ️ After joining, {selectedFolderHandle?.isEmpty 
-                    ? 'files added to your folder will be detected and you can push them to the repository.' 
-                    : 'you can pull files from GitHub to your local folder and push your changes back to the repository.'}
+                    ? 'files added to your folder will be detected and backed up.' 
+                    : 'you can get the latest files into your local folder and share your changes back with the team.'}
                 </p>
               </div>
 

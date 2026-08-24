@@ -27,7 +27,7 @@ function Profile({ onLogout }) {
             <div className="flex items-center gap-3 py-5"><UserRound className="h-4 w-4 text-primary" /><div><dt className="text-xs text-muted-foreground">Username</dt><dd className="mt-1 text-sm">{user?.username || 'Not available'}</dd></div></div>
             <div className="flex items-center gap-3 py-5"><Mail className="h-4 w-4 text-primary" /><div><dt className="text-xs text-muted-foreground">Email</dt><dd className="mt-1 text-sm">{user?.email || 'Not available'}</dd></div></div>
           </dl>
-          <p className="text-xs leading-5 text-muted-foreground">Your username and email are used to identify new versions you push. Public producer profiles and discovery are planned after V1.</p>
+          <p className="text-xs leading-5 text-muted-foreground">Your username and email identify the versions you share. Producer profiles and discovery are planned after V1.</p>
         </section>
       </main>
     </div>

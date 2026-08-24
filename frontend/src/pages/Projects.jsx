@@ -149,172 +149,6 @@ function Projects({ onLogout }) {
     }
   };
 
-  // const handlePushChanges = async (projectId) => {
-  //   try {
-      
-  //   const project = projects.find(p => String(p.id) === String(projectId));
-
-  //     if (!project) {
-  //       setToast({
-  //         type: 'error',
-  //         message: "Project not found"
-  //       });
-  //       return;
-  //     }
-
-  //     if (!project.hasUnpushedChanges) {
-  //       setToast({
-  //         type: 'info',
-  //         message: "No changes to push"
-  //       });
-  //       return;
-  //     }
-
-  //     let folderPath;
-  //     try {
-  //       folderPath = await ensureFolderPath(projectId);
-  //     } catch (error) {
-  //       if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-  //         setToast({
-  //           type: 'warning',
-  //           message: "Folder selection cancelled. Cannot push without selecting a folder."
-  //         });
-  //         return;
-  //       }
-  //       throw error;
-  //     }
-
-  //     const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-      
-  //     const storedStructure = typeof project.file_paths === 'string' 
-  //       ? JSON.parse(project.file_paths) 
-  //       : project.file_paths;
-  //     const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-      
-  //     let currentFileStructure;
-      
-  //     if (hasFolderStructure) {
-  //       const folderName = storedStructure.folders[0].name;
-  //       currentFileStructure = {
-  //         individualFiles: [],
-  //         folders: [{
-  //           name: folderName,
-  //           files: scannedStructure.files.map(file => ({
-  //             name: file.name,
-  //             size: file.size,
-  //             relativePath: `${folderName}/${file.name}`,
-  //             lastModified: file.lastModified
-  //           }))
-  //         }]
-  //       };
-  //     } else {
-  //       currentFileStructure = {
-  //         individualFiles: scannedStructure.files.map(file => ({
-  //           name: file.name,
-  //           size: file.size,
-  //           relativePath: file.relativePath || file.name,
-  //           lastModified: file.lastModified
-  //         })),
-  //         folders: []
-  //       };
-  //     }
-
-  //     let filesFromDisk;
-  //     try {
-  //       filesFromDisk = await window.electronAPI.readProjectFiles({
-  //         projectId: projectId,
-  //         fileStructure: storedStructure
-  //       });
-  //     } catch (error) {
-  //       if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-  //         setToast({
-  //           type: 'error',
-  //           message: 'Folder path error. Please try again.'
-  //         });
-  //         return;
-  //       }
-  //       throw error;
-  //     }
-
-  //     if (filesFromDisk.length === 0) {
-  //       setToast({
-  //         type: 'error',
-  //         message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
-  //       });
-  //       return;
-  //     }
-
-  //     const formData = new FormData();
-  //     formData.append('fileStructure', JSON.stringify(currentFileStructure));
-
-  //     for (const fileData of filesFromDisk) {
-  //       try {
-  //         const binaryString = atob(fileData.content);
-  //         const bytes = new Uint8Array(binaryString.length);
-  //         for (let i = 0; i < binaryString.length; i++) {
-  //           bytes[i] = binaryString.charCodeAt(i);
-  //         }
-          
-  //         const blob = new Blob([bytes]);
-  //         const file = new File([blob], fileData.name, {
-  //           type: 'application/octet-stream',
-  //           lastModified: fileData.lastModified || Date.now()
-  //         });
-          
-  //         formData.append('files', file);
-  //       } catch (err) {
-  //         setToast({
-  //           type: 'error',
-  //           message: `Error processing file ${fileData.name}`
-  //         });
-  //       }
-  //     }
-
-  //     setToast({
-  //       type: 'info',
-  //       message: 'Pushing changes'
-  //     });
-
-  //     const pushRes = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
-  //       method: 'POST',
-  //       headers: { 
-  //         'Authorization': `Bearer ${jwtToken}`
-  //       },
-  //       body: formData
-  //     });
-      
-  //     const pushData = await pushRes.json();
-
-  //     if(pushRes.ok){
-  //       setProjects(prev => prev.map(p => 
-  //         p.id === projectId ? { ...p, hasUnpushedChanges: false } : p
-  //       ));
-
-  //       setProjectsWithChanges(prev => {
-  //         const newSet = new Set(prev);
-  //         newSet.delete(String(projectId));
-  //         return newSet;
-  //       });
-
-  //       setTimeout(()=>{
-  //         setToast({
-  //           type: 'success',
-  //           message: ` Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.`
-  //         });
-  //         window.location.reload();
-  //       }, 1000);
-  //     }else{
-  //       const errorData = await pushRes.json();
-  //       throw new Error(errorData.error || errorData.message || 'Push failed');
-  //     }
-  //   } catch (err) {
-  //     console.error('[PUSH] Failed:', err);
-  //     setToast({
-  //       type: 'error',
-  //       message: 'Failed to push changes.'
-  //     });
-  //   }
-  // };
   const handlePushChanges = async (projectId) => {
   try {
     const project = projects.find(p => String(p.id) === String(projectId));
@@ -340,7 +174,7 @@ function Projects({ onLogout }) {
       throw error;
     }
 
-    setToast({ type: 'info', message: 'Pushing changes' });
+    setToast({ type: 'info', message: 'Backing up your changes' });
 
     // Get git credentials (ProdCollab token + repoUrl) from server
     const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
@@ -381,7 +215,7 @@ function Projects({ onLogout }) {
       body: JSON.stringify({ commitMessage: `Update by ${creds.authorName || 'ProdCollab'}` })
     });
     if (!recordResponse.ok) {
-      console.error('[PUSH] Files reached GitHub, but realtime update recording failed:', await recordResponse.text());
+      console.error('[BACKUP] Files were saved, but collaborator notification recording failed:', await recordResponse.text());
       throw new Error('PUSH_RECORD_FAILED');
     }
 
@@ -396,8 +230,8 @@ function Projects({ onLogout }) {
     setToast({
       type: 'success',
       message: pushRes.nothingToCommit
-        ? 'Already up to date. Nothing new to push.'
-        : 'Changes pushed successfully!'
+        ? 'Everything is already backed up.'
+        : 'Your changes are backed up.'
     });
 
     /* ── OLD Octokit/FormData push flow (Phase 5 replaced with simple-git) ──
@@ -490,7 +324,7 @@ function Projects({ onLogout }) {
       message: err.message === 'SYNC_IN_PROGRESS'
         ? 'This project is already syncing. Please wait a moment.'
         : err.message === 'FILE_TOO_LARGE'
-          ? 'One or more files are over GitHub’s 100 MB limit. Move them out of the project or export a smaller version before pushing.'
+          ? 'One or more files are too large for this project. Move them out or export a smaller version before backing up.'
         : err.message === 'PUSH_RECORD_FAILED'
           ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
         : err.message === 'DUPLICATE_CONTENT'

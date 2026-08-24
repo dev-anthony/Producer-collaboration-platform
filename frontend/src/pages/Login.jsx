@@ -1,14 +1,6 @@
 
 import React, { useState } from 'react';
 
-// ── Phase 4.11 + 4.12 ───────────────────────────────────────────────────────
-// GitHub-OAuth login replaced with email/password (Supabase Auth via server).
-// The old GitHub OAuth LoginPage is preserved (commented) at the bottom.
-// Props:
-//   onLogin(user)      → called after a successful login
-//   onNavigateSignup() → switch to the signup screen
-//   setToast(toast)    → optional toast setter
-// ────────────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -116,30 +108,3 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
 }
 
 export default LoginPage;
-
-/* ── OLD GitHub-OAuth LoginPage (Phase 4.11 replaced) ──
-import React from 'react';
-
-function LoginPage({ clientId }) {
-  const loginWithGithub = () => {
-    const isProduction = !window.location.href.includes('localhost');
-    const redirectUri = 'http://localhost:9000/';
-
-    const authUrl = `https://github.com/login/oauth/authorize?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=user%20repo`;
-
-    console.log('[LOGIN] Starting OAuth:', { isProduction, redirectUri, authUrl });
-    window.location.href = authUrl;
-  };
-
-  return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
-      ... (GitHub "Continue with GitHub" button UI) ...
-    </div>
-  );
-}
-
-export default LoginPage;
-── END OLD LoginPage ── */

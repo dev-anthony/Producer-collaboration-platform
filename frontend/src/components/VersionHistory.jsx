@@ -25,7 +25,7 @@ function VersionHistory({ folderPath, currentUser, onRestored }) {
   useEffect(() => { loadHistory(); }, [folderPath]);
 
   const restoreCommit = async (commit) => {
-    if (!confirm(`Restore the project to "${commit.message}"? Your current local files must be committed first.`)) return;
+    if (!confirm(`Restore the project to "${commit.message}"? Back up your current local changes first.`)) return;
     setRestoring(commit.hash);
     try {
       const profileResponse = await fetch('http://localhost:5000/api/auth/me', { credentials: 'include' });
@@ -38,11 +38,11 @@ function VersionHistory({ folderPath, currentUser, onRestored }) {
       });
       if (!result.success) {
         setMessage(result.code === 'LOCAL_CHANGES_PENDING'
-          ? 'Commit or push your current local changes before restoring a version.'
+          ? 'Back up your current local changes before restoring a version.'
           : 'This version could not be restored.');
         return;
       }
-      setMessage(result.nothingToRestore ? 'The project is already at that version.' : 'Version restored locally. Review it before pushing.');
+      setMessage(result.nothingToRestore ? 'The project is already at that version.' : 'Version restored locally. Review it before sharing it with collaborators.');
       onRestored?.();
       await loadHistory();
     } catch (error) {
@@ -58,7 +58,7 @@ function VersionHistory({ folderPath, currentUser, onRestored }) {
     <div className="mt-4 border-t border-border/60 pt-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground"><Clock3 className="h-4 w-4 text-primary" /> Version history</div>
       {message && <p className="mb-3 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">{message}</p>}
-      {commits.length === 0 ? <p className="text-xs text-muted-foreground">No commits yet.</p> : <div className="space-y-2">
+      {commits.length === 0 ? <p className="text-xs text-muted-foreground">No saved versions yet.</p> : <div className="space-y-2">
         {commits.map((commit) => <div key={commit.hash} className="flex items-center gap-3 rounded-lg border border-border/50 bg-background/30 p-3">
           <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium text-foreground">{commit.message}</p><p className="mt-1 text-[11px] text-muted-foreground">{commit.author_email === currentUser?.email ? 'You' : commit.author_name} · {new Date(commit.date).toLocaleString()}</p>{commit.changedFiles?.length > 0 && <p className="mt-1 truncate text-[10px] text-muted-foreground/70">{commit.changedFiles.slice(0, 3).join(', ')}{commit.changedFiles.length > 3 ? ` +${commit.changedFiles.length - 3} more` : ''}</p>}</div>
           <button onClick={() => restoreCommit(commit)} disabled={restoring === commit.hash} className="inline-flex flex-none items-center gap-1 rounded-md border border-primary/30 px-2 py-1.5 text-[11px] text-primary hover:bg-primary/10 disabled:opacity-50">{restoring === commit.hash ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />} Restore</button>

@@ -347,7 +347,7 @@ function Collaboration({ onLogout }) {
       throw error;
     }
 
-    setToast({ type: 'info', message: 'Pushing changes' });
+    setToast({ type: 'info', message: 'Backing up your changes' });
 
     // Phase 5: get git credentials (ProdCollab token + repoUrl) from server
     const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
@@ -388,7 +388,7 @@ function Collaboration({ onLogout }) {
       body: JSON.stringify({ commitMessage: `Update by ${creds.authorName || 'ProdCollab'}` })
     });
     if (!recordResponse.ok) {
-      console.error('[PUSH] Files reached GitHub, but realtime update recording failed:', await recordResponse.text());
+      console.error('[BACKUP] Files were saved, but collaborator notification recording failed:', await recordResponse.text());
       throw new Error('PUSH_RECORD_FAILED');
     }
 
@@ -403,8 +403,8 @@ function Collaboration({ onLogout }) {
     setToast({
       type: 'success',
       message: pushRes.nothingToCommit
-        ? 'Already up to date. Nothing new to push.'
-        : 'Changes pushed successfully!'
+        ? 'Everything is already backed up.'
+        : 'Your changes are backed up.'
     });
 
     /* ── OLD Octokit/FormData push flow (Phase 5 replaced with simple-git) ──
@@ -497,7 +497,7 @@ function Collaboration({ onLogout }) {
       message: err.message === 'SYNC_IN_PROGRESS'
         ? 'This project is already syncing. Please wait a moment.'
         : err.message === 'FILE_TOO_LARGE'
-          ? 'One or more files are over GitHub’s 100 MB limit. Move them out of the project or export a smaller version before pushing.'
+          ? 'One or more files are too large for this project. Move them out or export a smaller version before backing up.'
         : err.message === 'PUSH_RECORD_FAILED'
           ? 'Your files were uploaded, but collaborators could not be notified. Refresh and try again if the update badge does not appear.'
         : err.message === 'DUPLICATE_CONTENT'

@@ -1,14 +1,6 @@
 
 import React, { useState } from 'react';
 
-// ── Phase 4.13 ──────────────────────────────────────────────────────────────
-// Email/password signup against the server (Supabase Auth). After a successful
-// signup it switches back to the login screen.
-// Props:
-//   onSignupComplete() → called after account creation (navigate to login)
-//   onNavigateLogin()  → switch to the login screen
-//   setToast(toast)    → optional toast setter
-// ────────────────────────────────────────────────────────────────────────────
 function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');

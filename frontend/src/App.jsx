@@ -143,10 +143,10 @@ function App() {
     if (!window.electronAPI?.onGitProgress) return undefined;
     const removeProgress = window.electronAPI.onGitProgress(({ operation, stage, percent }) => {
       const operationLabel = operation === 'clone'
-        ? 'Joining project'
+        ? 'Opening project'
         : operation === 'pull'
-          ? 'Pulling changes'
-          : 'Pushing changes';
+          ? 'Getting latest changes'
+          : 'Backing up changes';
       setSyncProgress({ operationLabel, stage, percent });
       if (percent === 100) setTimeout(() => setSyncProgress(null), 1500);
     });
@@ -328,80 +328,3 @@ function App() {
 }
 
 export default App;
-
-/* ── OLD JWT + localStorage + GitHub OAuth App (Phase 4.14 replaced) ──
-import React, { useEffect, useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import LoadingSpinner from './components/LoadingSpinner.jsx';
-import Toast from './components/Toast.jsx';
-import Collaboration from './pages/Collaboration.jsx';
-import Projects from './pages/Projects.jsx';
-
-const productionClientId = process.env.CLIENT_ID;
-
-const refreshAccessToken = async (refreshToken) => {
-  try {
-    const response = await fetch('http://localhost:5000/api/auth/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
-    if (!response.ok) throw new Error('Token refresh failed');
-    const data = await response.json();
-    return data.token;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return null;
-  }
-};
-
-const isTokenExpired = (token) => {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 < Date.now() + 60_000;
-  } catch {
-    return true;
-  }
-};
-
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [jwtToken, setJwtToken] = useState(null);
-  const [refreshToken, setRefreshToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    checkAuth();
-    const cleanup = window.electronAPI?.onOAuthCode?.((code) => {
-      handleOAuthCallback(code);
-    });
-    const refreshInterval = setInterval(async () => {
-      const currentToken = localStorage.getItem('jwtToken');
-      const currentRefresh = localStorage.getItem('refreshToken');
-      if (currentToken && currentRefresh && isTokenExpired(currentToken)) {
-        const newToken = await refreshAccessToken(currentRefresh);
-        if (newToken) {
-          localStorage.setItem('jwtToken', newToken);
-          setJwtToken(newToken);
-        } else {
-          handleLogout();
-        }
-      }
-    }, 10 * 60 * 1000);
-    return () => {
-      if (cleanup) cleanup();
-      clearInterval(refreshInterval);
-    };
-  }, []);
-
-  // ... (checkAuth reading localStorage, handleOAuthCallback hitting
-  //      /api/auth/getAccessToken, handleLogout with Bearer header) ...
-  // Full prior source retained in git history.
-}
-
-export default App;
-── END OLD App ── */

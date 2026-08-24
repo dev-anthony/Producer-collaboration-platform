@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Upload, FolderOpen, Github, Music, Film, FileAudio, Folder } from 'lucide-react';
+import { X, Upload, FolderOpen, Music, Film, FileAudio, Folder } from 'lucide-react';
 import Toast from '../components/Toast';
+import ProjectAccessToggle from './ProjectAccessToggle';
 
 function Modal({ toggleModal }) {
   useEffect(() => {
@@ -281,7 +282,7 @@ const handleNativeFolderSelect = async () => {
         });
       });
 
-      setProgress(prev => [...prev, { step: 'Creating GitHub repository...', status: 'loading' }]);
+      setProgress(prev => [...prev, { step: 'Creating your shared project...', status: 'loading' }]);
 
       const response = await fetch('http://localhost:5000/api/projects/create', {
         method: 'POST',
@@ -304,7 +305,7 @@ const handleNativeFolderSelect = async () => {
 
            
             try {
-              setProgress(prev => [...prev, { step: 'Pushing initial files to GitHub...', status: 'loading' }]);
+              setProgress(prev => [...prev, { step: 'Protecting the first project files...', status: 'loading' }]);
               const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
                 credentials: 'include'
               });
@@ -325,7 +326,7 @@ const handleNativeFolderSelect = async () => {
                   repoUrl: creds.repoUrl,
                   token: creds.token
                 });
-                if (!pushRes.success) throw new Error(pushRes.error || 'Initial push failed');
+                if (!pushRes.success) throw new Error(pushRes.error || 'Initial backup failed');
 
                 
                 await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
@@ -336,8 +337,8 @@ const handleNativeFolderSelect = async () => {
                 });
               }
             } catch (pushErr) {
-              console.error('[CREATE] Initial push failed:', pushErr);
-              setToast({ type: 'warning', message: `Project created, but initial push failed: ${pushErr.message}` });
+              console.error('[CREATE] Initial backup failed:', pushErr);
+              setToast({ type: 'warning', message: 'Your project was created, but the first backup could not finish. Your local files are safe.' });
             }
 
             await window.electronAPI.startWatching(projectId, localFolderPath);
@@ -355,8 +356,8 @@ const handleNativeFolderSelect = async () => {
 
         setProgress(prev => [
           ...prev,
-          { step: 'Repository created successfully!', status: 'success' },
-          { step: 'Files uploaded to GitHub!', status: 'success' },
+          { step: 'Shared project created', status: 'success' },
+          { step: 'First backup complete', status: 'success' },
           ...(localFolderPath
             ? [{ step: 'Local folder linked & watching started', status: 'success' }]
             : [])
@@ -365,7 +366,7 @@ const handleNativeFolderSelect = async () => {
         setTimeout(() => {
           setToast({
             type: 'success',
-            message: `Project "${formData.projectName}" created successfully on GitHub!`
+            message: `Project "${formData.projectName}" is ready.`
           });
           toggleModal();
           window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
@@ -403,9 +404,7 @@ const handleNativeFolderSelect = async () => {
       <div className="relative z-10 flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden border border-border bg-card animate-scale-in shadow-[0_24px_80px_rgba(0,0,0,0.9)]">
         <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5">
           <div className="flex items-center gap-3">
-             <div className="rounded-md bg-primary p-2">
-                  <Github className="w-6 h-6 text-white" />
-            </div>
+             <div className="flex h-9 w-9 items-center justify-center bg-primary/10 text-primary"><Music className="h-5 w-5" /></div>
             <div>
                <h2 className="text-lg font-semibold text-foreground">Create a project</h2>
                <p className="text-xs text-muted-foreground">Connect a studio folder and start protecting your work.</p>
@@ -431,7 +430,7 @@ const handleNativeFolderSelect = async () => {
               placeholder="my-awesome-beat"
               className="w-full border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <p className="text-xs text-muted-foreground mt-1">This will be your GitHub repository name</p>
+            <p className="text-xs text-muted-foreground mt-1">Use the name you recognize in your studio.</p>
           </div>
 
           <div>
@@ -447,24 +446,15 @@ const handleNativeFolderSelect = async () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Visibility</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="visibility" value="private" checked={formData.visibility === 'private'} onChange={handleInputChange} className="w-4 h-4 text-primary focus:ring-primary" />
-                <span className="text-foreground">Private</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="visibility" value="public" checked={formData.visibility === 'public'} onChange={handleInputChange} className="w-4 h-4 text-primary focus:ring-primary" />
-                <span className="text-foreground">Public</span>
-              </label>
-            </div>
+            <label className="block text-sm font-medium text-foreground mb-2">Who can access this project?</label>
+            <ProjectAccessToggle value={formData.visibility} onChange={(visibility) => setFormData((current) => ({ ...current, visibility }))} />
           </div>
           </div>
 
           <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Upload Files & Folders <span className="text-destructive">*</span>
+              Project folder and files <span className="text-destructive">*</span>
             </label>
             <div
               onDragOver={handleDragOver}
@@ -479,7 +469,7 @@ const handleNativeFolderSelect = async () => {
               <div className="flex flex-wrap gap-2 justify-center">
                 <label className="inline-flex cursor-pointer items-center gap-2 bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85">
                   <FileAudio className="w-4 h-4" />
-                  Browse Files
+                  Add files
                   <input
                     type="file"
                     multiple
@@ -576,7 +566,7 @@ const handleNativeFolderSelect = async () => {
           {totalFiles > 0 && (
             <div className="border border-primary/30 bg-primary/5 p-2.5">
               <p className="text-primary text-sm">
-                Total: {totalFiles} file{totalFiles !== 1 ? 's' : ''} ready to upload
+                Total: {totalFiles} file{totalFiles !== 1 ? 's' : ''} ready to protect
               </p>
             </div>
           )}
@@ -603,8 +593,8 @@ const handleNativeFolderSelect = async () => {
                 </>
               ) : (
                 <>
-                  <Github className="w-5 h-5" />
-                  Create Project ({totalFiles} files)
+                  <Music className="w-5 h-5" />
+                   Create project ({totalFiles} files)
                 </>
               )}
             </button>

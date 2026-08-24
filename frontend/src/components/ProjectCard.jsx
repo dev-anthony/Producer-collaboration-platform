@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Toast from './Toast'
 import {
-  Github,
+  Music2,
   Trash2,
   Upload,
   AlertTriangle,
@@ -290,12 +290,12 @@ function ProjectCard({
           {pushState === 'pushing' ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Pushing…
+              Backing up…
             </span>
           ) : pushState === 'failed' ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] font-medium text-destructive">
               <AlertTriangle className="w-3 h-3" />
-              Push failed
+              Backup failed
             </span>
           ) : remoteChangesAvailable ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
@@ -305,7 +305,7 @@ function ProjectCard({
           ) : hasUnpushedChanges ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
               <CircleDashed className="w-3 h-3" />
-              Changes pending
+              Changes waiting
             </span>
           ) : (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-success/30 bg-success/10 px-2 py-1 text-[11px] font-medium text-success">
@@ -322,7 +322,7 @@ function ProjectCard({
             <div 
               className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border border-white/15 bg-black text-white transition-colors duration-150 group-hover:border-white/35"
             >
-              <Github className="w-5 h-5" />
+              <Music2 className="w-5 h-5" />
             </div>
             
             <div className="flex-1 min-w-0 pr-20">
@@ -350,9 +350,9 @@ function ProjectCard({
           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
             <span className="inline-flex items-center gap-1.5">
               {project.visibility === 'private' ? (
-                <><Lock className="w-3.5 h-3.5" /> Private</>
+                  <><Lock className="w-3.5 h-3.5" /> Private project</>
               ) : (
-                <><Globe className="w-3.5 h-3.5" /> Public</>
+                  <><Globe className="w-3.5 h-3.5" /> Open project</>
               )}
             </span>
             <span className="w-1 h-1 rounded-full bg-border" />
@@ -380,7 +380,7 @@ function ProjectCard({
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-primary" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">Review local version</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Protected from pushes until you choose what to keep.</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">This local version is protected until you choose what to keep.</p>
                 </div>
               </div>
               {conflicts.map((conflict) => (
@@ -418,7 +418,7 @@ function ProjectCard({
               }`}
             >
               <Upload className="w-4 h-4" />
-              Push
+              Back up now
             </button>
 
             <button
@@ -481,7 +481,7 @@ function ProjectCard({
                   <div className="p-2 rounded-lg bg-[hsl(185,85%,50%)]/15 text-[hsl(185,85%,50%)]">
                     <Share2 className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground">Share Project</h3>
+                  <h3 className="text-xl font-semibold text-foreground">Invite a collaborator</h3>
                 </div>
                 <button
                   onClick={() => setShowShareModal(false)}
@@ -492,7 +492,7 @@ function ProjectCard({
               </div>
               
               <p className="text-muted-foreground text-sm mb-4">
-                Share this link with others to let them join as collaborators.
+                Send this invitation link to the producer you want to work with.
               </p>
               
               <div className="mb-4 flex items-center gap-2 border border-border/50 bg-muted/50 p-3">
@@ -517,7 +517,7 @@ function ProjectCard({
               <div className="border border-primary/20 bg-primary/10 p-3">
                 <p className="text-[hsl(185,85%,50%)] text-xs flex items-start gap-2">
                   <span className="text-base">💡</span>
-                  Anyone with this link can join and push changes to the project.
+                  Anyone with this link can join this project and share updates.
                 </p>
               </div>
             </div>

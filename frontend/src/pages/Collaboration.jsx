@@ -41,12 +41,14 @@ function Collaboration({ onLogout }) {
     window.addEventListener('prodcollab:local-synced', handleLocalSynced);
     const refreshProjects = () => getCollaboratedProjects();
     window.addEventListener('prodcollab:projects-refresh', refreshProjects);
+    window.addEventListener('prodcollab:remote-project-refresh', refreshProjects);
     const handleHistoryRestored = (event) => handleFileChange(event.detail?.id, 'restore', 'version history');
     window.addEventListener('prodcollab:history-restored', handleHistoryRestored);
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
       window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
+      window.removeEventListener('prodcollab:remote-project-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();

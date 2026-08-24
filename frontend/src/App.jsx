@@ -98,6 +98,7 @@ function App() {
       seenPushes.current.add(pushKey);
       const message = `${project.last_pushed_by} pushed changes to ${project.repo_name}`;
       setToast({ type: 'info', message });
+      window.dispatchEvent(new CustomEvent('prodcollab:remote-project-refresh', { detail: { id: project.id } }));
       window.localStorage.setItem(`prodcollab_remote_ahead_${project.id}`, pushKey);
       window.dispatchEvent(new CustomEvent('prodcollab:remote-change', { detail: project }));
       if (window.localStorage.getItem('prodcollab_desktop_notifications') !== 'false') {

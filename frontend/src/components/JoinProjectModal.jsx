@@ -145,7 +145,6 @@ function JoinProjectModal({ toggleModal }) {
           const repoUrl = data.project?.repoUrl;
           let cloneCompleted = false;
           if (joinedProjectId && repoUrl && window.electronAPI?.gitClone) {
-            // Fetch ProdCollab git credentials (token) so we can clone private repos
             const credRes = await fetch(`http://localhost:5000/api/projects/${joinedProjectId}/git-credentials`, {
               credentials: 'include'
             });

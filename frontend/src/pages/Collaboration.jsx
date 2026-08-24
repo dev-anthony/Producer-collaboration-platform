@@ -332,7 +332,7 @@ function Collaboration({ onLogout }) {
     }
 
     if (!project.hasUnpushedChanges) {
-      setToast({ type: 'info', message: "No changes to push" });
+      setToast({ type: 'info', message: "Everything is already backed up" });
       return;
     }
 
@@ -341,7 +341,7 @@ function Collaboration({ onLogout }) {
       folderPath = await ensureFolderPath(projectId);
     } catch (error) {
       if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-        setToast({ type: 'warning', message: "Folder selection cancelled. Cannot push without selecting a folder." });
+        setToast({ type: 'warning', message: "Folder selection cancelled. Choose a studio folder to continue." });
         return;
       }
       throw error;
@@ -483,7 +483,7 @@ function Collaboration({ onLogout }) {
     const pushData = await pushResOld.json();
     if (pushResOld.ok) {
       setTimeout(() => {
-        setToast({ type: 'success', message: `Changes pushed successfully!\n\n${pushData.filesUploaded || filesFromDisk.length} files uploaded to GitHub.` });
+        setToast({ type: 'success', message: `Backup complete. ${pushData.filesUploaded || filesFromDisk.length} file(s) are protected.` });
         window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
       }, 1000);
     } else {
@@ -597,7 +597,7 @@ function Collaboration({ onLogout }) {
       } else {
         setToast({
           type: 'info',
-          message: ' No changes detected.\n\nYour local files match the repository.'
+          message: 'Everything is up to date. Your local files match the shared session.'
         });
         setProjectsWithChanges(prev => {
           const newSet = new Set(prev);

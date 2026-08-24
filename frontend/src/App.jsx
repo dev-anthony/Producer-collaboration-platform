@@ -22,7 +22,7 @@ function ProtectedRoute({ isAuthenticated, children }) {
 // ── Phase 4.14 ──────────────────────────────────────────────────────────────
 // Session is now managed entirely by httpOnly cookies + Supabase Auth.
 // Removed: localStorage token logic, isTokenExpired, refreshAccessToken,
-// GitHub OAuth callback handling. checkAuth() now calls GET /api/auth/me.
+// Legacy auth flow removed. The current session uses the app account cookie.
 // The old JWT/localStorage implementation is preserved (commented) at the bottom.
 // ────────────────────────────────────────────────────────────────────────────
 function App() {

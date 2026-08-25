@@ -243,7 +243,7 @@ function JoinProjectModal({ toggleModal }) {
             <>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                   Invitation link <span className="text-red-400">*</span>
+                   Invitation link <span className="text-destructive">*</span>
                 </label>
                 <div className="relative">
                   <Link2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -346,31 +346,31 @@ function JoinProjectModal({ toggleModal }) {
           {step === 3 && projectInfo && (
             <>
               {/* Final Confirmation */}
-              <div className="border border-green-500/30 bg-green-500/10 p-4">
-                <h4 className="text-green-400 font-semibold mb-2 flex items-center gap-2">
-                  <Check className="w-5 h-5" />
-                  Ready to Join!
+              <div className="border border-border bg-accent/50 p-4">
+                <h4 className="text-foreground font-semibold mb-2 flex items-center gap-2">
+                  <Check className="w-5 h-5 text-primary" />
+                  Ready to join
                 </h4>
                 <p className="text-foreground text-sm mb-3">
                   You're about to join <span className="font-bold">"{projectInfo.name}"</span>
                 </p>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>📁 Local folder: <span className="text-foreground font-medium">{localPath}</span></p>
+                  <p>Local folder: <span className="text-foreground font-medium">{localPath}</span></p>
                   {selectedFolderHandle?.isEmpty && (
-                    <p className="text-green-400 flex items-center gap-1">
+                    <p className="text-primary flex items-center gap-1">
                       <Check className="w-4 h-4" />
-                      Empty folder - ready for clean sync
+                      Empty folder — ready for a clean sync
                     </p>
                   )}
-                  <p>👤 Owner: <span className="text-foreground font-medium">{projectInfo.owner.username}</span></p>
-                   <p>📊 Files: <span className="text-foreground font-medium">{projectInfo.fileCount} files</span></p>
+                  <p>Owner: <span className="text-foreground font-medium">{projectInfo.owner.username}</span></p>
+                   <p>Files: <span className="text-foreground font-medium">{projectInfo.fileCount} files</span></p>
                    <ProjectMetadata metadata={projectInfo.metadata} compact />
                 </div>
               </div>
 
               <div className="border border-primary/30 bg-primary/10 p-3">
                  <p className="text-primary text-xs">
-                  ℹ️ After joining, {selectedFolderHandle?.isEmpty 
+                  After joining, {selectedFolderHandle?.isEmpty 
                     ? 'files added to your folder will be detected and backed up.' 
                     : 'you can get the latest files into your local folder and share your changes back with the team.'}
                 </p>

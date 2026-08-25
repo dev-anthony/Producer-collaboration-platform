@@ -687,7 +687,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                     <p className="text-muted-foreground/60 text-sm mt-1">Create your first project to get started</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {projects.map((project, i) => (
                       <div key={project.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                         <ProjectCard
@@ -710,7 +710,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                     <div className="h-6 w-1 rounded-full bg-secondary"></div>
                     <div><h3 className="text-lg font-semibold text-foreground">Shared sessions</h3><p className="mt-1 text-xs text-muted-foreground">Projects you are making with other producers.</p></div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {collaboratedProjects.map((project, i) => (
                       <div key={project.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                         <ProjectCard

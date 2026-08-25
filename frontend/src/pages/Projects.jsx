@@ -560,7 +560,7 @@ function Projects({ onLogout }) {
                 <p className="text-muted-foreground/60 text-sm mt-1">Create your first project to get started</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {projects.map((project, i) => (
                   <div key={project.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                     <ProjectCard

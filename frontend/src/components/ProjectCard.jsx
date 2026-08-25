@@ -192,8 +192,11 @@ function ProjectCard({
         input.remove();
       }
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      setShowShareModal(false);
+      setToast({ type: 'success', message: 'Invitation link copied to clipboard.' });
+      setTimeout(() => {
+        setCopied(false);
+        setShowShareModal(false);
+      }, 900);
     } catch (error) {
       setToast({ type: 'error', message: 'Unable to copy the share link. Select and copy it manually.' });
     }

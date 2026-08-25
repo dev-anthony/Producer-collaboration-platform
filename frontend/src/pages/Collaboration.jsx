@@ -702,7 +702,7 @@ function Collaboration({ onLogout }) {
                 <p className="text-muted-foreground/60 text-sm mt-1">Click "Join Project" above to start collaborating</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {collaboratedProjects.map((project, i) => (
                   <div key={project.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                     <ProjectCard

@@ -311,7 +311,7 @@ function JoinProjectModal({ toggleModal }) {
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Choose Local Folder <span className="text-red-400">*</span>
+                  Choose Local Folder <span className="text-destructive">*</span>
                 </label>
                 <button
                   onClick={handleChooseFolder}

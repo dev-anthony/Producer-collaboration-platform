@@ -431,7 +431,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
   }
 
 
-function restoreAllWatchers() {
+async function restoreAllWatchers() {
   console.log('[MAIN] Restoring watchers from persistent storage...');
   const watched = store.get('watchedFolders', {});
   if (!app.isPackaged) {
@@ -662,10 +662,11 @@ async function scanFolderRecursive(dirPath, basePath = dirPath) {
             relativePath: rel,
             lastModified: stats.mtimeMs
           });
-        }
       }
     }
   }
+  store.set('watchedFolders', watched);
+}
 
   await scan(dirPath);
   return { files, folders: Array.from(folders) };
@@ -1085,8 +1086,22 @@ ipcMain.handle('start-watching', async (event, { projectId, folderPath }) => {
   }
 });
 
-ipcMain.handle('restore-session-watchers', async (event) => {
+ipcMain.handle('restore-session-watchers', async (event, { projectIds = [] } = {}) => {
   try {
+    const allowedProjects = new Set(projectIds.map(String));
+    const scope = getSessionScope(event);
+    const watched = store.get('watchedFolders', {});
+    for (const storedKey of Object.keys(watched)) {
+      const separator = storedKey.indexOf('::');
+      const storedScope = separator === -1 ? 'default' : storedKey.slice(0, separator);
+      const projectId = separator === -1 ? storedKey : storedKey.slice(separator + 2);
+      if (storedScope === scope && !allowedProjects.has(String(projectId))) {
+        stopWatching(projectId, scope);
+        delete watched[storedKey];
+        console.log(`[WATCHER] Removed stale session mapping ${storedKey}`);
+      }
+    }
+    store.set('watchedFolders', watched);
     restoreWatchersForSender(event);
     return { success: true };
   } catch (error) {
@@ -1879,11 +1894,7 @@ app.whenReady().then(async () => {
   // Phase 6.11: build the system tray (per-project "Push now")
   buildTray();
 
-  // Restore watchers after a brief delay to ensure windows are ready
-  setTimeout(() => {
-    console.log('[MAIN] Restoring watchers...');
-    restoreAllWatchers();
-  }, 800);
+  // Watchers are restored only after an authenticated renderer supplies its current projects.
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

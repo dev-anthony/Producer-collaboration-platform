@@ -11,7 +11,10 @@ function Modal({ toggleModal }) {
   }, [toggleModal]);
   const [formData, setFormData] = useState({
     projectName: '',
-    description: '',
+    bpm: '',
+    musicalKey: '',
+    timeSignature: '4/4',
+    sampleRate: '48000',
     visibility: 'private'
   });
 
@@ -226,6 +229,11 @@ const handleNativeFolderSelect = async () => {
       return;
     }
 
+    if (!formData.bpm || Number(formData.bpm) < 1 || Number(formData.bpm) > 400) {
+      setToast({ type: 'info', message: 'Add the session BPM so collaborators can line up the audio.' });
+      return;
+    }
+
     const totalFiles = files.length + folders.reduce((acc, folder) => acc + folder.files.length, 0);
    
     if (totalFiles === 0 && !localFolderPath) {
@@ -256,7 +264,12 @@ const handleNativeFolderSelect = async () => {
     try {
       const apiFormData = new FormData();
       apiFormData.append('projectName', formData.projectName);
-      apiFormData.append('description', formData.description);
+      apiFormData.append('description', JSON.stringify({
+        bpm: Number(formData.bpm),
+        key: formData.musicalKey || null,
+        timeSignature: formData.timeSignature,
+        sampleRate: Number(formData.sampleRate) || null
+      }));
       apiFormData.append('visibility', formData.visibility);
 
       const fileStructure = {
@@ -434,15 +447,14 @@ const handleNativeFolderSelect = async () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Describe your project..."
-              rows={2}
-              className="w-full resize-none border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            <label className="mb-2 block text-sm font-medium text-foreground">Session details</label>
+            <div className="grid grid-cols-2 gap-2 border border-border bg-background p-3">
+              <label className="text-xs text-muted-foreground">BPM *<input required type="number" min="1" max="400" name="bpm" value={formData.bpm} onChange={handleInputChange} placeholder="140" className="mt-1 w-full border border-border bg-input px-2 py-2 text-sm text-foreground focus:border-primary focus:outline-none" /></label>
+              <label className="text-xs text-muted-foreground">Key<input type="text" name="musicalKey" value={formData.musicalKey} onChange={handleInputChange} placeholder="G minor" className="mt-1 w-full border border-border bg-input px-2 py-2 text-sm text-foreground focus:border-primary focus:outline-none" /></label>
+              <label className="text-xs text-muted-foreground">Time signature<select name="timeSignature" value={formData.timeSignature} onChange={handleInputChange} className="mt-1 w-full border border-border bg-input px-2 py-2 text-sm text-foreground focus:border-primary focus:outline-none"><option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option></select></label>
+              <label className="text-xs text-muted-foreground">Sample rate<select name="sampleRate" value={formData.sampleRate} onChange={handleInputChange} className="mt-1 w-full border border-border bg-input px-2 py-2 text-sm text-foreground focus:border-primary focus:outline-none"><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option><option value="88200">88.2 kHz</option><option value="96000">96 kHz</option></select></label>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">These details help collaborators line up audio in their DAW.</p>
           </div>
 
           <div>

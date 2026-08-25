@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Link2, FolderOpen, Music, Loader, Check, AlertCircle } from 'lucide-react';
+import ProjectMetadata from './ProjectMetadata';
 
 function JoinProjectModal({ toggleModal }) {
   const [shareLink, setShareLink] = useState('');
@@ -282,9 +283,7 @@ function JoinProjectModal({ toggleModal }) {
                     <h4 className="text-lg font-bold text-foreground mb-1">
                       {projectInfo.name}
                     </h4>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {projectInfo.description || 'No description'}
-                    </p>
+                    <div className="mb-3"><ProjectMetadata metadata={projectInfo.metadata} /></div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <img 
@@ -392,7 +391,8 @@ function JoinProjectModal({ toggleModal }) {
                     </p>
                   )}
                   <p>👤 Owner: <span className="text-foreground font-medium">{projectInfo.owner.username}</span></p>
-                  <p>📊 Files: <span className="text-foreground font-medium">{projectInfo.fileCount} files</span></p>
+                   <p>📊 Files: <span className="text-foreground font-medium">{projectInfo.fileCount} files</span></p>
+                   <ProjectMetadata metadata={projectInfo.metadata} compact />
                 </div>
               </div>
 

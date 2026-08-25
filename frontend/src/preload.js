@@ -96,7 +96,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   startWatching: (projectId, folderPath) => 
     ipcRenderer.invoke('start-watching', { projectId, folderPath }),
-  restoreSessionWatchers: () => ipcRenderer.invoke('restore-session-watchers'),
+  restoreSessionWatchers: (projectIds) => ipcRenderer.invoke('restore-session-watchers', { projectIds }),
   
   stopWatching: (projectId) => 
     ipcRenderer.invoke('stop-watching', projectId),

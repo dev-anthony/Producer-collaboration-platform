@@ -29,6 +29,7 @@
 - [x] Escape handling.
 - [x] Responsive desktop layout. Shared headers/sidebar and history popup complete.
 - [x] Development account labels.
+- [x] Producer session metadata: BPM, key, time signature, and sample rate shown on cards and join preview.
 
 ## Phase C: V1 Sync Settings
 

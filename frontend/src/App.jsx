@@ -46,7 +46,13 @@ function App() {
     window.electronAPI?.setAutoPushDelay?.(
       window.localStorage.getItem('prodcollab_auto_push_delay') || '10'
     );
-    window.electronAPI?.restoreSessionWatchers?.().catch((error) => {
+    Promise.all([
+      fetch('http://localhost:5000/api/projects', { credentials: 'include' }).then((response) => response.json()),
+      fetch('http://localhost:5000/api/projects/collaborated', { credentials: 'include' }).then((response) => response.json())
+    ]).then(([owned, shared]) => window.electronAPI?.restoreSessionWatchers?.([
+      ...(owned.projects || []).map((project) => project.id),
+      ...(shared.projects || []).map((project) => project.id)
+    ])).catch((error) => {
       console.error('[WATCHER] Could not restore session watchers:', error);
     });
     let socket;

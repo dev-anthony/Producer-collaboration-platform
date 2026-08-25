@@ -6,15 +6,12 @@ import {
   Trash2,
   Upload,
   AlertTriangle,
-  Lock,
-  Globe,
   RefreshCw,
   Share2,
   Copy,
   Check,
   Download,
   X,
-  Folder,
   Users,
   CheckCircle2,
   CircleDashed,
@@ -22,6 +19,7 @@ import {
   Clock3
 } from 'lucide-react';
 import VersionHistory from './VersionHistory';
+import ProjectMetadata from './ProjectMetadata';
 import { createPortal } from 'react-dom';
 // ── Phase 4.15: session via httpOnly cookie; jwtToken prop no longer used ──
 function ProjectCard({
@@ -49,6 +47,7 @@ function ProjectCard({
   const [conflicts, setConflicts] = useState([]);
   const [resolvingConflict, setResolvingConflict] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showConflictReview, setShowConflictReview] = useState(false);
 
   const loadConflicts = async () => {
     if (!window.electronAPI?.getProjectConflicts) return;
@@ -127,29 +126,18 @@ function ProjectCard({
       setPushState('failed');
     }
   };
-  const getProjectFolderName = () => {
-    if (!project.file_paths) return null;
-
-    const filePaths = typeof project.file_paths === 'string'
-      ? JSON.parse(project.file_paths)
-      : project.file_paths;
-
-    if (filePaths.folders?.length > 0) {
-      const firstFolder = filePaths.folders[0].name;
-      return firstFolder.split('/')[0];
-    }
-
-    if (filePaths.individualFiles?.length > 0) {
-      const firstFile = filePaths.individualFiles[0];
-      if (firstFile.relativePath) {
-        const parts = firstFile.relativePath.split('/');
-        if (parts.length > 1) return parts[0];
-      }
-    }
-
-    return null;
+  const formatUpdatedAt = (value) => {
+    if (!value) return 'Just now';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Just now';
+    const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return days < 7 ? `${days}d ago` : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
-  const projectFolderName = getProjectFolderName();
 
   // Phase 6.7/6.8: "Check for changes" removed — auto-push handles syncing.
   // const handleCheckForChanges = async () => {
@@ -316,7 +304,7 @@ function ProjectCard({
         </div>
 
         {/* Card Content */}
-        <div className="p-5">
+          <div className="flex min-h-[270px] flex-col p-5">
           {/* Header */}
           <div className="flex items-start gap-4 mb-4">
             <div 
@@ -329,9 +317,6 @@ function ProjectCard({
               <h3 className="text-lg font-semibold text-foreground truncate mb-1">
                 {project.name}
               </h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                {project.description || 'No description provided'}
-              </p>
               {isCollaborator && project.owner && (
                 <p className="text-xs text-muted-foreground/70 mt-1.5 flex items-center gap-1">
                   <span className="w-1 h-1 rounded-full bg-success" />
@@ -346,66 +331,33 @@ function ProjectCard({
             </div>
           </div>
 
-          {/* Meta Info */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
-            <span className="inline-flex items-center gap-1.5">
-              {project.visibility === 'private' ? (
-                  <><Lock className="w-3.5 h-3.5" /> Private project</>
-              ) : (
-                  <><Globe className="w-3.5 h-3.5" /> Open project</>
-              )}
-            </span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span>{project.fileCount ?? 0} files</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span>{project.updatedAt || 'Just now'}</span>
+          <div className="mb-4">
+            <ProjectMetadata metadata={project.metadata} compact />
           </div>
 
-          {/* Folder Info */}
-          {projectFolderName && (
-            <div className="mb-4 border border-border/50 bg-muted/50 p-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Folder className="w-4 h-4 text-[hsl(185,85%,50%)]" />
-                <span className="text-muted-foreground">Project folder:</span>
-                <code className="text-foreground font-mono text-xs bg-background/50 px-2 py-0.5 rounded">
-                  {projectFolderName}
-                </code>
-              </div>
-            </div>
-          )}
+          {/* Meta Info */}
+           <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{project.fileCount ?? 0} files</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span>{formatUpdatedAt(project.updatedAt)}</span>
+          </div>
 
           {conflicts.length > 0 && (
-            <div className="mb-4 border border-primary/30 bg-primary/10 p-4">
-              <div className="mb-3 flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-primary" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Review local version</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">This local version is protected until you choose what to keep.</p>
-                </div>
-              </div>
-              {conflicts.map((conflict) => (
-                <div key={conflict.preservedPath} className="border-t border-primary/20 pt-3 first:border-0 first:pt-0">
-                  <p className="mb-2 truncate text-xs font-medium text-foreground" title={conflict.originalPath}>{conflict.originalPath}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-remote')} className="rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">Use remote</button>
-                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'keep-both')} className="rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs text-primary disabled:opacity-50">Keep both</button>
-                    <button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-local')} className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50">Use local</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <button onClick={() => setShowConflictReview(true)} className="mb-3 inline-flex items-center gap-2 text-xs text-primary hover:text-primary/80">
+              <AlertTriangle className="h-3.5 w-3.5" /> Review {conflicts.length} protected local version{conflicts.length === 1 ? '' : 's'}
+            </button>
           )}
 
           <button
             onClick={() => setShowHistory((visible) => !visible)}
-            className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="mb-4 inline-flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-primary"
           >
             <Clock3 className="h-3.5 w-3.5" />
             {showHistory ? 'Hide version history' : 'View version history'}
           </button>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-auto flex items-center gap-2 border-t border-border pt-4">
             {/* Phase 6.7: manual "Check" button removed — file watcher + auto-push handle this now */}
 
             <button
@@ -413,7 +365,7 @@ function ProjectCard({
               disabled={!hasUnpushedChanges || pushState === 'pushing'}
               className={`flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                 hasUnpushedChanges 
-                  ? 'bg-[hsl(45,100%,51%)] hover:bg-[hsl(45,100%,51%)]/90 text-[hsl(220,20%,4%)]' 
+                  ? 'bg-primary hover:bg-primary/85 text-primary-foreground'
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
               }`}
             >
@@ -431,15 +383,17 @@ function ProjectCard({
 
             {!isCollaborator && (
               <button
+                title="Invite collaborator"
                 onClick={handleGenerateShareLink}
                 disabled={loadingShare}
-                className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-[hsl(185,85%,50%)]/15 hover:bg-[hsl(185,85%,50%)]/25 text-[hsl(185,85%,50%)] border border-[hsl(185,85%,50%)]/30 disabled:opacity-50"
+                className="border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
               >
                 <Share2 className="w-4 h-4" />
               </button>
             )}
 
             <button
+              title="Remove project"
               onClick={onDelete}
               className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-destructive hover:bg-destructive/15 hover:text-destructive"
             >
@@ -471,6 +425,15 @@ function ProjectCard({
         document.body
       )}
 
+      {showConflictReview && createPortal(
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-black/80 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowConflictReview(false); }}>
+          <section className="flex max-h-[78vh] w-full max-w-xl flex-col overflow-hidden border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.9)]">
+            <header className="flex items-center justify-between border-b border-border px-5 py-4"><div><p className="text-[10px] uppercase tracking-[0.2em] text-primary">Needs your choice</p><h2 className="mt-1 text-lg font-semibold">Protected local versions</h2></div><button onClick={() => setShowConflictReview(false)} className="p-2 text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button></header>
+            <div className="history-scrollbar space-y-3 overflow-y-auto p-5">{conflicts.map((conflict) => <article key={conflict.preservedPath} className="border border-border bg-background/40 p-4"><p className="truncate text-sm font-medium" title={conflict.originalPath}>{conflict.originalPath}</p><p className="mt-1 text-xs text-muted-foreground">Your local version stays protected until you choose.</p><div className="mt-4 grid grid-cols-3 gap-2"><button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-remote')} className="border border-border px-2 py-2 text-xs text-muted-foreground hover:text-foreground">Use shared</button><button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'keep-both')} className="border border-primary/30 px-2 py-2 text-xs text-primary">Keep both</button><button disabled={resolvingConflict === conflict.preservedPath} onClick={() => resolveConflict(conflict, 'use-local')} className="bg-primary px-2 py-2 text-xs font-semibold text-primary-foreground">Use mine</button></div></article>)}</div>
+          </section>
+        </div>, document.body
+      )}
+
       {/* Share Modal */}
       {showShareModal && createPortal (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in-up">
@@ -478,7 +441,7 @@ function ProjectCard({
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-[hsl(185,85%,50%)]/15 text-[hsl(185,85%,50%)]">
+                  <div className="bg-primary/10 p-2 text-primary">
                     <Share2 className="w-5 h-5" />
                   </div>
                   <h3 className="text-xl font-semibold text-foreground">Invite a collaborator</h3>
@@ -504,7 +467,7 @@ function ProjectCard({
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-[hsl(185,85%,50%)] hover:bg-[hsl(185,85%,50%)]/90 text-[hsl(220,20%,4%)]"
+                  className="inline-flex items-center gap-1 bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85"
                 >
                   {copied ? (
                     <><Check className="w-4 h-4" /> Copied</>
@@ -515,7 +478,7 @@ function ProjectCard({
               </div>
               
               <div className="border border-primary/20 bg-primary/10 p-3">
-                <p className="text-[hsl(185,85%,50%)] text-xs flex items-start gap-2">
+                <p className="text-primary text-xs flex items-start gap-2">
                   <span className="text-base">💡</span>
                   Anyone with this link can join this project and share updates.
                 </p>

@@ -27,6 +27,15 @@ const broadcastProjectUpdate = (project, sourceClientId = null) => {
 const { octokit: prodOctokit, GITHUB_OWNER } = require('../config/github');
 const { createAvailableRepository } = require('../services/repositoryService');
 
+const parseProjectMetadata = (description) => {
+  try {
+    const parsed = JSON.parse(description || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return description ? { notes: description } : {};
+  }
+};
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -369,6 +378,7 @@ exports.getUserProjects = async (req, res) => {
           name: p.repo_name,
           url: p.repo_url,
           description: p.description,
+          metadata: parseProjectMetadata(p.description),
           visibility: p.visibility,
           fileCount: totalFileCount,
           updatedAt: p.updated_at,
@@ -658,6 +668,7 @@ exports.getProjectByToken = async (req, res) => {
       id: project.id,
       name: project.repo_name,
       description: project.description,
+      metadata: parseProjectMetadata(project.description),
       visibility: project.visibility,
       repoUrl: project.repo_url,
       owner: {
@@ -800,6 +811,7 @@ exports.getCollaboratedProjects = async (req, res) => {
           name: p.repo_name,
           url: p.repo_url,
           description: p.description,
+          metadata: parseProjectMetadata(p.description),
           visibility: p.visibility,
           fileCount: totalFileCount,
           updatedAt: p.updated_at,

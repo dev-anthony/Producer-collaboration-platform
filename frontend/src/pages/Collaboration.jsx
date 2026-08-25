@@ -159,8 +159,6 @@ function Collaboration({ onLogout }) {
     }
   };
 
-  // const handlePushChanges = async (projectId) => {
-  //   try {
   //     const project = collaboratedProjects.find(p => String(p.id) === String(projectId));
 
   //     if (!project) {
@@ -323,7 +321,6 @@ function Collaboration({ onLogout }) {
   //       message: 'Failed to push changes.'
   //     });
   //   }
-  // };
   const handlePushChanges = async (projectId) => {
   try {
     const project = collaboratedProjects.find(p => String(p.id) === String(projectId));

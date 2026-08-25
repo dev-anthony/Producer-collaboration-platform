@@ -47,6 +47,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 
 app.get('/health', (req, res) => {
+  res.setHeader('x-prodcollab-realtime', 'websocket');
   res.json({ status: 'ok', message: 'Server is running' });
 });
 

@@ -15,7 +15,8 @@ let serverProcess = null;
 const isBackendRunning = () => new Promise((resolve) => {
   const request = http.get('http://localhost:5000/health', { timeout: 1500 }, (response) => {
     response.resume();
-    resolve(response.statusCode === 200);
+    const realtimeReady = response.headers['x-prodcollab-realtime'] === 'websocket';
+    resolve(response.statusCode === 200 && realtimeReady);
   });
   request.on('timeout', () => {
     request.destroy();

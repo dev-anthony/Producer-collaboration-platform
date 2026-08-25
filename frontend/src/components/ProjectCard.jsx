@@ -193,6 +193,7 @@ function ProjectCard({
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      setShowShareModal(false);
     } catch (error) {
       setToast({ type: 'error', message: 'Unable to copy the share link. Select and copy it manually.' });
     }
@@ -273,7 +274,7 @@ function ProjectCard({
         }`}
       >
         {/* Status Badges */}
-        <div className="absolute right-4 top-4 z-10 flex max-w-[48%] flex-wrap justify-end gap-1.5">
+        <div className="flex min-h-6 justify-end px-5 pt-4">
           {/* Phase 6.10: subtle sync status indicator */}
           {pushState === 'pushing' ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
@@ -304,7 +305,7 @@ function ProjectCard({
         </div>
 
         {/* Card Content */}
-          <div className="flex min-h-[270px] flex-col p-5">
+          <div className="flex min-h-[270px] flex-col px-5 pb-5 pt-2">
           {/* Header */}
           <div className="flex items-start gap-4 mb-4">
             <div 
@@ -313,7 +314,7 @@ function ProjectCard({
               <Music2 className="w-5 h-5" />
             </div>
             
-            <div className="flex-1 min-w-0 pr-20">
+            <div className="min-w-0 flex-1">
               <h3 className="text-lg font-semibold text-foreground truncate mb-1">
                 {project.name}
               </h3>

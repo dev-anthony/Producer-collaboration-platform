@@ -246,8 +246,9 @@ function App() {
         />
       )}
       {syncProgress && (
-        <div className="pointer-events-none fixed left-1/2 top-3 z-[110] w-[min(92vw,420px)] -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-background/95 shadow-lg backdrop-blur-xl">
-          <div className="flex h-11 items-center gap-3 px-4 text-sm text-foreground">
+        <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center bg-black/20 p-4">
+          <div className="w-[min(92vw,440px)] overflow-hidden border border-border bg-background shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
+          <div className="flex h-14 items-center gap-3 px-5 text-sm text-foreground">
             <Loader2 className="h-4 w-4 flex-none animate-spin text-primary" />
             <span className="min-w-0 flex-1 truncate"><strong>{syncProgress.operationLabel}</strong> · {syncProgress.stage}</span>
             {syncProgress.percent != null && <span className="flex-none tabular-nums text-primary">{syncProgress.percent}%</span>}
@@ -257,6 +258,7 @@ function App() {
               className={`h-full bg-primary transition-[width] duration-300 ${syncProgress.percent == null ? 'w-1/3 animate-pulse' : ''}`}
               style={syncProgress.percent == null ? undefined : { width: `${syncProgress.percent}%` }}
             />
+          </div>
           </div>
         </div>
       )}

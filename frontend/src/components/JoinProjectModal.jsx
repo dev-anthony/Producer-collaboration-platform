@@ -210,7 +210,7 @@ function JoinProjectModal({ toggleModal }) {
       ></div>
       
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl border border-border bg-card p-7 animate-scale-in">
+       <div className="relative z-10 w-full max-w-2xl border border-border bg-card p-7 animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -316,17 +316,17 @@ function JoinProjectModal({ toggleModal }) {
                 
                 {/* Folder Status Indicator */}
                 {selectedFolderHandle && (
-                  <div className={`mt-2 border p-3 ${
+                  <div className={`mt-2 border p-2.5 ${
                     selectedFolderHandle.isEmpty 
-                      ? 'bg-green-500/10 border-green-500/30' 
-                      : 'bg-blue-500/10 border-blue-500/30'
+                       ? 'bg-primary/5 border-primary/30' 
+                       : 'bg-primary/5 border-primary/30'
                   }`}>
                     <div className="flex items-start gap-2">
                       {selectedFolderHandle.isEmpty ? (
                         <>
                           <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-green-400 text-sm font-medium">Empty folder selected</p>
+                           <p className="text-primary text-xs font-medium">Empty folder selected</p>
                             <p className="text-xs text-muted-foreground mt-1">
                               Perfect! Files will be synced when added to this folder.
                             </p>
@@ -336,7 +336,7 @@ function JoinProjectModal({ toggleModal }) {
                         <>
                           <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-blue-400 text-sm font-medium">Folder contains files</p>
+                           <p className="text-primary text-xs font-medium">Folder contains files</p>
                             <p className="text-xs text-muted-foreground mt-1">
                               Existing files will be preserved. New files will be synced.
                             </p>
@@ -435,6 +435,15 @@ function JoinProjectModal({ toggleModal }) {
           )}
         </div>
       </div>
+      {loading && cloneProgress && (
+        <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center bg-black/35 p-4">
+          <div className="w-[min(92vw,430px)] border border-border bg-background p-5 shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-primary">Opening project</p>
+            <div className="mt-2 flex items-center gap-3"><Loader className="h-5 w-5 animate-spin text-primary" /><p className="text-sm text-foreground">{cloneProgress.stage}{cloneProgress.percent == null ? '' : ` · ${cloneProgress.percent}%`}</p></div>
+            <div className="mt-4 h-0.5 bg-muted"><div className="h-full bg-primary" style={{ width: cloneProgress.percent == null ? '32%' : `${cloneProgress.percent}%` }} /></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

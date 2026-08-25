@@ -42,31 +42,31 @@ const Toast = ({
   const config = {
     error: {
       icon: AlertCircle,
-      bg: "bg-destructive/90",
-      border: "border-destructive",
-      text: "text-destructive-foreground",
-      glow: "shadow-[0_0_20px_hsl(0,70%,50%,0.3)]",
+      bg: "bg-background",
+      border: "border-destructive/50",
+      text: "text-foreground",
+      glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     success: {
       icon: CheckCircle,
-      bg: "bg-[hsl(142,76%,36%)]/90",
-      border: "border-[hsl(142,76%,36%)]",
-      text: "text-[hsl(210,20%,98%)]",
-      glow: "shadow-[0_0_20px_hsl(142,76%,36%,0.3)]",
+      bg: "bg-background",
+      border: "border-success/50",
+      text: "text-foreground",
+      glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     warning: {
       icon: AlertTriangle,
-      bg: "bg-[hsl(45,100%,51%)]/90",
-      border: "border-[hsl(45,100%,51%)]",
-      text: "text-[hsl(220,20%,4%)]",
-      glow: "shadow-[0_0_20px_hsl(45,100%,51%,0.3)]",
+      bg: "bg-background",
+      border: "border-primary/50",
+      text: "text-foreground",
+      glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     info: {
       icon: Info,
-      bg: "bg-[hsl(185,85%,50%)]/90",
-      border: "border-[hsl(185,85%,50%)]",
-      text: "text-[hsl(220,20%,4%)]",
-      glow: "shadow-[0_0_20px_hsl(185,85%,50%,0.3)]",
+      bg: "bg-background",
+      border: "border-primary/50",
+      text: "text-foreground",
+      glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
   };
 
@@ -85,7 +85,7 @@ const Toast = ({
       <div
         className={`
           ${bg} ${border} ${text} ${glow}
-          backdrop-blur-xl border rounded-xl p-4
+          border rounded-md p-4
           flex items-start gap-3
           transition-all duration-300
         `}
@@ -98,7 +98,7 @@ const Toast = ({
 
         <button
           onClick={handleClose}
-          className="p-1 rounded-lg hover:bg-black/20 transition active:scale-95"
+          className="p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
         >
           <X className="w-4 h-4" />
         </button>

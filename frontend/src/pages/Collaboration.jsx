@@ -106,7 +106,7 @@ function Collaboration({ onLogout }) {
           if (!project.localPath || !window.electronAPI?.saveFolderPath) continue;
           try {
             const currentPath = await window.electronAPI.getFolderPath(project.id);
-            if (!currentPath) await window.electronAPI.saveFolderPath(project.id, project.localPath);
+            if (!currentPath || currentPath.toLowerCase() !== project.localPath.toLowerCase()) await window.electronAPI.saveFolderPath(project.id, project.localPath);
           } catch (folderError) {
             console.error(`[WATCHER] Could not restore project ${project.id}:`, folderError);
           }

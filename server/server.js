@@ -99,13 +99,12 @@ server.on('upgrade', async (request, socket, head) => {
     return;
   }
   try {
-    const allowedOrigins = new Set([
-      'http://localhost:3000',
-      'http://localhost:9000',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:9000',
-    ]);
-    if (process.env.NODE_ENV !== 'production' && !allowedOrigins.has(request.headers.origin)) {
+    // In development the Electron renderer is served from the webpack dev
+    // server (its port can vary, e.g. 9000/9001), so accept any localhost
+    // origin. Production locks this down to the real app origin.
+    const origin = request.headers.origin || '';
+    const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    if (process.env.NODE_ENV !== 'production' && origin && !isLocalOrigin) {
       throw new Error('Origin not allowed');
     }
     const cookies = parseCookies(request.headers.cookie);
@@ -123,9 +122,10 @@ server.on('upgrade', async (request, socket, head) => {
   }
 });
 
-app.locals.broadcastProjectUpdate = (project) => {
+app.locals.broadcastProjectUpdate = (project, sourceClientId = null) => {
   let delivered = 0;
-  const payload = JSON.stringify({ type: 'project-updated', project });
+  const eventProject = sourceClientId ? { ...project, source_client_id: sourceClientId } : project;
+  const payload = JSON.stringify({ type: 'project-updated', project: eventProject });
   for (const client of realtimeClients.values()) {
     if (!client.projectIds.has(String(project.id)) || client.socket.readyState !== 1) continue;
     client.socket.send(payload);

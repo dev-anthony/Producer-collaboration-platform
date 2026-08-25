@@ -1341,7 +1341,13 @@ exports.recordPush = async (req, res) => {
       .select('id, repo_name, last_pushed_by, updated_at')
       .single();
     if (error) throw error;
-    broadcastProjectUpdate(updatedProject, sourceClientId);
+    const broadcast = req.app?.locals?.broadcastProjectUpdate;
+    if (typeof broadcast === 'function') {
+      broadcast(updatedProject, sourceClientId);
+    } else {
+      // Fallback for the legacy SSE path (kept for safety).
+      broadcastProjectUpdate(updatedProject, sourceClientId);
+    }
     res.json({
       message: 'Push recorded',
       fileCount: fileCount || 0,

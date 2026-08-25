@@ -1872,6 +1872,12 @@ ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
 // App Lifecycle
 // ──────────────────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Windows requires an explicit AppUserModelID for toast/desktop
+  // notifications to appear (especially when unpackaged). Without this,
+  // `new Notification().show()` silently no-ops.
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.prodcollab.app');
+  }
     const serverPath = app.isPackaged
     ? path.join(process.resourcesPath, 'server', 'server.js')
     : path.join(process.cwd(), '..', 'server', 'server.js');
@@ -1953,7 +1959,23 @@ ipcMain.handle('copy-text', (_, text) => {
 });
 
 ipcMain.handle('show-notification', (_, { title, body }) => {
-  if (!Notification.isSupported()) return { success: false };
-  new Notification({ title: title || 'ProdCollab', body, icon: path.join(__dirname, '../assets/icon.ico') }).show();
-  return { success: true };
+  try {
+    if (!Notification.isSupported()) {
+      console.warn('[NOTIFY] Desktop notifications are not supported on this system');
+      return { success: false };
+    }
+    const iconPath = path.join(__dirname, '../assets/icon.ico');
+    const notification = new Notification({
+      title: title || 'ProdCollab',
+      body: body || '',
+      icon: nativeImage.createFromPath(iconPath),
+      silent: false
+    });
+    notification.show();
+    console.log(`[NOTIFY] Shown: ${title || 'ProdCollab'} — ${body || ''}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[NOTIFY] Failed to show notification:', error);
+    return { success: false, error: error.message };
+  }
 });

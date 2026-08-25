@@ -10,6 +10,7 @@ function JoinProjectModal({ toggleModal }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: Enter link, 2: Choose folder, 3: Confirm
   const [cloneProgress, setCloneProgress] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     if (!window.electronAPI?.onGitProgress) return undefined;
@@ -31,7 +32,7 @@ function JoinProjectModal({ toggleModal }) {
 
   const handleFetchProject = async () => {
     if (!shareLink.trim()) {
-      alert('Please enter a share link');
+      setNotice({ type: 'error', message: 'Paste your invitation link to continue.' });
       return;
     }
 
@@ -50,11 +51,11 @@ function JoinProjectModal({ toggleModal }) {
         setProjectInfo(data);
         setStep(2);
       } else {
-        alert(data.error || 'Invalid share link');
+        setNotice({ type: 'error', message: 'That invitation link is not valid.' });
       }
     } catch (error) {
       console.error('Error fetching project:', error);
-      alert('Failed to fetch project. Please try again.');
+      setNotice({ type: 'error', message: 'We could not open that invitation. Check your connection and try again.' });
     } finally {
       setLoading(false);
     }
@@ -87,6 +88,12 @@ function JoinProjectModal({ toggleModal }) {
         path: folderPath,
         isEmpty
       });
+      setNotice({
+        type: 'info',
+        message: isEmpty
+          ? 'Empty folder selected. The shared files will be added here.'
+          : 'Folder selected. Existing files will be kept safe.'
+      });
     } catch (err) {
       console.error('[JOIN] Folder selection failed:', err);
     }
@@ -94,7 +101,7 @@ function JoinProjectModal({ toggleModal }) {
 
   const handleJoinProject = async () => {
     if (!localPath || !selectedFolderHandle) {
-      alert('Please select a local folder before joining the project.');
+      setNotice({ type: 'error', message: 'Choose a local studio folder before joining.' });
       return;
     }
 
@@ -110,9 +117,9 @@ function JoinProjectModal({ toggleModal }) {
         );
         if (!validation.valid) {
           if (validation.error === 'FOLDER_ALREADY_LINKED') {
-            alert('That folder is already linked to another project. Select a different folder.');
+            setNotice({ type: 'error', message: 'That folder is already connected to another project. Choose a different folder.' });
           } else {
-            alert('The selected folder cannot be linked to this project.');
+            setNotice({ type: 'error', message: 'That folder cannot be connected to this project.' });
           }
           return;
         }
@@ -176,26 +183,25 @@ function JoinProjectModal({ toggleModal }) {
           await window.electronAPI.startWatching(joinedProjectId, localPath);
         } catch (cloneErr) {
           console.error('[JOIN] Clone step failed:', cloneErr);
-          alert('You joined the project, but the files could not be downloaded. Check your connection and try the invitation again.');
+          setNotice({ type: 'error', message: 'You joined the project, but the files could not be downloaded. Check your connection and try again.' });
           return;
         }
 
-        const message = selectedFolderHandle?.isEmpty 
-          ? `Successfully joined "${projectInfo.name}"!\n\nEmpty folder linked. Files will be synced when added to: ${localPath}`
-          : `Successfully joined "${projectInfo.name}"!\n\nFiles will be synced to: ${localPath}`;
-        
-        toggleModal();
+        setCloneProgress({ stage: 'Project ready', percent: 100, complete: true });
+        setNotice({ type: 'info', message: `You joined “${projectInfo.name}”. The project is ready in your selected folder.` });
         window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
+        window.dispatchEvent(new CustomEvent('prodcollab:remote-project-refresh', { detail: { id: data.project?.id } }));
+        setTimeout(toggleModal, 1200);
       } else {
         if (data.code === 'PROJECT_OWNER_CANNOT_JOIN') {
-          alert('This project already belongs to your account. Use another account to join as a collaborator.');
+          setNotice({ type: 'error', message: 'This project already belongs to your account.' });
         } else {
-          alert(data.error || 'Failed to join project');
+          setNotice({ type: 'error', message: 'We could not join this project. Try again in a moment.' });
         }
       }
     } catch (error) {
       console.error('Error joining project:', error);
-      alert('Failed to join project. Please try again.');
+      setNotice({ type: 'error', message: 'We could not join this project. Check your connection and try again.' });
     } finally {
       setLoading(false);
     }
@@ -211,6 +217,7 @@ function JoinProjectModal({ toggleModal }) {
       
       {/* Modal */}
        <div className="relative z-10 w-full max-w-2xl border border-border bg-card p-7 animate-scale-in">
+        {notice && <div className={`mb-4 border px-3 py-2 text-xs ${notice.type === 'error' ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-primary/30 bg-primary/10 text-primary'}`}>{notice.message}</div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -314,42 +321,7 @@ function JoinProjectModal({ toggleModal }) {
                   {localPath ? localPath : 'Select Folder'}
                 </button>
                 
-                {/* Folder Status Indicator */}
-                {selectedFolderHandle && (
-                  <div className={`mt-2 border p-2.5 ${
-                    selectedFolderHandle.isEmpty 
-                       ? 'bg-primary/5 border-primary/30' 
-                       : 'bg-primary/5 border-primary/30'
-                  }`}>
-                    <div className="flex items-start gap-2">
-                      {selectedFolderHandle.isEmpty ? (
-                        <>
-                          <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                          <div>
-                           <p className="text-primary text-xs font-medium">Empty folder selected</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Perfect! Files will be synced when added to this folder.
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div>
-                           <p className="text-primary text-xs font-medium">Folder contains files</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Existing files will be preserved. New files will be synced.
-                            </p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                <p className="text-xs text-muted-foreground mt-2">
-                  ⚠️ Choose an empty folder or your FL Studio project folder for easy tracking
-                </p>
+                <p className="text-xs text-muted-foreground mt-2">Choose the folder where you want this studio session to live.</p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -439,7 +411,7 @@ function JoinProjectModal({ toggleModal }) {
         <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center bg-black/35 p-4">
           <div className="w-[min(92vw,430px)] border border-border bg-background p-5 shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
             <p className="text-[10px] uppercase tracking-[0.2em] text-primary">Opening project</p>
-            <div className="mt-2 flex items-center gap-3"><Loader className="h-5 w-5 animate-spin text-primary" /><p className="text-sm text-foreground">{cloneProgress.stage}{cloneProgress.percent == null ? '' : ` · ${cloneProgress.percent}%`}</p></div>
+            <div className="mt-2 flex items-center gap-3">{cloneProgress.complete ? <Check className="h-5 w-5 text-success" /> : <Loader className="h-5 w-5 animate-spin text-primary" />}<p className="text-sm text-foreground">{cloneProgress.stage}{cloneProgress.percent == null ? '' : ` · ${cloneProgress.percent}%`}</p></div>
             <div className="mt-4 h-0.5 bg-muted"><div className="h-full bg-primary" style={{ width: cloneProgress.percent == null ? '32%' : `${cloneProgress.percent}%` }} /></div>
           </div>
         </div>

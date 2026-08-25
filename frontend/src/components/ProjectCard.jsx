@@ -370,8 +370,21 @@ function ProjectCard({
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
               }`}
             >
-              <Upload className="w-4 h-4" />
-              Back up now
+              {pushState === 'pushing' ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {isCollaborator ? 'Pushing…' : 'Backing up…'}
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  {!hasUnpushedChanges
+                    ? 'Up to date'
+                    : isCollaborator
+                      ? 'Push update'
+                      : 'Back up now'}
+                </>
+              )}
             </button>
 
             <button

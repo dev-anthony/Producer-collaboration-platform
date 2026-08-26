@@ -1,7 +1,8 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, FolderGit2, Users, Settings, LogOut, Music, GitBranch, CircleUserRound } from "lucide-react";
+import { Home, FolderGit2, Users, Settings, LogOut, GitBranch, CircleUserRound } from "lucide-react";
+import { LogoMark } from "./Logo";
 
 const navItems = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
@@ -19,8 +20,8 @@ const Sidebar = ({ onLogout, user }) => {
       {/* Logo */}
       <div className="p-4">
         <Link to="/dashboard" title="ProdCollab" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center transition-colors hover:bg-primary/85">
-            <Music className="w-6 h-6 text-primary-foreground" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-black transition-colors hover:border-primary/40">
+            <LogoMark className="h-6 w-6 text-foreground" />
           </div>
           <span className="text-base font-semibold tracking-tight text-foreground">ProdCollab</span>
         </Link>

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { LogoMark, LogoWordmark } from '../components/Logo';
 
 function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   const [username, setUsername] = useState('');
@@ -44,14 +45,11 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-md bg-primary">
-            <svg className="w-10 h-10 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 18V5l12-2v13" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="6" cy="18" r="3"/>
-              <circle cx="18" cy="16" r="3"/>
-            </svg>
+          <div className="mx-auto mb-5 inline-flex h-16 w-16 items-center justify-center rounded-md border border-border bg-black">
+            <LogoMark className="h-10 w-10 text-foreground" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Create your account</h1>
+          <LogoWordmark className="mx-auto h-6 w-auto text-foreground" />
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">Create your account</h1>
           <p className="mt-2 text-sm text-muted-foreground">Start collaborating in minutes.</p>
         </div>
 

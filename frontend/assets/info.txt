@@ -1,0 +1,18 @@
+
+Hope you enjoy your new logo, here are the people that
+made your beautiful logo happen :)
+font name: Tondu_Beta
+font link: https://www.fontspring.com/fonts/northern-block/tondu/tondu-beta
+font author: The Northern Block
+font author site: https://thenorthernblock.co.uk/
+Slogan Font: LindenHill-webfont.ttf
+
+icon designer: undefined
+icon designer link: undefined
+        
+
+fontColor: {"hex":"#F8FCFF"}
+bgColor: {"hex":"#000000"}
+iconColor: {"hex":"#FFFFFF"}
+sloganColor: {"hex":"#FFFFFF"}
+      

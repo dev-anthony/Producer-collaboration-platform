@@ -25,6 +25,15 @@ const isBackendRunning = () => new Promise((resolve) => {
   request.on('error', () => resolve(false));
 });
 
+const waitForBackend = async (timeoutMs = 15000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await isBackendRunning()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+};
+
 
 const store = new Store({ name: 'project-folders' });
 global.projectStore = store;
@@ -71,11 +80,20 @@ function scheduleAutoPush(watcherKey, pid, target, filePath) {
   pendingPushPaths.set(watcherKey, pending);
   if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
   const pushDelay = autoPushDelays.get(target?.id) ?? DEFAULT_PUSH_DELAY;
-  if (pushDelay === null) return;
+  if (pushDelay === null) {
+    console.log(`[AUTO-PUSH] Manual mode; no timer for ${watcherKey}`);
+    return;
+  }
+  console.log(`[AUTO-PUSH] Scheduled ${watcherKey} in ${Math.round(pushDelay / 60000)} minute(s)`);
   const timer = setTimeout(() => {
     pushTimers.delete(watcherKey);
     pendingPushPaths.delete(watcherKey);
-    if (target && !target.isDestroyed()) target.send('auto-push-ready', { projectId: pid });
+    if (target && !target.isDestroyed()) {
+      console.log(`[AUTO-PUSH] Timer ready for ${watcherKey}`);
+      target.send('auto-push-ready', { projectId: pid });
+    } else {
+      console.warn(`[AUTO-PUSH] Renderer unavailable when timer fired for ${watcherKey}`);
+    }
   }, pushDelay);
   pushTimers.set(watcherKey, timer);
 }
@@ -1908,6 +1926,9 @@ app.whenReady().then(async () => {
     });
     serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
     serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
+    if (!(await waitForBackend())) {
+      console.error('[SERVER] Backend did not become ready within 15 seconds');
+    }
   }
   
   if (app.isPackaged) {

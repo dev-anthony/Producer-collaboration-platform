@@ -21,25 +21,33 @@ function Collaboration({ onLogout }) {
     getUserData();
     getCollaboratedProjects();
 
-    // Listen for file changes from Electron
-    if (window.electronAPI?.onFileChanged) {
-      window.electronAPI.onFileChanged((data) => {
-        console.log('[FILE-CHANGE]', data);
-        handleFileChange(data.projectId, data.event, data.path);
-      });
-    }
+    const handleWatchedFileChange = (event) => {
+      const data = event.detail;
+      if (!data) return;
+      console.log('[FILE-CHANGE]', data);
+      handleFileChange(data.projectId, data.event, data.path);
+    };
+    window.addEventListener('prodcollab:file-changed', handleWatchedFileChange);
 
     const handleAutoPushReady = (event) => {
       const projectId = event.detail?.projectId;
       if (!projectId) return;
-      window.localStorage.removeItem('prodcollab_auto_push_ready');
+      const parsed = JSON.parse(window.localStorage.getItem('prodcollab_auto_push_ready') || '[]');
+      const queued = Array.isArray(parsed) ? parsed : [parsed].filter(Boolean);
+      window.localStorage.setItem('prodcollab_auto_push_ready', JSON.stringify(queued.filter((id) => String(id) !== String(projectId))));
       handlePushChanges(projectId);
     };
     window.addEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
-    const queuedAutoPush = window.localStorage.getItem('prodcollab_auto_push_ready');
-    if (queuedAutoPush) {
-      window.localStorage.removeItem('prodcollab_auto_push_ready');
-      handlePushChanges(queuedAutoPush);
+    let queuedAutoPush = [];
+    try {
+      queuedAutoPush = JSON.parse(window.localStorage.getItem('prodcollab_auto_push_ready') || '[]');
+    } catch {
+      queuedAutoPush = [];
+    }
+    if (!Array.isArray(queuedAutoPush)) queuedAutoPush = [queuedAutoPush].filter(Boolean);
+    if (queuedAutoPush.length > 0) {
+      window.localStorage.setItem('prodcollab_auto_push_ready', '[]');
+      queuedAutoPush.forEach(handlePushChanges);
     }
 
     const handleLocalSynced = (event) => {
@@ -61,13 +69,11 @@ function Collaboration({ onLogout }) {
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:file-changed', handleWatchedFileChange);
       window.removeEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
       window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:remote-project-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
-      if (window.electronAPI?.removeFileChangedListener) {
-        window.electronAPI.removeFileChangedListener();
-      }
     };
   }, []);
 

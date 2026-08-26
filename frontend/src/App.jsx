@@ -200,8 +200,26 @@ function App() {
   useEffect(() => {
     if (!window.electronAPI?.onAutoPushReady) return undefined;
     return window.electronAPI.onAutoPushReady(({ projectId }) => {
-      window.localStorage.setItem('prodcollab_auto_push_ready', String(projectId));
+      let queued = [];
+      try {
+        queued = JSON.parse(window.localStorage.getItem('prodcollab_auto_push_ready') || '[]');
+      } catch {
+        queued = [];
+      }
+      if (!Array.isArray(queued)) queued = [queued].filter(Boolean);
+      queued = [...new Set([...queued.map(String), String(projectId)])];
+      window.localStorage.setItem('prodcollab_auto_push_ready', JSON.stringify(queued));
       window.dispatchEvent(new CustomEvent('prodcollab:auto-push-ready', { detail: { projectId } }));
+    });
+  }, []);
+
+  // File watchers also outlive route pages. Persist and route their events here
+  // so edits made while Settings/Profile is open still appear on project cards.
+  useEffect(() => {
+    if (!window.electronAPI?.onFileChanged) return undefined;
+    return window.electronAPI.onFileChanged((data) => {
+      window.localStorage.setItem(`prodcollab_pending_${data.projectId}`, '1');
+      window.dispatchEvent(new CustomEvent('prodcollab:file-changed', { detail: data }));
     });
   }, []);
 
@@ -211,9 +229,12 @@ function App() {
 
   // Ask the server who we are. If the cookie is valid, we're in.
   const checkAuth = async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await fetch('http://localhost:5000/api/auth/me', {
         credentials: 'include',
+        signal: controller.signal,
       });
       if (res.ok) {
         const data = await res.json();
@@ -226,6 +247,7 @@ function App() {
       console.error('[AUTH] checkAuth failed:', err);
       setIsAuthenticated(false);
     } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
     }
   };

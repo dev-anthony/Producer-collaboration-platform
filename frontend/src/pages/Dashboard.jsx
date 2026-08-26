@@ -93,15 +93,23 @@ function Dashboard({ onLogout }) {
       });
     }
 
-    if (window.electronAPI?.onAutoPushReady) {
-      window.electronAPI.onAutoPushReady((data) => {
-        console.log('[AUTO-PUSH]', data);
-        handlePushChanges(data.projectId);
-      });
+    const handleAutoPushReady = (event) => {
+      const projectId = event.detail?.projectId;
+      if (!projectId) return;
+      console.log('[AUTO-PUSH]', projectId);
+      window.localStorage.removeItem('prodcollab_auto_push_ready');
+      handlePushChanges(projectId);
+    };
+    window.addEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
+    const queuedAutoPush = window.localStorage.getItem('prodcollab_auto_push_ready');
+    if (queuedAutoPush) {
+      window.localStorage.removeItem('prodcollab_auto_push_ready');
+      handlePushChanges(queuedAutoPush);
     }
 
     const handleLocalSynced = (event) => {
       const projectId = String(event.detail?.id);
+      window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
       setProjects(prev => prev.map(p => String(p.id) === projectId ? { ...p, hasUnpushedChanges: false } : p));
       setCollaboratedProjects(prev => prev.map(p => String(p.id) === projectId ? { ...p, hasUnpushedChanges: false } : p));
       setProjectsWithChanges(prev => {
@@ -119,20 +127,21 @@ function Dashboard({ onLogout }) {
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
       window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:remote-project-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
       if (window.electronAPI?.removeFileChangedListener) {
         window.electronAPI.removeFileChangedListener();
       }
-      if (window.electronAPI?.removeAutoPushReadyListener) {
-        window.electronAPI.removeAutoPushReadyListener();
-      }
     };
   }, []);
   const handleFileChange = (projectId, event, filePath) => {
  
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
+    // Persist so the "changes waiting" badge survives navigation/remount until
+    // the change is actually pushed (auto-push or manual).
+    window.localStorage.setItem(`prodcollab_pending_${projectId}`, '1');
     
 
     setProjects(prev => prev.map(p => 
@@ -178,9 +187,18 @@ function Dashboard({ onLogout }) {
       if (!data.error) {
         const projectsWithWatchStatus = data.projects?.map(p => ({
           ...p,
-          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) || p.hasUnpushedChanges
+          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) ||
+            window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1' ||
+            p.hasUnpushedChanges
         })) || [];
         setProjects(projectsWithWatchStatus);
+        setProjectsWithChanges(prev => {
+          const next = new Set(prev);
+          for (const p of projectsWithWatchStatus) {
+            if (window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1') next.add(String(p.id));
+          }
+          return next;
+        });
       }
     } catch (err) {
        setToast({
@@ -199,9 +217,18 @@ function Dashboard({ onLogout }) {
       if (!data.error) {
         const projectsWithWatchStatus = data.projects?.map(p => ({
           ...p,
-          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) || p.hasUnpushedChanges
+          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) ||
+            window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1' ||
+            p.hasUnpushedChanges
         })) || [];
         setCollaboratedProjects(projectsWithWatchStatus);
+        setProjectsWithChanges(prev => {
+          const next = new Set(prev);
+          for (const p of projectsWithWatchStatus) {
+            if (window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1') next.add(String(p.id));
+          }
+          return next;
+        });
         for (const project of projectsWithWatchStatus) {
           if (!project.localPath || !window.electronAPI?.saveFolderPath) continue;
           try {
@@ -222,15 +249,32 @@ function Dashboard({ onLogout }) {
   };
   const handlePushChanges = async (projectId) => {
     try {
-      const project = projects.find(p => String(p.id) === String(projectId)) ||
+      let project = projects.find(p => String(p.id) === String(projectId)) ||
                       collaboratedProjects.find(p => String(p.id) === String(projectId))
+
+      // Auto-push fires from a listener registered on mount, whose closure may
+      // predate the projects load. Fall back to fetching the project directly
+      // so a valid, watched project is never reported as "not found".
+      if (!project) {
+        try {
+          const lookup = await fetch(`http://localhost:5000/api/projects/${projectId}`, { credentials: 'include' });
+          if (lookup.ok) {
+            const fetched = await lookup.json();
+            project = { ...fetched, hasUnpushedChanges: true };
+          }
+        } catch (lookupError) {
+          console.error('[PUSH] Project lookup failed:', lookupError);
+        }
+      }
 
       if (!project) {
         setToast({ type: 'error', message: "Project not found" });
         return;
       }
 
-      if (!project.hasUnpushedChanges) {
+      // Auto-push always has a real pending change from the watcher, even if the
+      // in-memory flag is stale from a remount, so only block manual no-op pushes.
+      if (!project.hasUnpushedChanges && !projectsWithChanges.has(String(projectId))) {
         setToast({ type: 'info', message: "Everything is already backed up" });
         return;
       }
@@ -293,6 +337,7 @@ function Dashboard({ onLogout }) {
       }
 
       // STEP 6: Update UI state
+      window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
       setProjects(prev => prev.map(p =>
         String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
       ));

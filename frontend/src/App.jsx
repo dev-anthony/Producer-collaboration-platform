@@ -47,12 +47,21 @@ function App() {
       window.localStorage.getItem('prodcollab_auto_push_delay') || '10'
     );
     Promise.all([
-      fetch('http://localhost:5000/api/projects', { credentials: 'include' }).then((response) => response.json()),
-      fetch('http://localhost:5000/api/projects/collaborated', { credentials: 'include' }).then((response) => response.json())
-    ]).then(([owned, shared]) => window.electronAPI?.restoreSessionWatchers?.([
-      ...(owned.projects || []).map((project) => project.id),
-      ...(shared.projects || []).map((project) => project.id)
-    ])).catch((error) => {
+      fetch('http://localhost:5000/api/projects', { credentials: 'include' }),
+      fetch('http://localhost:5000/api/projects/collaborated', { credentials: 'include' })
+    ]).then(async ([ownedResponse, sharedResponse]) => {
+      if (!ownedResponse.ok || !sharedResponse.ok) {
+        throw new Error(`Project restore request failed (${ownedResponse.status}/${sharedResponse.status})`);
+      }
+      const [owned, shared] = await Promise.all([ownedResponse.json(), sharedResponse.json()]);
+      if (!Array.isArray(owned.projects) || !Array.isArray(shared.projects)) {
+        throw new Error('Project restore returned an invalid project list');
+      }
+      return window.electronAPI?.restoreSessionWatchers?.([
+        ...owned.projects.map((project) => project.id),
+        ...shared.projects.map((project) => project.id)
+      ]);
+    }).catch((error) => {
       console.error('[WATCHER] Could not restore session watchers:', error);
     });
     let socket;
@@ -182,6 +191,17 @@ function App() {
         type: 'info',
         message: `${event === 'unlinkDir' ? 'Folder' : 'File'} deleted locally: ${name}. This deletion will not be pushed.`
       });
+    });
+  }, []);
+
+  // Keep native auto-push events alive while route pages unmount. A timer can
+  // finish while Settings or another page is open, so the event must be queued
+  // at the app level instead of being lost by a page-level listener.
+  useEffect(() => {
+    if (!window.electronAPI?.onAutoPushReady) return undefined;
+    return window.electronAPI.onAutoPushReady(({ projectId }) => {
+      window.localStorage.setItem('prodcollab_auto_push_ready', String(projectId));
+      window.dispatchEvent(new CustomEvent('prodcollab:auto-push-ready', { detail: { projectId } }));
     });
   }, []);
 

@@ -4,8 +4,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser'); 
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const supabase = require('./config/supabase');
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+const supabase = require('./config/supabase');
 
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');

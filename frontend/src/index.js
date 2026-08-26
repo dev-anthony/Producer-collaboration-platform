@@ -354,7 +354,17 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     else notifyAll(channel, data);
   };
 
-  // Stop existing watcher if any
+  const existingDetails = watcherDetails.get(watcherKey);
+  if (
+    watchers.has(watcherKey) &&
+    existingDetails &&
+    normalizeFolderPath(existingDetails.folderPath) === normalizeFolderPath(folderPath) &&
+    existingDetails.target === target
+  ) {
+    return;
+  }
+
+  // Stop an existing watcher only when its folder or renderer target changed.
   if (watchers.has(watcherKey)) {
     watchers.get(watcherKey).close();
     watchers.delete(watcherKey);
@@ -768,7 +778,13 @@ ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
     const conflictProjectId = conflictKey.includes('::')
       ? conflictKey.slice(conflictKey.indexOf('::') + 2)
       : conflictKey;
-    const canTransferDevMapping = !app.isPackaged && conflictProjectId === projectPid && normalize(conflictPath) === target;
+    // Only migrate the old unscoped development key. Never transfer a mapping
+    // between Account A and Account B: doing so stops the other account's
+    // watcher and makes local edits appear invisible.
+    const canTransferDevMapping = !app.isPackaged &&
+      !conflictKey.includes('::') &&
+      conflictProjectId === projectPid &&
+      normalize(conflictPath) === target;
     if (canTransferDevMapping) {
       const conflictScope = conflictKey.includes('::') ? conflictKey.slice(0, conflictKey.indexOf('::')) : 'default';
       stopWatching(projectPid, conflictScope);
@@ -1886,7 +1902,10 @@ app.whenReady().then(async () => {
   if (backendRunning) {
     console.log('[SERVER] Reusing development backend at http://localhost:5000');
   } else {
-    serverProcess = spawn('node', [serverPath], { env: { ...process.env } });
+    serverProcess = spawn('node', [serverPath], {
+      cwd: path.dirname(serverPath),
+      env: { ...process.env }
+    });
     serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
     serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
   }

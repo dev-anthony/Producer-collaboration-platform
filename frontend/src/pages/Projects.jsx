@@ -29,8 +29,22 @@ function Projects({ onLogout }) {
       });
     }
 
+    const handleAutoPushReady = (event) => {
+      const projectId = event.detail?.projectId;
+      if (!projectId) return;
+      window.localStorage.removeItem('prodcollab_auto_push_ready');
+      handlePushChanges(projectId);
+    };
+    window.addEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
+    const queuedAutoPush = window.localStorage.getItem('prodcollab_auto_push_ready');
+    if (queuedAutoPush) {
+      window.localStorage.removeItem('prodcollab_auto_push_ready');
+      handlePushChanges(queuedAutoPush);
+    }
+
     const handleLocalSynced = (event) => {
       const projectId = String(event.detail?.id);
+      window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
       setProjects(prev => prev.map(p => String(p.id) === projectId ? { ...p, hasUnpushedChanges: false } : p));
       setProjectsWithChanges(prev => {
         const next = new Set(prev);
@@ -47,6 +61,7 @@ function Projects({ onLogout }) {
 
     return () => {
       window.removeEventListener('prodcollab:local-synced', handleLocalSynced);
+      window.removeEventListener('prodcollab:auto-push-ready', handleAutoPushReady);
       window.removeEventListener('prodcollab:projects-refresh', refreshProjects);
       window.removeEventListener('prodcollab:remote-project-refresh', refreshProjects);
       window.removeEventListener('prodcollab:history-restored', handleHistoryRestored);
@@ -58,6 +73,7 @@ function Projects({ onLogout }) {
 
   const handleFileChange = (projectId, event, filePath) => {
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
+    window.localStorage.setItem(`prodcollab_pending_${projectId}`, '1');
     setProjects(prev => prev.map(p => 
      String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: true } : p
     ));
@@ -100,9 +116,18 @@ function Projects({ onLogout }) {
       if (!data.error) {
         const projectsWithWatchStatus = data.projects?.map(p => ({
           ...p,
-          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) || p.hasUnpushedChanges
+          hasUnpushedChanges: projectsWithChanges.has(String(p.id)) ||
+            window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1' ||
+            p.hasUnpushedChanges
         })) || [];
         setProjects(projectsWithWatchStatus);
+        setProjectsWithChanges(prev => {
+          const next = new Set(prev);
+          for (const p of projectsWithWatchStatus) {
+            if (window.localStorage.getItem(`prodcollab_pending_${p.id}`) === '1') next.add(String(p.id));
+          }
+          return next;
+        });
       }
     } catch (err) {
       setToast({
@@ -153,14 +178,26 @@ function Projects({ onLogout }) {
 
   const handlePushChanges = async (projectId) => {
   try {
-    const project = projects.find(p => String(p.id) === String(projectId));
+    let project = projects.find(p => String(p.id) === String(projectId));
+
+    if (!project) {
+      try {
+        const lookup = await fetch(`http://localhost:5000/api/projects/${projectId}`, { credentials: 'include' });
+        if (lookup.ok) {
+          const fetched = await lookup.json();
+          project = { ...fetched, hasUnpushedChanges: true };
+        }
+      } catch (lookupError) {
+        console.error('[PUSH] Project lookup failed:', lookupError);
+      }
+    }
 
     if (!project) {
       setToast({ type: 'error', message: "Project not found" });
       return;
     }
 
-    if (!project.hasUnpushedChanges) {
+    if (!project.hasUnpushedChanges && !projectsWithChanges.has(String(projectId))) {
       setToast({ type: 'info', message: "Everything is already backed up" });
       return;
     }
@@ -224,6 +261,7 @@ function Projects({ onLogout }) {
     setProjects(prev => prev.map(p =>
       String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
     ));
+    window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
     setProjectsWithChanges(prev => {
       const newSet = new Set(prev);
       newSet.delete(String(projectId));

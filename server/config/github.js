@@ -1,6 +1,7 @@
 
 const { Octokit } = require('@octokit/rest');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const octokit = new Octokit({
   auth: process.env.PRODCOLLAB_GITHUB_TOKEN,

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogoMark, LogoWordmark } from '../components/Logo';
+import { LogoLockup } from '../components/Logo';
 
 function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   const [email, setEmail] = useState('');
@@ -35,17 +35,15 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-9 text-center">
-          <div className="mx-auto mb-5 inline-flex h-16 w-16 items-center justify-center rounded-md border border-border bg-black">
-            <LogoMark className="h-10 w-10 text-foreground" />
-          </div>
-          <LogoWordmark className="mx-auto h-7 w-auto text-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Your studio. Anywhere.</p>
+        <div className="mb-9">
+          <LogoLockup size={56} className="text-foreground" />
         </div>
 
-        <div className="border border-border bg-card p-7 text-center">
-          <h2 className="mb-1 text-xl font-semibold text-foreground">Sign in</h2>
-          <p className="mb-7 text-sm text-muted-foreground">Access your studio workspace.</p>
+        <div className="border border-border bg-card p-7">
+          <div className="mb-7 text-center">
+            <h2 className="mb-1 text-xl font-semibold text-foreground">Sign in</h2>
+            <p className="text-sm text-muted-foreground">Access your studio workspace.</p>
+          </div>
 
           {errorMsg && (
             <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -53,7 +51,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4 text-center">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
               <input
@@ -61,7 +59,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -72,7 +70,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-center text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="••••••••"
               />
             </div>

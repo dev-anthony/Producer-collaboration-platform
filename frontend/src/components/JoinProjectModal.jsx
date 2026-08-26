@@ -407,15 +407,6 @@ function JoinProjectModal({ toggleModal }) {
           )}
         </div>
       </div>
-      {loading && cloneProgress && (
-        <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center bg-black/35 p-4">
-          <div className="w-[min(92vw,430px)] border border-border bg-background p-5 shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-primary">Opening project</p>
-            <div className="mt-2 flex items-center gap-3">{cloneProgress.complete ? <Check className="h-5 w-5 text-success" /> : <Loader className="h-5 w-5 animate-spin text-primary" />}<p className="text-sm text-foreground">{cloneProgress.stage}{cloneProgress.percent == null ? '' : ` · ${cloneProgress.percent}%`}</p></div>
-            <div className="mt-4 h-0.5 bg-muted"><div className="h-full bg-primary" style={{ width: cloneProgress.percent == null ? '32%' : `${cloneProgress.percent}%` }} /></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

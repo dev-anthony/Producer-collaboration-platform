@@ -45,6 +45,7 @@ const Toast = ({
       bg: "bg-background",
       border: "border-destructive/50",
       text: "text-foreground",
+      iconColor: "text-destructive",
       glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     success: {
@@ -52,6 +53,7 @@ const Toast = ({
       bg: "bg-background",
       border: "border-success/50",
       text: "text-foreground",
+      iconColor: "text-success",
       glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     warning: {
@@ -59,6 +61,7 @@ const Toast = ({
       bg: "bg-background",
       border: "border-primary/50",
       text: "text-foreground",
+      iconColor: "text-primary",
       glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
     info: {
@@ -66,11 +69,12 @@ const Toast = ({
       bg: "bg-background",
       border: "border-primary/50",
       text: "text-foreground",
+      iconColor: "text-primary",
       glow: "shadow-[0_18px_50px_rgba(0,0,0,0.85)]",
     },
   };
 
-  const { icon: Icon, bg, border, text, glow } =
+  const { icon: Icon, bg, border, text, iconColor, glow } =
     config[type] || config.error;
 
   return (
@@ -90,7 +94,7 @@ const Toast = ({
           transition-all duration-300
         `}
       >
-        <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+        <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColor}`} />
 
         <p className="flex-1 text-sm font-medium leading-relaxed">
           {message}

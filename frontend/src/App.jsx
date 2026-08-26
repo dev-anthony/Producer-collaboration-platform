@@ -11,7 +11,7 @@ import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
 import Profile from './pages/Profile.jsx';
 import History from './pages/History.jsx';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 function ProtectedRoute({ isAuthenticated, children }) {
@@ -148,19 +148,27 @@ function App() {
 
   useEffect(() => {
     if (!window.electronAPI?.onGitProgress) return undefined;
+    let clearTimer;
     const removeProgress = window.electronAPI.onGitProgress(({ operation, stage, percent }) => {
       const operationLabel = operation === 'clone'
         ? 'Opening project'
         : operation === 'pull'
           ? 'Getting latest changes'
           : 'Backing up changes';
-      setSyncProgress({ operationLabel, stage, percent });
-      if (percent === 100) setTimeout(() => setSyncProgress(null), 1500);
+      clearTimeout(clearTimer);
+      if (percent === 100) {
+        setSyncProgress({ operationLabel, stage: 'Done', percent: 100, done: true });
+        clearTimer = setTimeout(() => setSyncProgress(null), 1600);
+      } else {
+        setSyncProgress({ operationLabel, stage, percent, done: false });
+      }
     });
     const removeEnd = window.electronAPI.onGitProgressEnd?.(() => {
-      setTimeout(() => setSyncProgress(null), 500);
+      clearTimeout(clearTimer);
+      clearTimer = setTimeout(() => setSyncProgress(null), 600);
     });
     return () => {
+      clearTimeout(clearTimer);
       removeProgress?.();
       removeEnd?.();
     };
@@ -246,19 +254,32 @@ function App() {
         />
       )}
       {syncProgress && (
-        <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center bg-black/20 p-4">
-          <div className="w-[min(92vw,440px)] overflow-hidden border border-border bg-background shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
-          <div className="flex h-14 items-center gap-3 px-5 text-sm text-foreground">
-            <Loader2 className="h-4 w-4 flex-none animate-spin text-primary" />
-            <span className="min-w-0 flex-1 truncate"><strong>{syncProgress.operationLabel}</strong> · {syncProgress.stage}</span>
-            {syncProgress.percent != null && <span className="flex-none tabular-nums text-primary">{syncProgress.percent}%</span>}
-          </div>
-          <div className="h-0.5 bg-muted">
-            <div
-              className={`h-full bg-primary transition-[width] duration-300 ${syncProgress.percent == null ? 'w-1/3 animate-pulse' : ''}`}
-              style={syncProgress.percent == null ? undefined : { width: `${syncProgress.percent}%` }}
-            />
-          </div>
+        <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 animate-fade-in">
+          <div className="w-[min(92vw,420px)] overflow-hidden rounded-md border border-border bg-background shadow-[0_24px_80px_rgba(0,0,0,0.92)]">
+            <div className="flex items-center gap-4 px-6 py-5">
+              <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-card">
+                {syncProgress.done
+                  ? <CheckCircle2 className="h-5 w-5 text-success animate-scale-in" />
+                  : <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{syncProgress.operationLabel}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {syncProgress.done ? 'Complete' : syncProgress.stage}
+                </p>
+              </div>
+              {syncProgress.percent != null && (
+                <span className={`flex-none text-xs tabular-nums ${syncProgress.done ? 'text-success' : 'text-primary'}`}>
+                  {syncProgress.percent}%
+                </span>
+              )}
+            </div>
+            <div className="h-1 bg-muted">
+              <div
+                className={`h-full transition-[width] duration-300 ${syncProgress.done ? 'bg-success' : 'bg-primary'} ${syncProgress.percent == null ? 'w-1/3 animate-pulse' : ''}`}
+                style={syncProgress.percent == null ? undefined : { width: `${syncProgress.percent}%` }}
+              />
+            </div>
           </div>
         </div>
       )}

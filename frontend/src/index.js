@@ -41,6 +41,7 @@ global.projectStore = store;
 console.log('[MAIN] Store initialized →', store.path);
 
 const windows = [];
+let pendingAuthUrl = process.argv.find((arg) => arg.startsWith('prodcollab://reset-password')) || null;
 const watchers = new Map(); // projectId -> watcher instance
 const watcherDetails = new Map(); // watcherKey -> routing details
 // auto-push timers (projectId -> timeout handle) ──
@@ -86,7 +87,8 @@ function scheduleAutoPush(watcherKey, pid, target, filePath) {
     return;
   }
   const dueAt = Date.now() + pushDelay;
-  console.log(`[AUTO-PUSH] Scheduled ${watcherKey} in ${Math.round(pushDelay / 60000)} minute(s)`);
+  const delayLabel = pushDelay < 60000 ? `${Math.round(pushDelay / 1000)} second(s)` : `${Math.round(pushDelay / 60000)} minute(s)`;
+  console.log(`[AUTO-PUSH] Scheduled ${watcherKey} in ${delayLabel}`);
   if (target && !target.isDestroyed()) target.send('auto-push-scheduled', { projectId: pid, dueAt, delay: pushDelay });
   const timer = setTimeout(() => {
     pushTimers.delete(watcherKey);
@@ -125,10 +127,22 @@ const DEV_ACCOUNT_A_SCOPE = 'persist:prodcollab-dev-account-a';
 
 const gotTheLock = app.requestSingleInstanceLock();
 
+const forwardAuthUrl = (url) => {
+  if (!url?.startsWith('prodcollab://reset-password')) return;
+  const target = windows.find((win) => !win.isDestroyed());
+  if (target) {
+    target.show();
+    target.focus();
+    target.webContents.send('auth-url', url);
+  } else pendingAuthUrl = url;
+};
+
 if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
+    commandLine.find((arg) => arg.startsWith('prodcollab://')) &&
+      forwardAuthUrl(commandLine.find((arg) => arg.startsWith('prodcollab://')));
     // Someone tried to run a second instance, focus our window instead
     if (windows.length > 0) {
       const win = windows[0];
@@ -265,6 +279,11 @@ function createWindow(sessionName = 'default', bounds = {}) {
     ? `${MAIN_WINDOW_WEBPACK_ENTRY}?devAccount=${encodeURIComponent(sessionName)}`
     : MAIN_WINDOW_WEBPACK_ENTRY;
   win.loadURL(windowUrl);
+  win.webContents.on('did-finish-load', () => {
+    if (!pendingAuthUrl) return;
+    win.webContents.send('auth-url', pendingAuthUrl);
+    pendingAuthUrl = null;
+  });
   win.webContents.on('page-title-updated', (event) => {
     if (!isDevTestWindow) return;
     event.preventDefault();
@@ -712,6 +731,11 @@ async function scanFolderRecursive(dirPath, basePath = dirPath) {
   }
   store.set('watchedFolders', watched);
 }
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  forwardAuthUrl(url);
+});
 
   await scan(dirPath);
   return { files, folders: Array.from(folders) };
@@ -1902,7 +1926,11 @@ ipcMain.handle('push-now', async (event, { projectId }) => {
 });
 
 ipcMain.handle('set-auto-push-delay', async (event, { delay }) => {
-  const pushDelay = delay === 'manual' ? null : Number(delay) * 60 * 1000;
+  const pushDelay = delay === 'manual'
+    ? null
+    : delay === 'automatic'
+      ? 30 * 1000
+      : Number(delay) * 60 * 1000;
   autoPushDelays.set(event.sender.id, pushDelay);
   const scope = getSessionScope(event);
   for (const [watcherKey, details] of watcherDetails) {
@@ -1938,6 +1966,7 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.prodcollab.app');
   }
+  if (!app.isPackaged) app.setAsDefaultProtocolClient('prodcollab', process.execPath, [path.resolve(process.argv[1])]);
     const serverPath = app.isPackaged
     ? path.join(process.resourcesPath, 'server', 'server.js')
     : path.join(process.cwd(), '..', 'server', 'server.js');

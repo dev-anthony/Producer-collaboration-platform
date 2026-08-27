@@ -63,6 +63,33 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.forgotPassword = async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  const { error } = await createAuthClient().auth.resetPasswordForEmail(email, {
+    redirectTo: 'prodcollab://reset-password'
+  });
+  if (error) console.error('forgotPassword error:', error);
+  // Do not reveal whether an account exists.
+  res.json({ message: 'If that account exists, a reset link has been sent.' });
+};
+
+exports.resetPassword = async (req, res) => {
+  const { accessToken, refreshToken, password } = req.body;
+  if (!accessToken || !refreshToken || !password || password.length < 8) {
+    return res.status(400).json({ error: 'A valid reset link and an 8-character password are required' });
+  }
+  const auth = createAuthClient();
+  const { error: sessionError } = await auth.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken
+  });
+  if (sessionError) return res.status(400).json({ error: 'This reset link is invalid or expired' });
+  const { error } = await auth.auth.updateUser({ password });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'Password updated. You can now sign in.' });
+};
+
 exports.logout = async (req, res) => {
   try {
     res.clearCookie('prodcollab_token');
@@ -105,4 +132,6 @@ module.exports = {
   login: exports.login,
   logout: exports.logout,
   getMe: exports.getMe,
+  forgotPassword: exports.forgotPassword,
+  resetPassword: exports.resetPassword,
 };

@@ -43,6 +43,8 @@ const authRateLimit = (req, res, next) => {
 
 app.use('/api/auth/login', authRateLimit);
 app.use('/api/auth/signup', authRateLimit);
+app.use('/api/auth/forgot-password', authRateLimit);
+app.use('/api/auth/reset-password', authRateLimit);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 

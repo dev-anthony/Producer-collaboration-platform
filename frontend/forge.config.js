@@ -4,13 +4,7 @@ module.exports = {
     asar: true,
     extraResource: ['../server'],
     icon: './assets/icon', 
-    // ── Phase 4.16: GitHub OAuth protocol handler removed (email/password auth) ──
-    // protocols: [
-    //   {
-    //     name: 'ProdCollab',
-    //     schemes: ['prodcollab']
-    //   }
-    // ],
+    protocols: [{ name: 'ProdCollab', schemes: ['prodcollab'] }],
     
     ignore: (file) => {
       if (!file) return false;

@@ -146,6 +146,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('git-progress', handler);
     return () => ipcRenderer.removeListener('git-progress', handler);
   },
+  onAuthUrl: (callback) => {
+    const handler = (event, url) => callback(url);
+    ipcRenderer.on('auth-url', handler);
+    return () => ipcRenderer.removeListener('auth-url', handler);
+  },
   onGitProgressEnd: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('git-progress-end', handler);

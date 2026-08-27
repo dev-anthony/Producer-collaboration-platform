@@ -86,6 +86,9 @@ function ProjectCard({
   }, [project.id]);
 
   const [countdown, setCountdown] = useState('');
+  const [autoPushDelay, setAutoPushDelay] = useState(
+    () => window.localStorage.getItem('prodcollab_auto_push_delay') || '10'
+  );
   useEffect(() => {
     const updateCountdown = () => {
       if (!pushDueAt) { setCountdown(''); return; }
@@ -99,6 +102,12 @@ function ProjectCard({
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
   }, [pushDueAt]);
+
+  useEffect(() => {
+    const handleDelayChanged = (event) => setAutoPushDelay(event.detail?.delay || '10');
+    window.addEventListener('prodcollab:auto-push-delay-changed', handleDelayChanged);
+    return () => window.removeEventListener('prodcollab:auto-push-delay-changed', handleDelayChanged);
+  }, []);
 
   useEffect(() => {
     if (!showHistory) return undefined;
@@ -175,13 +184,15 @@ function ProjectCard({
     return days < 7 ? `${days}d ago` : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
-  const autoPushEnabled = window.localStorage.getItem('prodcollab_auto_push_delay') !== 'manual';
+  const autoPushEnabled = autoPushDelay !== 'manual';
   const pushLabel = pushState === 'pushing'
     ? (isCollaborator ? 'Pushing…' : 'Backing up…')
     : !hasUnpushedChanges
       ? 'Up to date'
       : autoPushEnabled
-        ? countdown
+        ? autoPushDelay === 'automatic'
+          ? `Automatically ${isCollaborator ? 'pushing' : 'backing up'}`
+          : countdown
           ? `${isCollaborator ? 'Push' : 'Backup'} in ${countdown}`
           : `Automatically ${isCollaborator ? 'pushing' : 'backing up'}`
         : (isCollaborator ? 'Push update' : 'Back up now');

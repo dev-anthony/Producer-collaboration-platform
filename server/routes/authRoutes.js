@@ -7,11 +7,12 @@ const authMiddleware = require('../middleware/authMiddleware.js');
 
 router.post('/signup', authController.signup); 
 router.post('/login', authController.login);  
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 
 router.post('/logout', authMiddleware.verifyToken, authController.logout);
 router.get('/me', authMiddleware.verifyToken, authController.getMe);
 
 module.exports = router;
-
 

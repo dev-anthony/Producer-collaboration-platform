@@ -22,7 +22,8 @@ function ResponsiveShell({ children, onLogout, user }) {
   };
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      {/* Pinned Sidebar Container */}
       <Sidebar
         onLogout={onLogout}
         user={user}
@@ -32,6 +33,7 @@ function ResponsiveShell({ children, onLogout, user }) {
         onToggleCollapse={toggleCollapsed}
         onCloseMobile={() => setMobileOpen(false)}
       />
+      
       {mobileOpen && (
         <button
           type="button"
@@ -40,8 +42,11 @@ function ResponsiveShell({ children, onLogout, user }) {
           className="fixed inset-0 z-40 bg-black/70 lg:hidden"
         />
       )}
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+
+      {/* Main Container locked to screen height */}
+      <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+        {/* Mobile Header (Non-scrolling top bar) */}
+        <div className="flex h-14 shrink-0 items-center border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
           <button
             type="button"
             aria-label="Open navigation"
@@ -53,7 +58,11 @@ function ResponsiveShell({ children, onLogout, user }) {
           </button>
           <span className="ml-3 text-sm font-semibold text-foreground">ProdCollab</span>
         </div>
-        {children}
+
+        {/* Dedicated Scrollable Viewport for Dashboard/Pages */}
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
       </main>
     </div>
   );

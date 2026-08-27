@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import Toggle from '../components/Toggle';
+import ResponsiveShell from '../components/ResponsiveShell';
 
 function Settings({ onLogout }) {
   const [user, setUser] = useState(null);
@@ -31,11 +32,10 @@ function Settings({ onLogout }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <Sidebar onLogout={onLogout} user={user} />
-      <main className="min-w-0 flex-1 overflow-y-auto">
+    <ResponsiveShell onLogout={onLogout} user={user}>
+      <main>
         <PageHeader eyebrow="Preferences" title="Settings" description="Control how ProdCollab protects your work and notifies you." />
-        <section className="m-6 max-w-2xl border border-border bg-card p-6 md:m-8">
+        <section className="m-4 max-w-2xl border border-border bg-card p-4 sm:m-6 sm:p-6 lg:m-8">
           <h2 className="text-lg font-semibold">Project protection</h2>
           <label className="mt-6 flex items-center justify-between gap-4 border-b border-border pb-5 text-sm">
             <span>Get collaborator updates automatically</span>
@@ -45,7 +45,7 @@ function Settings({ onLogout }) {
           <label className="flex items-center justify-between gap-4 pt-5 text-sm"><span>Desktop notifications</span><Toggle checked={desktopNotifications} label="Desktop notifications" onChange={(enabled) => { setDesktopNotifications(enabled); updatePreference('prodcollab_desktop_notifications', String(enabled)); }} /></label>
         </section>
       </main>
-    </div>
+    </ResponsiveShell>
   );
 }
 

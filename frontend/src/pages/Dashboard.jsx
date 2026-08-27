@@ -6,6 +6,7 @@ import Modal from '../components/Modal';
 import JoinProjectModal from '../components/JoinProjectModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
+import ResponsiveShell from '../components/ResponsiveShell';
 
 function Dashboard({ onLogout }) {
   const [user, setUser] = useState(null);
@@ -657,9 +658,8 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar onLogout={onLogout} user={user} />
-      <div className="flex-1 overflow-y-auto">
+    <ResponsiveShell onLogout={onLogout} user={user}>
+      <div>
          
          {toast && (
         <Toast
@@ -689,7 +689,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {error && (
             <div className="mb-6 border border-destructive/30 bg-destructive/5 p-4 animate-fade-in">
               <p className="text-destructive flex items-center gap-2">
@@ -790,7 +790,7 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
 
         {isModalOpen && <Modal toggleModal={toggleModal} />}
       </div>
-    </div>
+    </ResponsiveShell>
   );
 }
 

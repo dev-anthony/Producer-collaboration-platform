@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CircleUserRound, Mail, UserRound } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
+import ResponsiveShell from '../components/ResponsiveShell';
 
 function Profile({ onLogout }) {
   const [user, setUser] = useState(null);
@@ -14,11 +15,10 @@ function Profile({ onLogout }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <Sidebar onLogout={onLogout} user={user} />
-      <main className="min-w-0 flex-1 overflow-y-auto">
+    <ResponsiveShell onLogout={onLogout} user={user}>
+      <main>
         <PageHeader eyebrow="Account" title="Producer profile" description="The identity attached to your pushes and version history." />
-        <section className="m-6 max-w-2xl border border-border bg-card p-6 md:m-8">
+        <section className="m-4 max-w-2xl border border-border bg-card p-4 sm:m-6 sm:p-6 lg:m-8">
           <div className="flex items-center gap-4 border-b border-border pb-6">
             {user?.avatar_url ? <img src={user.avatar_url} alt="Profile" className="h-16 w-16 rounded-full" /> : <CircleUserRound className="h-16 w-16 text-primary" />}
             <div className="min-w-0"><h2 className="truncate text-xl font-semibold">{user?.username || 'Producer'}</h2><p className="mt-1 text-sm text-muted-foreground">ProdCollab account</p></div>
@@ -30,7 +30,7 @@ function Profile({ onLogout }) {
           <p className="text-xs leading-5 text-muted-foreground">Your username and email identify the versions you share. Producer profiles and discovery are planned after V1.</p>
         </section>
       </main>
-    </div>
+    </ResponsiveShell>
   );
 }
 

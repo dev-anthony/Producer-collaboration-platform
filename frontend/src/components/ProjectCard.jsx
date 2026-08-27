@@ -419,13 +419,13 @@ function ProjectCard({
           </button>
 
           {/* Actions */}
-          <div className="mt-auto flex items-center gap-2 border-t border-border pt-4">
+          <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
             {/* Phase 6.7: manual "Check" button removed — file watcher + auto-push handle this now */}
 
             <button
               onClick={handlePushClick}
               disabled={!hasUnpushedChanges || pushState === 'pushing'}
-              className={`flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                className={`min-w-0 flex-[1_1_12rem] inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                 hasUnpushedChanges 
                   ? 'bg-primary hover:bg-primary/85 text-primary-foreground'
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
@@ -446,6 +446,8 @@ function ProjectCard({
 
             <button
               onClick={handlePullFiles}
+              title="Pull latest changes"
+              aria-label="Pull latest changes"
               disabled={isPulling}
               className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm font-medium text-success transition-colors duration-150 hover:bg-success/20 disabled:opacity-50"
             >

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogoLockup } from '../components/Logo';
+import AuthLayout from '../components/AuthLayout';
 
 function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   const [email, setEmail] = useState('');
@@ -78,13 +78,8 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-9 text-center">
-          <LogoLockup size={52} className="text-foreground" />
-        </div>
-
-        <div className="border border-border bg-card p-7">
+    <AuthLayout login onSecondaryAction={onNavigateSignup}>
+        <div className="animate-fade-in">
           <div className="mb-7 text-center">
             <h2 className="mb-1 text-xl font-semibold text-foreground">{mode === 'forgot' ? 'Reset password' : mode === 'reset' ? 'Choose a password' : 'Sign in'}</h2>
             <p className="text-sm text-muted-foreground">{mode === 'forgot' ? 'We will email you a secure reset link.' : mode === 'reset' ? 'Enter your new account password.' : 'Access your studio workspace.'}</p>
@@ -104,7 +99,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full border-0 border-b border-border bg-transparent px-0 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-0"
                 placeholder="you@example.com"
               />
             </div>}
@@ -116,14 +111,15 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full border-0 border-b border-border bg-transparent px-0 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-0"
                 placeholder="••••••••"
               />
             </div>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-60"
+              aria-label={mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Sign in'}
+              className="ml-auto flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary px-2 text-[10px] font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
             >
               {loading ? 'Please wait…' : mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Login'}
             </button>
@@ -131,7 +127,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
 
           <button type="button" onClick={() => { setMode(mode === 'login' ? 'forgot' : 'login'); setErrorMsg(''); }} className="mt-4 w-full text-center text-xs text-primary hover:underline">{mode === 'login' ? 'Forgot password?' : 'Back to sign in'}</button>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          {mode === 'login' && <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <button
               onClick={onNavigateSignup}
@@ -139,14 +135,9 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
             >
               Sign up
             </button>
-          </p>
+          </p>}
         </div>
-
-        <p className="mt-7 text-center text-xs text-muted-foreground/60">
-          By signing in, you agree to our Terms of Service and Privacy Policy
-        </p>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }
 

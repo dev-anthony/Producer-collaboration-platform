@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import PageHeader from '../components/PageHeader';
+import ResponsiveShell from '../components/ResponsiveShell';
 import { Plus } from 'lucide-react';
 
 // ── Phase 4.15: session via httpOnly cookie; no more jwtToken prop/headers ──
@@ -554,9 +555,8 @@ function Projects({ onLogout }) {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar onLogout={onLogout} user={user} />
-      <div className="flex-1 overflow-y-auto">
+    <ResponsiveShell onLogout={onLogout} user={user}>
+      <div>
         {toast && (
           <Toast
             message={toast.message}
@@ -569,7 +569,7 @@ function Projects({ onLogout }) {
         <PageHeader eyebrow="Workspace" title="Projects" description="Your private sessions and project folders." action={<button onClick={getUserData} disabled={loading} className="rounded-md border border-border bg-card px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">Refresh</button>} />
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {error && (
             <div className="mb-6 border border-destructive/30 bg-destructive/10 p-6">
               <p className="text-red-400">{error}</p>
@@ -623,7 +623,7 @@ function Projects({ onLogout }) {
 
         {isModalOpen && <Modal toggleModal={toggleModal} />}
       </div>
-    </div>
+    </ResponsiveShell>
   );
 }
 export default Projects;

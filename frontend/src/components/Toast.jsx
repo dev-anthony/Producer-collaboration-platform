@@ -79,7 +79,7 @@ const Toast = ({
 
   return (
     <div
-      className={`fixed top-6 right-6 z-50 ${
+      className={`fixed left-4 right-4 top-4 z-50 w-auto sm:left-auto sm:right-4 sm:w-[min(400px,calc(100vw-2rem))] ${
         isExiting
           ? "animate-slide-out-right"
           : "animate-slide-in-right"
@@ -102,6 +102,7 @@ const Toast = ({
 
         <button
           onClick={handleClose}
+          aria-label="Dismiss notification"
           className="p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
         >
           <X className="w-4 h-4" />

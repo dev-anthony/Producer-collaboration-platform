@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { LogoLockup } from '../components/Logo';
+import AuthLayout from '../components/AuthLayout';
 
 function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   const [username, setUsername] = useState('');
@@ -42,90 +41,96 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-8 text-center">
-          <LogoLockup size={52} className="text-foreground" />
+    <AuthLayout 
+      title="Create sound without limits."
+      description="Connect your DAW directly to your collaborators. Experience real-time feedback and seamless studio sharing."
+    >
+      <div className="animate-fade-in flex flex-col justify-center">
+        <div className="mb-6">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">
+            Create account
+          </h2>
         </div>
 
-        <div className="border border-border bg-card p-7">
-          <div className="mb-7 text-center">
-            <h2 className="mb-1 text-xl font-semibold text-foreground">Create your account</h2>
-            <p className="text-sm text-muted-foreground">Start collaborating in minutes.</p>
+        {errorMsg && (
+          <div className="mb-5 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
+              placeholder="producer_name"
+            />
           </div>
 
-          {errorMsg && (
-            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              {errorMsg}
-            </div>
-          )}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
+              placeholder="you@example.com"
+            />
+          </div>
 
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="producer_name"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Confirm password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="••••••••"
-              />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <div className="pt-3">
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 disabled:opacity-60"
+              className="flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
             >
               {loading ? 'Creating account…' : 'Create Account'}
             </button>
-          </form>
+          </div>
+        </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-8 text-center">
+          <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
             <button
               onClick={onNavigateLogin}
-              className="text-primary font-medium hover:underline"
+              className="font-semibold text-foreground hover:underline"
             >
               Log in
             </button>
           </p>
         </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 

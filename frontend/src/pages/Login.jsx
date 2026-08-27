@@ -91,17 +91,21 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
     }
   };
 
+  // UX left-panel dynamic messages
+  const leftTitle = mode === 'forgot' ? 'Need a quick reset?' : mode === 'reset' ? 'Secure your studio.' : 'Welcome back to the studio.';
+  const leftDesc = mode === 'forgot' 
+    ? "No worries, it happens. We will get you back into your creative workflow in seconds."
+    : mode === 'reset' 
+    ? "Set a new password and jump straight back into your active projects."
+    : "Your sessions are waiting. Pick up right where you left off and keep the creative momentum flowing.";
+
   return (
-    <AuthLayout>
+    <AuthLayout title={leftTitle} description={leftDesc}>
       <div className="animate-fade-in flex flex-col justify-center">
-        {/* Header Section (Tighter margins) */}
         <div className="mb-8">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">
             {mode === 'forgot' ? 'Reset password' : mode === 'reset' ? 'Choose a password' : 'Sign in'}
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {mode === 'forgot' ? 'We will email you a secure reset link.' : mode === 'reset' ? 'Enter your new account password.' : 'Access your studio workspace.'}
-          </p>
         </div>
 
         {errorMsg && (
@@ -110,7 +114,6 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
           </div>
         )}
 
-        {/* Form Section (Reduced vertical spacing with space-y-5) */}
         <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleLogin} className="space-y-5">
           {mode !== 'reset' && (
             <div>
@@ -145,7 +148,6 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="block text-xs font-medium text-muted-foreground">Password</label>
-                {/* Forgot password moved to align traditionally with the password label */}
                 {mode === 'login' && (
                   <button
                     type="button"
@@ -170,12 +172,11 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
             </div>
           )}
 
-          {/* Standard Traditional Button */}
           <div className="pt-2">
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-60"
+              className="flex w-full items-center justify-center rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
             >
               {loading ? 'Please wait...' : mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Sign in'}
             </button>
@@ -195,14 +196,13 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
           )}
         </form>
 
-        {/* Traditional Footer */}
         {mode === 'login' && (
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
               <button
                 onClick={onNavigateSignup}
-                className="font-medium text-foreground hover:underline"
+                className="font-semibold text-foreground hover:underline"
               >
                 Sign up
               </button>

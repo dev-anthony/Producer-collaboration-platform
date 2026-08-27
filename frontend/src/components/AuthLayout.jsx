@@ -1,28 +1,42 @@
 import React from 'react';
-import { ArrowUpRight } from 'lucide-react';
 import { LogoLockup } from './Logo';
 
-function AuthLayout({ login, onSecondaryAction, children }) {
+function AuthLayout({ children }) {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
-      <section className="hidden min-h-screen flex-col border-r border-border px-8 py-8 lg:flex xl:px-14">
-        <LogoLockup size={52} className="text-foreground" />
-        <div className="mt-auto max-w-xl pb-12 xl:pb-20">
-          <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.24em] text-primary">ProdCollab</p>
-          <h1 className="max-w-lg text-4xl font-semibold leading-tight text-foreground xl:text-5xl">A studio-grade collaboration layer between your DAW and your collaborators.</h1>
-          <div className="mt-8 h-px w-20 bg-primary" />
+      {/* Left Section - Minimal Graphic/Logo Area */}
+      <section className="relative hidden min-h-screen flex-col overflow-hidden border-r border-border bg-muted/10 lg:flex">
+        {/* Top Left Logo */}
+        <div className="absolute left-8 top-8 z-20 xl:left-14 xl:top-10">
+          <LogoLockup size={32} className="text-foreground" />
+        </div>
+
+        {/* Center ProdCollab Symbol (Replaced the cross lines with a clean wave/studio symbol) */}
+        <div className="relative z-10 flex flex-1 items-center justify-center">
+          <div className="text-foreground/80">
+            {/* You can swap this SVG out for your actual ProdCollab symbol */}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-40 w-40 transition-transform duration-700 hover:scale-105 xl:h-52 xl:w-52">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h3l3 -9 6 18 3 -9h3" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Bottom Left Copyright/Credits */}
+        <div className="absolute bottom-8 left-8 z-20 text-[10px] text-muted-foreground xl:left-14">
+          © ProdCollab 2026. All rights reserved.
         </div>
       </section>
-      <section className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-8 sm:py-10">
-        <div className="w-full max-w-xl">
-          <div className="mb-6 flex items-center justify-between gap-4 sm:mb-8">
-            <LogoLockup size={38} className="text-foreground lg:hidden" />
-            <span className="hidden flex-1 lg:block" />
-            <button type="button" onClick={onSecondaryAction} className="inline-flex flex-none items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary">
-              {login ? 'Create account' : 'Log in'} <ArrowUpRight className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="border border-border bg-card p-5 sm:p-8 lg:p-10">{children}</div>
+
+      {/* Right Section - Form Content (Compact & No Card) */}
+      <section className="relative flex min-h-screen flex-col justify-center px-6 py-10 sm:px-12 lg:px-20">
+        {/* Mobile Header Logo */}
+        <div className="absolute left-6 top-6 lg:hidden">
+          <LogoLockup size={32} className="text-foreground" />
+        </div>
+
+        {/* max-w-sm mx-auto centers the form and keeps the width contained/traditional */}
+        <div className="mx-auto w-full max-w-sm">
+          {children}
         </div>
       </section>
     </div>

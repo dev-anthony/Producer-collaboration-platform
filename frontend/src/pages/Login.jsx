@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AuthLayout from '../components/AuthLayout';
 
@@ -11,17 +10,19 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   const [resetTokens, setResetTokens] = useState(null);
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  React.useEffect(() => window.electronAPI?.onAuthUrl?.((url) => {
-    const hash = url.split('#')[1] || '';
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    if (accessToken && refreshToken) {
-      setResetTokens({ accessToken, refreshToken });
-      setMode('reset');
-      setErrorMsg('');
-    }
-  }), []);
+  React.useEffect(() => {
+    window.electronAPI?.onAuthUrl?.((url) => {
+      const hash = url.split('#')[1] || '';
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        setResetTokens({ accessToken, refreshToken });
+        setMode('reset');
+        setErrorMsg('');
+      }
+    });
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,14 +31,12 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
     try {
       const res = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
-        credentials: 'include', // receive httpOnly cookies
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
+      if (!res.ok) throw new Error(data.error || 'Login failed');
       if (onLogin) onLogin(data.user);
     } catch (err) {
       setErrorMsg(err.message);
@@ -49,94 +48,168 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
 
   const handleForgot = async (event) => {
     event.preventDefault();
-    setLoading(true); setErrorMsg('');
+    setLoading(true);
+    setErrorMsg('');
     try {
       const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setToast?.({ type: 'success', message: data.message });
       setMode('login');
-    } catch (error) { setErrorMsg(error.message); } finally { setLoading(false); }
+    } catch (error) {
+      setErrorMsg(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReset = async (event) => {
     event.preventDefault();
     if (password !== confirmPassword) return setErrorMsg('Passwords do not match');
-    setLoading(true); setErrorMsg('');
+    setLoading(true);
+    setErrorMsg('');
     try {
       const response = await fetch('http://localhost:5000/api/auth/reset-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...resetTokens, password })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...resetTokens, password }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setToast?.({ type: 'success', message: data.message });
-      setMode('login'); setPassword(''); setConfirmPassword('');
-    } catch (error) { setErrorMsg(error.message); } finally { setLoading(false); }
+      setMode('login');
+      setPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      setErrorMsg(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthLayout login onSecondaryAction={onNavigateSignup}>
-        <div className="animate-fade-in">
-          <div className="mb-7 text-center">
-            <h2 className="mb-1 text-xl font-semibold text-foreground">{mode === 'forgot' ? 'Reset password' : mode === 'reset' ? 'Choose a password' : 'Sign in'}</h2>
-            <p className="text-sm text-muted-foreground">{mode === 'forgot' ? 'We will email you a secure reset link.' : mode === 'reset' ? 'Enter your new account password.' : 'Access your studio workspace.'}</p>
+    <AuthLayout>
+      <div className="animate-fade-in flex flex-col justify-center">
+        {/* Header Section (Tighter margins) */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+            {mode === 'forgot' ? 'Reset password' : mode === 'reset' ? 'Choose a password' : 'Sign in'}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {mode === 'forgot' ? 'We will email you a secure reset link.' : mode === 'reset' ? 'Enter your new account password.' : 'Access your studio workspace.'}
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-5 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {errorMsg}
           </div>
+        )}
 
-          {errorMsg && (
-            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              {errorMsg}
-            </div>
-          )}
-
-          <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleLogin} className="space-y-4">
-            {mode !== 'reset' && <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
+        {/* Form Section (Reduced vertical spacing with space-y-5) */}
+        <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleLogin} className="space-y-5">
+          {mode !== 'reset' && (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full border-0 border-b border-border bg-transparent px-0 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-0"
+                className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
                 placeholder="you@example.com"
               />
-            </div>}
-            {mode === 'reset' && <div><label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Confirm password</label><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" /></div>}
-            {mode !== 'forgot' && <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Password</label>
+            </div>
+          )}
+          
+          {mode === 'reset' && (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Confirm password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+                className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
+                placeholder="••••••••"
+              />
+            </div>
+          )}
+
+          {mode !== 'forgot' && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-medium text-muted-foreground">Password</label>
+                {/* Forgot password moved to align traditionally with the password label */}
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('forgot');
+                      setErrorMsg('');
+                    }}
+                    className="text-xs font-medium text-foreground hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full border-0 border-b border-border bg-transparent px-0 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-0"
+                className="w-full border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-0"
                 placeholder="••••••••"
               />
-            </div>}
+            </div>
+          )}
+
+          {/* Standard Traditional Button */}
+          <div className="pt-2">
             <button
               type="submit"
               disabled={loading}
-              aria-label={mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Sign in'}
-              className="ml-auto flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-primary px-2 text-[10px] font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
+              className="flex w-full items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-60"
             >
-              {loading ? 'Please wait…' : mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Login'}
+              {loading ? 'Please wait...' : mode === 'forgot' ? 'Send reset link' : mode === 'reset' ? 'Update password' : 'Sign in'}
             </button>
-          </form>
+          </div>
 
-          <button type="button" onClick={() => { setMode(mode === 'login' ? 'forgot' : 'login'); setErrorMsg(''); }} className="mt-4 w-full text-center text-xs text-primary hover:underline">{mode === 'login' ? 'Forgot password?' : 'Back to sign in'}</button>
+          {mode === 'forgot' && (
+             <button
+               type="button"
+               onClick={() => {
+                 setMode('login');
+                 setErrorMsg('');
+               }}
+               className="mt-2 w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+             >
+               Back to sign in
+             </button>
+          )}
+        </form>
 
-          {mode === 'login' && <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <button
-              onClick={onNavigateSignup}
-              className="text-primary font-medium hover:underline"
-            >
-              Sign up
-            </button>
-          </p>}
-        </div>
+        {/* Traditional Footer */}
+        {mode === 'login' && (
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <button
+                onClick={onNavigateSignup}
+                className="font-medium text-foreground hover:underline"
+              >
+                Sign up
+              </button>
+            </p>
+          </div>
+        )}
+      </div>
     </AuthLayout>
   );
 }

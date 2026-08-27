@@ -40,6 +40,9 @@ function ProjectCard({
   const [toast, setToast] = useState(null);
   // Phase 6.10: sync status — 'idle' | 'pushing' | 'failed'
   const [pushState, setPushState] = useState('idle');
+  const [pushDueAt, setPushDueAt] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem(`prodcollab_push_due_${project.id}`) || 'null')?.dueAt || null; } catch { return null; }
+  });
   const [remoteChangesAvailable, setRemoteChangesAvailable] = useState(
     () => Boolean(window.localStorage.getItem(`prodcollab_remote_ahead_${project.id}`))
   );
@@ -63,6 +66,39 @@ function ProjectCard({
   useEffect(() => {
     loadConflicts().catch((error) => console.error('[CONFLICT] Could not load conflicts:', error));
   }, [project.id]);
+
+  useEffect(() => {
+    const handleScheduled = (event) => {
+      if (String(event.detail?.projectId) !== String(project.id)) return;
+      setPushDueAt(event.detail.dueAt || null);
+    };
+    const handleSynced = (event) => {
+      if (String(event.detail?.id) !== String(project.id)) return;
+      setPushDueAt(null);
+      window.localStorage.removeItem(`prodcollab_push_due_${project.id}`);
+    };
+    window.addEventListener('prodcollab:auto-push-scheduled', handleScheduled);
+    window.addEventListener('prodcollab:local-synced', handleSynced);
+    return () => {
+      window.removeEventListener('prodcollab:auto-push-scheduled', handleScheduled);
+      window.removeEventListener('prodcollab:local-synced', handleSynced);
+    };
+  }, [project.id]);
+
+  const [countdown, setCountdown] = useState('');
+  useEffect(() => {
+    const updateCountdown = () => {
+      if (!pushDueAt) { setCountdown(''); return; }
+      const remaining = Math.max(0, pushDueAt - Date.now());
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      setCountdown(`${minutes}:${String(seconds).padStart(2, '0')}`);
+      if (remaining === 0) setPushDueAt(null);
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [pushDueAt]);
 
   useEffect(() => {
     if (!showHistory) return undefined;
@@ -138,6 +174,17 @@ function ProjectCard({
     const days = Math.floor(hours / 24);
     return days < 7 ? `${days}d ago` : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
+
+  const autoPushEnabled = window.localStorage.getItem('prodcollab_auto_push_delay') !== 'manual';
+  const pushLabel = pushState === 'pushing'
+    ? (isCollaborator ? 'Pushing…' : 'Backing up…')
+    : !hasUnpushedChanges
+      ? 'Up to date'
+      : autoPushEnabled
+        ? countdown
+          ? `${isCollaborator ? 'Push' : 'Backup'} in ${countdown}`
+          : `Automatically ${isCollaborator ? 'pushing' : 'backing up'}`
+        : (isCollaborator ? 'Push update' : 'Back up now');
 
   // Phase 6.7/6.8: "Check for changes" removed — auto-push handles syncing.
   // const handleCheckForChanges = async () => {
@@ -376,16 +423,12 @@ function ProjectCard({
               {pushState === 'pushing' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {isCollaborator ? 'Pushing…' : 'Backing up…'}
+                  {pushLabel}
                 </>
               ) : (
                 <>
                   <Upload className="w-4 h-4" />
-                  {!hasUnpushedChanges
-                    ? 'Up to date'
-                    : isCollaborator
-                      ? 'Push update'
-                      : 'Back up now'}
+                  {pushLabel}
                 </>
               )}
             </button>

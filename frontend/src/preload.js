@@ -161,6 +161,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('auto-push-ready', handler);
     return () => ipcRenderer.removeListener('auto-push-ready', handler);
   },
+  onAutoPushScheduled: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('auto-push-scheduled', handler);
+    return () => ipcRenderer.removeListener('auto-push-scheduled', handler);
+  },
   removeAutoPushReadyListener: () => {
     ipcRenderer.removeAllListeners('auto-push-ready');
   },

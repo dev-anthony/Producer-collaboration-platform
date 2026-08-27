@@ -44,8 +44,8 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-8">
-          <LogoLockup size={56} className="text-foreground" />
+        <div className="mb-8 text-center">
+          <LogoLockup size={52} className="text-foreground" />
         </div>
 
         <div className="border border-border bg-card p-7">

@@ -36,14 +36,13 @@ export function LogoSlogan({ className = '', ...props }) {
 export function LogoLockup({ size = 56, className = '', markClassName = '', wordClassName = '', sloganClassName = '' }) {
   // Proportional sizing keyed off the icon height so the icon, wordmark, and
   // slogan always stay in balance regardless of where the lockup is used.
-  const wordHeight = Math.round(size * 0.34);
-  const sloganHeight = Math.max(9, Math.round(size * 0.11));
+  const wordWidth = Math.round(size * 4.5);
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
       <LogoMark style={{ height: size, width: 'auto' }} className={markClassName} />
       <div className="flex flex-col items-start gap-1.5">
-        <LogoWordmark style={{ height: wordHeight, width: 'auto' }} className={wordClassName} />
-        <LogoSlogan style={{ height: sloganHeight, width: 'auto' }} className={`opacity-80 ${sloganClassName}`} />
+        <LogoWordmark style={{ width: wordWidth, height: 'auto' }} className={wordClassName} />
+        <LogoSlogan style={{ width: wordWidth, height: 'auto' }} className={`opacity-80 ${sloganClassName}`} />
       </div>
     </div>
   );

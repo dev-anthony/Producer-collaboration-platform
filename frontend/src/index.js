@@ -82,9 +82,12 @@ function scheduleAutoPush(watcherKey, pid, target, filePath) {
   const pushDelay = autoPushDelays.get(target?.id) ?? DEFAULT_PUSH_DELAY;
   if (pushDelay === null) {
     console.log(`[AUTO-PUSH] Manual mode; no timer for ${watcherKey}`);
+    if (target && !target.isDestroyed()) target.send('auto-push-scheduled', { projectId: pid, dueAt: null, delay: null });
     return;
   }
+  const dueAt = Date.now() + pushDelay;
   console.log(`[AUTO-PUSH] Scheduled ${watcherKey} in ${Math.round(pushDelay / 60000)} minute(s)`);
+  if (target && !target.isDestroyed()) target.send('auto-push-scheduled', { projectId: pid, dueAt, delay: pushDelay });
   const timer = setTimeout(() => {
     pushTimers.delete(watcherKey);
     pendingPushPaths.delete(watcherKey);
@@ -439,6 +442,19 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     })
     .on('ready', () => {
       console.log(`[WATCHER] Ready ${watcherKey} → ${folderPath}`);
+      // ignoreInitial prevents a startup scan from flooding the renderer, but
+      // Git still knows about changes made before the app restarted. Schedule
+      // those changes so the selected backup delay applies immediately.
+      simpleGit(folderPath).status().then((status) => {
+        const existingChanges = (status.files || [])
+          .map(({ path: changedPath }) => changedPath)
+          .filter(Boolean);
+        if (existingChanges.length > 0) {
+          const pending = new Set(existingChanges.map((changedPath) => path.join(folderPath, changedPath)));
+          pendingPushPaths.set(watcherKey, pending);
+          scheduleAutoPush(watcherKey, pid, target, [...pending][0]);
+        }
+      }).catch((error) => console.warn(`[AUTO-PUSH] Could not inspect existing changes for ${watcherKey}:`, error.message));
     });
 
   watchers.set(watcherKey, watcher);
@@ -1886,7 +1902,17 @@ ipcMain.handle('push-now', async (event, { projectId }) => {
 });
 
 ipcMain.handle('set-auto-push-delay', async (event, { delay }) => {
-  autoPushDelays.set(event.sender.id, delay === 'manual' ? null : Number(delay) * 60 * 1000);
+  const pushDelay = delay === 'manual' ? null : Number(delay) * 60 * 1000;
+  autoPushDelays.set(event.sender.id, pushDelay);
+  const scope = getSessionScope(event);
+  for (const [watcherKey, details] of watcherDetails) {
+    if (details.target !== event.sender || !watcherKey.startsWith(`${scope}::`)) continue;
+    const pending = pendingPushPaths.get(watcherKey);
+    if (!pending || pending.size === 0) continue;
+    if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
+    pushTimers.delete(watcherKey);
+    scheduleAutoPush(watcherKey, details.projectId, details.target, [...pending][0]);
+  }
   return { success: true };
 });
 

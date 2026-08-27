@@ -224,6 +224,53 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!window.electronAPI?.onAutoPushScheduled) return undefined;
+    return window.electronAPI.onAutoPushScheduled(({ projectId, dueAt, delay }) => {
+      const key = `prodcollab_push_due_${projectId}`;
+      if (dueAt) window.localStorage.setItem(key, JSON.stringify({ dueAt, delay }));
+      else window.localStorage.removeItem(key);
+      window.dispatchEvent(new CustomEvent('prodcollab:auto-push-scheduled', { detail: { projectId, dueAt, delay } }));
+    });
+  }, []);
+
+  // Enabling automatic pull applies to changes that already exist remotely;
+  // it does not wait for another WebSocket update to arrive.
+  useEffect(() => {
+    const pullExistingProjects = async () => {
+      try {
+        const responses = await Promise.all([
+          fetch('http://localhost:5000/api/projects', { credentials: 'include' }),
+          fetch('http://localhost:5000/api/projects/collaborated', { credentials: 'include' })
+        ]);
+        const payloads = await Promise.all(responses.map((response) => response.ok ? response.json() : { projects: [] }));
+        const projects = [...(payloads[0].projects || []), ...(payloads[1].projects || [])];
+        for (const project of projects) {
+          const remoteKey = `prodcollab_remote_ahead_${project.id}`;
+          const folderPath = await window.electronAPI?.getFolderPath?.(project.id);
+          if (!folderPath) continue;
+          const checkResponse = await fetch(`http://localhost:5000/api/projects/${project.id}/check-remote-changes`, { credentials: 'include' });
+          const remoteStatus = checkResponse.ok ? await checkResponse.json() : null;
+          if (!remoteStatus?.hasChanges && !window.localStorage.getItem(remoteKey)) continue;
+          const infoResponse = await fetch(`http://localhost:5000/api/projects/${project.id}/pull-info`, { credentials: 'include' });
+          if (!infoResponse.ok) continue;
+          const info = await infoResponse.json();
+          const result = await window.electronAPI?.gitPull?.({ folderPath, repoUrl: info.repoUrl, token: info.token });
+          if (!result?.success) continue;
+          window.localStorage.removeItem(remoteKey);
+          window.dispatchEvent(new CustomEvent('prodcollab:remote-synced', { detail: { id: project.id } }));
+          window.dispatchEvent(new CustomEvent('prodcollab:local-synced', { detail: { id: project.id } }));
+        }
+        window.dispatchEvent(new CustomEvent('prodcollab:remote-project-refresh'));
+      } catch (error) {
+        console.error('[SYNC] Existing automatic pull failed:', error);
+      }
+    };
+    const handleEnabled = () => { pullExistingProjects(); };
+    window.addEventListener('prodcollab:auto-pull-enabled', handleEnabled);
+    return () => window.removeEventListener('prodcollab:auto-pull-enabled', handleEnabled);
+  }, []);
+
+  useEffect(() => {
     checkAuth();
   }, []);
 

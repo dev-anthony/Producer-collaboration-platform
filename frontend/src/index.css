@@ -65,6 +65,50 @@
    CUSTOM UTILITIES
    ============================================ */
 @layer utilities {
+  /* Global WebKit Scrollbar Reset for Electron */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.6);
+  }
+
+  /* Main Application Viewport Scrollbar */
+  .app-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.4) transparent;
+  }
+
+  .app-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.4);
+    border-radius: 9999px;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.75);
+  }
+
+  /* History Sidebar Scrollbar */
   .history-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--primary) / 0.45) transparent;
@@ -87,6 +131,7 @@
     background: hsl(var(--primary) / 0.75);
   }
 
+  /* Modal Scrollbar */
   .modal-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--primary) / 0.4) transparent;
@@ -102,10 +147,11 @@
 
   .modal-scrollbar::-webkit-scrollbar-thumb {
     background: hsl(var(--primary) / 0.4);
+    border-radius: 999px;
   }
 
   /* Glassmorphism effect */
-.glass {
+  .glass {
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
   }
@@ -123,6 +169,7 @@
   .glow-secondary {
      box-shadow: none;
   }
+
   .glow-warning {
      box-shadow: none;
   }
@@ -130,16 +177,10 @@
   .glow-success {
      box-shadow: none;
   }
-  /* Grid pattern background */
-  /* .bg-grid-pattern {
-    background-image: 
-      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
-  } */
-    .bg-grid-pattern {
+
+  .bg-grid-pattern {
      background-image: none;
   }
-
 
   /* Pulse glow animation */
   .pulse-glow {
@@ -193,7 +234,6 @@
 .animate-slide-in-left {
   animation: slide-in-left 0.5s ease-out forwards;
 }
-/* Add to your animations section in index.css */
 
 @keyframes slide-in-right {
   from {

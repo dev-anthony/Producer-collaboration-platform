@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 
 function ResponsiveShell({ children, onLogout, user }) {
@@ -23,7 +23,7 @@ function ResponsiveShell({ children, onLogout, user }) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Pinned Sidebar Container */}
+      {/* Pinned Fixed Sidebar */}
       <Sidebar
         onLogout={onLogout}
         user={user}
@@ -45,7 +45,7 @@ function ResponsiveShell({ children, onLogout, user }) {
 
       {/* Main Container locked to screen height */}
       <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
-        {/* Mobile Header (Non-scrolling top bar) */}
+        {/* Mobile Header Bar */}
         <div className="flex h-14 shrink-0 items-center border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
           <button
             type="button"
@@ -59,8 +59,8 @@ function ResponsiveShell({ children, onLogout, user }) {
           <span className="ml-3 text-sm font-semibold text-foreground">ProdCollab</span>
         </div>
 
-        {/* Dedicated Scrollable Viewport for Dashboard/Pages */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Dedicated Scrollable Viewport with Custom Scrollbar */}
+        <div className="flex-1 overflow-y-auto app-scrollbar">
           {children}
         </div>
       </main>

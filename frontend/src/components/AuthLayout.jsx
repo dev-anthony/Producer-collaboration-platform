@@ -10,33 +10,29 @@ const DEFAULT_DESCRIPTIONS = [
 
 function AuthLayout({ title = "WELCOME BACK", descriptions = DEFAULT_DESCRIPTIONS, children }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [animState, setAnimState] = useState('active'); // 'active' | 'exiting' | 'entering'
+  const [animState, setAnimState] = useState('active');
 
   useEffect(() => {
     if (!descriptions || descriptions.length <= 1) return;
 
     const interval = setInterval(() => {
-      // Step 1: Slide OUT description to the left
       setAnimState('exiting');
 
       setTimeout(() => {
-        // Step 2: Swap description index & snap to the right (off-screen)
         setCurrentIndex((prev) => (prev + 1) % descriptions.length);
         setAnimState('entering');
 
-        // Step 3: Slide IN description from right to center
         setTimeout(() => {
           setAnimState('active');
         }, 40);
-      }, 500); // 500ms exit transition
-    }, 4500); // 4.5s timing for smooth readability
+      }, 500);
+    }, 4500);
 
     return () => clearInterval(interval);
   }, [descriptions]);
 
   const currentDescription = descriptions[currentIndex] || DEFAULT_DESCRIPTIONS[0];
 
-  // Directional slide classes applied strictly to the description text
   const getAnimClass = () => {
     switch (animState) {
       case 'exiting':
@@ -50,27 +46,23 @@ function AuthLayout({ title = "WELCOME BACK", descriptions = DEFAULT_DESCRIPTION
   };
 
   return (
-    <div className="grid min-h-screen bg-background lg:grid-cols-2">
-      {/* Left Section - Branding & Dynamic Producer Copy Carousel */}
+    <div className="grid min-h-screen bg-background lg:grid-cols-2 overflow-hidden">
+      {/* Left Branding Section */}
       <section className="relative hidden min-h-screen flex-col justify-between border-r border-border bg-muted/10 p-8 xl:p-14 lg:flex overflow-hidden">
-        {/* Top Left Logo */}
         <div className="z-20">
           <LogoLockup size={32} className="text-foreground" />
         </div>
 
-        {/* Center Content Area */}
         <div className="relative z-10 flex flex-col items-center text-center my-auto px-4 max-w-lg mx-auto w-full">
           <LogoMark 
             className="h-20 text-foreground opacity-95 transition-transform duration-700 hover:scale-105 mb-2" 
           />
           <LogoSlogan className="h-8 w-1/2 mb-8" />
 
-          {/* Static Title Header */}
           <h1 className="text-3xl font-bold tracking-tight text-foreground xl:text-4xl">
             {title}
           </h1>
 
-          {/* Dynamic Subtitle Carousel */}
           <div className="mt-4 min-h-[90px] w-full flex flex-col items-center justify-start overflow-hidden">
             <p className={`text-sm leading-relaxed text-muted-foreground xl:text-base max-w-md transform ${getAnimClass()}`}>
               {currentDescription}
@@ -78,20 +70,18 @@ function AuthLayout({ title = "WELCOME BACK", descriptions = DEFAULT_DESCRIPTION
           </div>
         </div>
 
-        {/* Bottom Left Copyright */}
         <div className="z-20 text-[10px] tracking-wider text-muted-foreground uppercase">
           © ProdCollab 2026. All rights reserved.
         </div>
       </section>
 
-      {/* Right Section - Form Container */}
-      <section className="relative flex min-h-screen flex-col justify-center px-6 py-10 sm:px-12 lg:px-20">
-        {/* Mobile Header Logo */}
+      {/* Right Form Section with Custom Scrollbar */}
+      <section className="relative flex max-h-screen flex-col justify-center overflow-y-auto app-scrollbar px-6 py-10 sm:px-12 lg:px-20">
         <div className="absolute left-6 top-6 lg:hidden">
           <LogoLockup size={32} className="text-foreground" />
         </div>
 
-        <div className="mx-auto w-full max-w-sm">
+        <div className="mx-auto w-full max-w-sm my-auto">
           {children}
         </div>
       </section>

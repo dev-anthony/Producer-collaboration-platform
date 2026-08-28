@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Menu } from 'lucide-react';
+import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { LogoMark } from './Logo';
 import Sidebar from './Sidebar';
 
 function ResponsiveShell({ children, onLogout, user }) {
@@ -23,7 +24,7 @@ function ResponsiveShell({ children, onLogout, user }) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Pinned Fixed Sidebar */}
+      {/* Fixed Sidebar for Desktop / Drawer for Mobile */}
       <Sidebar
         onLogout={onLogout}
         user={user}
@@ -34,6 +35,7 @@ function ResponsiveShell({ children, onLogout, user }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
       
+      {/* Mobile Drawer Overlay Backdrop */}
       {mobileOpen && (
         <button
           type="button"
@@ -43,23 +45,33 @@ function ResponsiveShell({ children, onLogout, user }) {
         />
       )}
 
-      {/* Main Container locked to screen height */}
+      {/* Main Container */}
       <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
         {/* Mobile Header Bar */}
-        <div className="flex h-14 shrink-0 items-center border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center">
+              <LogoMark className="h-6 w-6 text-foreground" />
+            </div>
+            <span className="text-base font-semibold tracking-tight text-foreground">ProdCollab</span>
+          </div>
+
           <button
             type="button"
-            aria-label="Open navigation"
+            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen(true)}
-            className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Menu className="h-5 w-5" />
+            {mobileOpen ? (
+              <PanelLeftClose className="h-5 w-5" />
+            ) : (
+              <PanelLeftOpen className="h-5 w-5" />
+            )}
           </button>
-          <span className="ml-3 text-sm font-semibold text-foreground">ProdCollab</span>
         </div>
 
-        {/* Dedicated Scrollable Viewport with Custom Scrollbar */}
+        {/* Scrollable Main Viewport */}
         <div className="flex-1 overflow-y-auto app-scrollbar">
           {children}
         </div>

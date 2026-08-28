@@ -20,7 +20,7 @@ const Sidebar = ({ onLogout, user, collapsed = false, mobileOpen = false, onNavi
       {/* Logo */}
       <div className={`flex items-center p-4 ${collapsed ? 'lg:justify-center' : 'justify-between'}`}>
         <Link to="/dashboard" title="ProdCollab" onClick={onNavigate} className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-black transition-colors hover:border-primary/40">
+          <div className="flex h-10 w-10 items-center justify-center transition-colors">
             <LogoMark className="h-6 w-6 text-foreground" />
           </div>
           {!collapsed && <span className="truncate text-base font-semibold tracking-tight text-foreground">ProdCollab</span>}

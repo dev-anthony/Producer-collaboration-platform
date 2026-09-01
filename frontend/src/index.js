@@ -6,7 +6,8 @@ const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
-const { spawn } = require('child_process');
+// const { spawn } = require('child_process');
+const { fork } = require('child_process');
 const http = require('http');
 const simpleGit = require('simple-git');
 const crypto = require('crypto');
@@ -179,16 +180,7 @@ function createWindow(sessionName = 'default', bounds = {}) {
   win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
       const isGitHub = details.url.includes('github.com') ||
                    details.url.includes('githubusercontent.com');
-    // callback({
-    //   responseHeaders: {
-    //     ...details.responseHeaders,
-    //     'Content-Security-Policy': [
-    //       process.env.NODE_ENV === 'development'
-    //         ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:9000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-    //         : "default-src 'self'; script-src 'self'; connect-src 'self' http://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-    //     ]
-    //   }
-    // });
+
   callback({
     responseHeaders: {
       ...details.responseHeaders,
@@ -203,69 +195,8 @@ function createWindow(sessionName = 'default', bounds = {}) {
   });
   });
 
-  // ============================================================================
-  // OAUTH HANDLING — Phase 4.16: removed (GitHub OAuth replaced by email/password)
-  // The will-navigate / did-navigate OAuth interceptors are no longer needed.
-  // ============================================================================
+  
 
-  // win.webContents.on('will-navigate', (event, url) => {
-  //   console.log('[OAUTH] will-navigate →', url);
-  //
-  //   if (url.startsWith('prodcollab://')) {
-  //     event.preventDefault();
-  //     try {
-  //       const urlObj = new URL(url);
-  //       const code = urlObj.searchParams.get('code');
-  //       if (code) {
-  //         console.log('[OAUTH] Code captured (production):', code);
-  //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
-  //         win.loadURL(targetUrl);
-  //       } else {
-  //         win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  //       }
-  //     } catch (err) {
-  //       console.error('[OAUTH] URL parsing error:', err);
-  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  //     }
-  //     return;
-  //   }
-  //
-  //   // Handle localhost OAuth callback (development)
-  //   if (url.includes('localhost') && url.includes('?code=')) {
-  //     event.preventDefault();
-  //     try {
-  //       const urlObj = new URL(url);
-  //       const code = urlObj.searchParams.get('code');
-  //       if (code) {
-  //         const targetUrl = `${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`;
-  //         win.loadURL(targetUrl);
-  //       } else {
-  //         win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  //       }
-  //     } catch (err) {
-  //       console.error('[OAUTH] URL parsing error:', err);
-  //       win.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  //     }
-  //   }
-  // });
-
-  // Backup: Handle navigation after it happens (safety net) — OAuth only, removed.
-  // win.webContents.on('did-navigate', (event, url) => {
-  //   console.log('[OAUTH] did-navigate →', url);
-  //   if (url.includes('?code=') && url.includes('localhost') && !url.includes(MAIN_WINDOW_WEBPACK_ENTRY)) {
-  //     try {
-  //       const urlObj = new URL(url);
-  //       const code = urlObj.searchParams.get('code');
-  //       if (code) {
-  //         win.loadURL(`${MAIN_WINDOW_WEBPACK_ENTRY}?code=${code}`);
-  //       }
-  //     } catch (err) {
-  //       console.error('[OAUTH] Navigation handling error:', err);
-  //     }
-  //   }
-  // });
-
-  // Handle failed loads (404 recovery) — OAuth recovery branch removed (Phase 4.16)
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
   });
@@ -331,61 +262,7 @@ function createWindow(sessionName = 'default', bounds = {}) {
   return win;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// File Watching System
-// ──────────────────────────────────────────────────────────────────────────────
-// function startWatching(projectId, folderPath) {
-//   const pid = String(projectId);
-
-//   // Stop existing watcher if any
-//   if (watchers.has(pid)) {
-//     watchers.get(pid).close();
-//     watchers.delete(pid);
-//     console.log(`[WATCHER] Stopped existing watcher for ${pid}`);
-//   }
-
-//   const watcher = chokidar.watch(folderPath, {
-//    ignored: [
-//     /(^|[\/\\])\../,                    // keep ignoring dotfiles at root
-//     /(^|[\/\\])\.git($|[\/\\])/,       // ← NEW: ignore everything inside .git folder
-//     /(^|[\/\\])\.git$/                 // ← also ignore the .git folder itself
-//   ],
-//     ignoreInitial: true, // Don't trigger for existing files
-//     persistent: true,
-//     awaitWriteFinish: {
-//       stabilityThreshold: 2000, // Wait 2s after last change
-//     },
-//     depth: 99, // Watch all subdirectories
-//   });
-
-//   watcher
-//     .on('add', (filePath) => {
-//       console.log(`[WATCHER] File added: ${filePath}`);
-//       notifyAll('file-changed', { projectId: pid, event: 'add', path: filePath });
-//     })
-//     .on('change', (filePath) => {
-//       console.log(`[WATCHER] File changed: ${filePath}`);
-//       notifyAll('file-changed', { projectId: pid, event: 'change', path: filePath });
-//     })
-//     .on('unlink', (filePath) => {
-//       console.log(`[WATCHER] File deleted: ${filePath}`);
-//       notifyAll('file-changed', { projectId: pid, event: 'unlink', path: filePath });
-//     })
-//     .on('addDir', (dirPath) => {
-//       console.log(`[WATCHER] Folder added: ${dirPath}`);
-//       notifyAll('file-changed', { projectId: pid, event: 'addDir', path: dirPath });
-//     })
-//     .on('unlinkDir', (dirPath) => {
-//       console.log(`[WATCHER] Folder deleted: ${dirPath}`);
-//       notifyAll('file-changed', { projectId: pid, event: 'unlinkDir', path: dirPath });
-//     })
-//     .on('error', (error) => {
-//       console.error(`[WATCHER] Error for ${pid}:`, error);
-//     });
-
-//   watchers.set(pid, watcher);
-//   console.log(`[WATCHER] Started watching ${pid} → ${folderPath}`);
-// }
+ 
 function startWatching(projectId, folderPath, scope = 'default', target = null) {
   const pid = String(projectId);
   const watcherKey = getProjectKey(scope, pid);
@@ -566,7 +443,8 @@ function focusMainWindow() {
     win.show();
     win.focus();
   } else {
-    createWindow(app.isPackaged ? 'default' : 'ACCOUNT A');
+    // createWindow(app.isPackaged ? 'default' : 'ACCOUNT A');
+        createWindow();
   }
 }
 
@@ -596,11 +474,13 @@ function refreshTray() {
       ? projectItems
       : [{ label: 'No watched projects', enabled: false }]),
     { type: 'separator' },
+    // { label: 'Open ProdCollab', click: () => focusMainWindow() },
+    // ...(!app.isPackaged ? [
+    //   { label: 'Open DEV Account A', click: () => openDevTestWindow('ACCOUNT A', 0) },
+    //   { label: 'Open DEV Account B', click: () => openDevTestWindow('ACCOUNT B', 1) },
+    // ] : []),
+    // { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
     { label: 'Open ProdCollab', click: () => focusMainWindow() },
-    ...(!app.isPackaged ? [
-      { label: 'Open DEV Account A', click: () => openDevTestWindow('ACCOUNT A', 0) },
-      { label: 'Open DEV Account B', click: () => openDevTestWindow('ACCOUNT B', 1) },
-    ] : []),
     { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
   ];
 
@@ -977,37 +857,7 @@ ipcMain.handle('read-project-files', async (event, { projectId, fileStructure })
   console.log(`[READ] Using path: ${folderPath}`);
   return await readFolderFiles(folderPath);
 });
-
-// Write files
-// ipcMain.handle('write-files', async (_, { folderPath, files }) => {
-//   let successCount = 0;
-//   let failCount = 0;
-//   let lastError = null;
-
-//   for (const file of files) {
-//     try {
-//       const content = Buffer.from(file.content, 'base64');
-//       const fullPath = path.join(folderPath, file.path);
-//       await fs.mkdir(path.dirname(fullPath), { recursive: true });
-//       await fs.writeFile(fullPath, content);
-//       successCount++;
-//     } catch (err) {
-//       failCount++;
-//       lastError = err.message;
-//       console.error(`[WRITE] Failed to write ${file.path}:`, err);
-//     }
-//   }
-
-//   return { 
-//     success: failCount === 0, 
-//     successCount, 
-//     failCount, 
-//     error: lastError 
-//   };
-// });
-// In main.js
-// UPDATED write-files handler in main.js
-// UPDATED write-files handler in main.js
+    
 ipcMain.handle('write-files', async (event, payload) => {
   console.log('[WRITE] Raw payload received:', JSON.stringify(payload, null, 2).substring(0, 500));
   console.log('[WRITE] Payload type:', typeof payload);
@@ -1249,12 +1099,7 @@ ipcMain.handle('clear-oauth-session', async (event) => {
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Git (simple-git) — Phase 5 file transfer mechanism
-// Uses the ProdCollab GitHub account token (currently dev-anthony's token).
-// The token is embedded into the remote URL so git can authenticate against
-// GitHub without a global credential helper.
-// ──────────────────────────────────────────────────────────────────────────────
+
 
 // Build an authenticated https remote URL: https://<token>@github.com/owner/repo.git
 const buildAuthedRemoteUrl = (repoUrl, token) => {
@@ -1975,9 +1820,15 @@ app.whenReady().then(async () => {
   if (backendRunning) {
     console.log('[SERVER] Reusing development backend at http://localhost:5000');
   } else {
-    serverProcess = spawn('node', [serverPath], {
+    // serverProcess = spawn('node', [serverPath], {
+    //   cwd: path.dirname(serverPath),
+    //   env: { ...process.env }
+    // });
+        serverProcess = fork(serverPath, [], {
       cwd: path.dirname(serverPath),
-      env: { ...process.env }
+      execPath: process.execPath,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: app.isPackaged ? 'production' : (process.env.NODE_ENV || 'development') },
+      silent: true,
     });
     serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
     serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
@@ -1986,23 +1837,27 @@ app.whenReady().then(async () => {
     }
   }
   
-  if (app.isPackaged) {
+  // if (app.isPackaged) {
+  //   createWindow();
+  // } else {
+  //   openDevTestWindow('ACCOUNT A', 0);
+  //   openDevTestWindow('ACCOUNT B', 1);
+  // }
     createWindow();
-  } else {
-    openDevTestWindow('ACCOUNT A', 0);
-    openDevTestWindow('ACCOUNT B', 1);
-  }
 
   // Phase 6.11: build the system tray (per-project "Push now")
   buildTray();
 
   // Watchers are restored only after an authenticated renderer supplies its current projects.
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      if (app.isPackaged) createWindow();
-      else openDevTestWindow('ACCOUNT A', 0);
-    }
+  // app.on('activate', () => {
+  //   if (BrowserWindow.getAllWindows().length === 0) {
+  //     if (app.isPackaged) createWindow();
+  //     else openDevTestWindow('ACCOUNT A', 0);
+  //   }
+  // });
+    app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 

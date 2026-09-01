@@ -15,13 +15,26 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser()) 
 
+// app.use(cors({
+//   origin: [
+//     'http://localhost:3000',
+//     'http://localhost:9000',
+//     'http://127.0.0.1:3000',
+//     'http://127.0.0.1:9000'
+//   ],
+//   credentials: true
+// }));
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:9000',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:9000'
-  ],
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:3000',
+      'http://localhost:9000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:9000'
+    ];
+    if (!origin || origin === 'null' || allowed.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
@@ -104,9 +117,15 @@ server.on('upgrade', async (request, socket, head) => {
     // In development the Electron renderer is served from the webpack dev
     // server (its port can vary, e.g. 9000/9001), so accept any localhost
     // origin. Production locks this down to the real app origin.
-    const origin = request.headers.origin || '';
+    // const origin = request.headers.origin || '';
+    // const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    // if (process.env.NODE_ENV !== 'production' && origin && !isLocalOrigin) {
+    //   throw new Error('Origin not allowed');
+    // }
+        const origin = request.headers.origin || '';
     const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    if (process.env.NODE_ENV !== 'production' && origin && !isLocalOrigin) {
+    const isPackagedRendererOrigin = !origin || origin === 'null' || origin === 'file://';
+    if (!isLocalOrigin && !isPackagedRendererOrigin) {
       throw new Error('Origin not allowed');
     }
     const cookies = parseCookies(request.headers.cookie);

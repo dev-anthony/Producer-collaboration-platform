@@ -26,7 +26,7 @@ const isBackendRunning = () => new Promise((resolve) => {
   request.on('error', () => resolve(false));
 });
 
-const waitForBackend = async (timeoutMs = 15000) => {
+const waitForBackend = async (timeoutMs = 45000) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await isBackendRunning()) return true;
@@ -118,7 +118,7 @@ function removePendingPushPath(watcherKey, deletedPath) {
 
 const getSessionScope = (event) => {
   const owner = windows.find((win) => !win.isDestroyed() && win.webContents.id === event.sender.id);
-  if (!owner?.devSessionName) return 'default';
+  if (!owner?.devSessionName || owner.devSessionName === 'default') return 'default';
   return `persist:prodcollab-dev-${owner.devSessionName.toLowerCase().replace(/\s+/g, '-')}`;
 };
 const getProjectKey = (scope, projectId) => (
@@ -153,6 +153,11 @@ if (!gotTheLock) {
 
   });
 }
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  forwardAuthUrl(url);
+});
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Window Creation
@@ -606,16 +611,10 @@ async function scanFolderRecursive(dirPath, basePath = dirPath) {
             relativePath: rel,
             lastModified: stats.mtimeMs
           });
-      }
+         }
     }
   }
-  store.set('watchedFolders', watched);
 }
-
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  forwardAuthUrl(url);
-});
 
   await scan(dirPath);
   return { files, folders: Array.from(folders) };
@@ -1832,8 +1831,10 @@ app.whenReady().then(async () => {
     });
     serverProcess.stdout.on('data', d => console.log('[SERVER]', d.toString()));
     serverProcess.stderr.on('data', d => console.error('[SERVER ERROR]', d.toString()));
+        serverProcess.on('error', (err) => console.error('[SERVER] Failed to start:', err));
+    serverProcess.on('exit', (code, signal) => console.log(`[SERVER] Process exited (code ${code}, signal ${signal})`));
     if (!(await waitForBackend())) {
-      console.error('[SERVER] Backend did not become ready within 15 seconds');
+      console.error('[SERVER] Backend did not become ready within 45 seconds'); 
     }
   }
   

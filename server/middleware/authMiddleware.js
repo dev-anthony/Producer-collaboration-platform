@@ -3,6 +3,12 @@
 const supabase = require('../config/supabase');
 const { createAuthClient } = require('../config/supabase');
 
+// const cookieOpts = (maxAge) => ({
+//   httpOnly: true,
+//   secure: process.env.NODE_ENV === 'production',
+//   sameSite: 'strict',
+//   maxAge,
+// });
 const cookieOpts = (maxAge) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',

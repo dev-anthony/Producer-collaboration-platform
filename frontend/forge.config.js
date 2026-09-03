@@ -29,13 +29,13 @@ module.exports = {
   },
 
   makers: [
-    {
+       {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'ProdCollab',
         setupExe: 'ProdCollabSetup.exe',
         setupIcon: './assets/icon.ico',
-        
+        loadingGif: './assets/install-loading.gif',
         skipUpdateIcon: true,
         noMsi: true,
         

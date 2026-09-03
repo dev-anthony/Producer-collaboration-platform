@@ -71,9 +71,10 @@ function App() {
     const connect = () => {
       if (disposed) return;
       const realtimeProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const realtimeHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'localhost:5000'
-        : window.location.host;
+      // const realtimeHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      //   ? 'localhost:5000'
+      //   : window.location.host;
+            const realtimeHost = 'localhost:5000';
       socket = new WebSocket(`${realtimeProtocol}//${realtimeHost}/realtime`);
       socket.onopen = () => {
         reconnectDelay = 1000;

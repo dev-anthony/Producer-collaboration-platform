@@ -192,9 +192,13 @@ function createWindow(sessionName = 'default', bounds = {}) {
       'Content-Security-Policy': isGitHub ? [
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
       ] : [
-        process.env.NODE_ENV === 'development'
-          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-          : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+      //   process.env.NODE_ENV === 'development'
+      //     ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+      //     : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+      // ]
+       process.env.NODE_ENV === 'development'
+          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+          : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
       ]
     }
   });

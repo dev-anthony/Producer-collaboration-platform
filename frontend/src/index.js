@@ -4,15 +4,14 @@ const path = require('path');
 const fs = require('fs').promises;
 const chokidar = require('chokidar');
 const Store = require('electron-store').default;
-// const { spawn } = require('child_process');
+
 const { fork } = require('child_process');
 const http = require('http');
 const simpleGit = require('simple-git');
 const crypto = require('crypto');
 let serverProcess = null; 
 
-// Fix packaged startup crash: `app` must be imported before Squirrel startup
-// can call `app.quit()` during installation/uninstallation events.
+
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
@@ -148,7 +147,7 @@ if (!gotTheLock) {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     commandLine.find((arg) => arg.startsWith('prodcollab://')) &&
       forwardAuthUrl(commandLine.find((arg) => arg.startsWith('prodcollab://')));
-    // Someone tried to run a second instance, focus our window instead
+  
     if (windows.length > 0) {
       const win = windows[0];
       if (win.isMinimized()) win.restore();
@@ -241,11 +240,8 @@ function createWindow(sessionName = 'default', bounds = {}) {
   }
   win.devSessionName = sessionName;
 
-  // Phase 6.11 — on window close, ask the user: keep running in the background
-  // (so auto-push keeps working) or quit entirely. Only quit fully when the user
-  // explicitly chooses to, either here or via the tray "Quit" item.
   win.on('close', (e) => {
-    if (app.isQuitting) return; // explicit quit already in progress → allow close
+    if (app.isQuitting) return; 
 
     e.preventDefault();
     const choice = dialog.showMessageBoxSync(win, {
@@ -262,7 +258,7 @@ function createWindow(sessionName = 'default', bounds = {}) {
       app.isQuitting = true;
       app.quit();
     } else {
-      win.hide(); // keep process alive in the tray
+      win.hide(); 
     }
   });
 
@@ -294,7 +290,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     return;
   }
 
-  // Stop an existing watcher only when its folder or renderer target changed.
+
   if (watchers.has(watcherKey)) {
     watchers.get(watcherKey).close();
     watchers.delete(watcherKey);
@@ -303,12 +299,12 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
 
   const watcher = chokidar.watch(folderPath, {
   ignored: [
-    /(^|[\/\\])\../,                          // dotfiles at root
-    /(^|[\/\\])\.git($|[\/\\])/,              // entire .git folder
-    /(^|[\/\\])\.gitignore$/,                 // ← add: .gitignore file
-    /(^|[\/\\])COMMIT_EDITMSG$/,              // ← git temp commit message
-    /(^|[\/\\])index.lock$/,                  // ← git lock file during operations
-    /\.(tmp|temp|bak|~)$/                     // ← common temp/backup files
+    /(^|[\/\\])\../,                          
+    /(^|[\/\\])\.git($|[\/\\])/,              
+    /(^|[\/\\])\.gitignore$/,                 
+    /(^|[\/\\])COMMIT_EDITMSG$/,              
+    /(^|[\/\\])index.lock$/,                  
+    /\.(tmp|temp|bak|~)$/                     
   ],
     ignoreInitial: true,
     persistent: true,
@@ -321,13 +317,13 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
       if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
       console.log(`[WATCHER] File added: ${filePath}`);
       notifyTarget('file-changed', { projectId: pid, event: 'add', path: filePath });
-      scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
+      scheduleAutoPush(watcherKey, pid, target, filePath); 
     })
     .on('change', (filePath) => {
       if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
       console.log(`[WATCHER] File changed: ${filePath}`);
       notifyTarget('file-changed', { projectId: pid, event: 'change', path: filePath });
-      scheduleAutoPush(watcherKey, pid, target, filePath); // Phase 6.1
+      scheduleAutoPush(watcherKey, pid, target, filePath); 
     })
     .on('unlink', (filePath) => {
       if (isSyncSuppressed(folderPath) || isProtectedConflict(folderPath, filePath)) return;
@@ -338,7 +334,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     .on('addDir', (dirPath) => {
       if (isSyncSuppressed(folderPath)) return;
       console.log(`[WATCHER] Folder added: ${dirPath}`);
-      // Git does not track empty directories. Added files inside it emit `add`.
+      
     })
     .on('unlinkDir', (dirPath) => {
       if (isSyncSuppressed(folderPath)) return;
@@ -351,9 +347,6 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     })
     .on('ready', () => {
       console.log(`[WATCHER] Ready ${watcherKey} → ${folderPath}`);
-      // ignoreInitial prevents a startup scan from flooding the renderer, but
-      // Git still knows about changes made before the app restarted. Schedule
-      // those changes so the selected backup delay applies immediately.
       simpleGit(folderPath).status().then((status) => {
         const existingChanges = (status.files || [])
           .map(({ path: changedPath }) => changedPath)
@@ -369,7 +362,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
   watchers.set(watcherKey, watcher);
   watcherDetails.set(watcherKey, { projectId: pid, folderPath, scope, target });
   console.log(`[WATCHER] Started watching ${watcherKey} → ${folderPath}`);
-  refreshTray(); // Phase 6.11: keep tray "Push now" list in sync
+  refreshTray(); 
 }
 
   function stopWatching(projectId, scope = 'default') {
@@ -381,7 +374,7 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
       watcherDetails.delete(watcherKey);
       console.log(`[WATCHER] Stopped watching ${watcherKey}`);
     }
-    refreshTray(); // Phase 6.11
+    refreshTray(); 
   }
 
 
@@ -429,11 +422,6 @@ function notifyAll(channel, data) {
   });
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Phase 6.2 / 6.11 — shared "push now" trigger + system tray
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Clear any pending debounce timer and signal the renderer to push immediately.
 function triggerPushNow(projectId, scope = null, target = null) {
   const pid = String(projectId);
   const timerKey = scope ? getProjectKey(scope, pid) : pid;
@@ -448,7 +436,6 @@ function triggerPushNow(projectId, scope = null, target = null) {
 
 let tray = null;
 
-// Bring the app window to the front.
 function focusMainWindow() {
   if (windows.length > 0) {
     const win = windows[0];
@@ -461,11 +448,10 @@ function focusMainWindow() {
   }
 }
 
-// 6.11 — Build the tray context menu with a "Push now" entry per watched project.
 function refreshTray() {
   if (!tray) return;
 
-  const watched = store.get('watchedFolders', {}); // { projectId: folderPath }
+  const watched = store.get('watchedFolders', {}); 
   const projectItems = Object.entries(watched).map(([storedKey, folderPath]) => {
     const separator = storedKey.indexOf('::');
     const scope = separator === -1 ? null : storedKey.slice(0, separator);
@@ -503,7 +489,7 @@ function refreshTray() {
 function buildTray() {
   if (tray) return;
   try {
-    // Try to reuse the app icon; fall back to an empty image if missing.
+    
     let icon;
     try {
       icon = nativeImage.createFromPath(path.join(__dirname, '../assets/icon.ico'));
@@ -524,10 +510,7 @@ function buildTray() {
 // File System Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 async function scanFolderRecursive(dirPath, basePath = dirPath) {
-  // const allowed = [
-  //   '.wav', '.mp3', '.mp4', '.flac', '.aiff', '.ogg', '.txt',
-  //   '.m4a', '.mpeg', '.avi', '.mov', '.flv', '.midi', '.mid'
-  // ];
+
   const allowed = [
   // Audio - Lossless & High Quality
   '.wav', '.flac', '.aiff', '.aif', '.aifc', '.w64', '.rf64', '.caf',

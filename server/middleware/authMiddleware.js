@@ -3,16 +3,12 @@
 const supabase = require('../config/supabase');
 const { createAuthClient } = require('../config/supabase');
 
-// const cookieOpts = (maxAge) => ({
-//   httpOnly: true,
-//   secure: process.env.NODE_ENV === 'production',
-//   sameSite: 'strict',
-//   maxAge,
-// });
+// ── Packaged Electron uses http://localhost. Do not mark refreshed cookies
+// Secure unless the API is actually served over HTTPS.
 const cookieOpts = (maxAge) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure: process.env.COOKIE_SECURE === 'true',
+  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
   maxAge,
 });
 

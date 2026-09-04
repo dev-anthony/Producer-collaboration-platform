@@ -2,16 +2,13 @@
 const supabase = require('../config/supabase');
 const { createAuthClient } = require('../config/supabase');
 
-// const cookieOpts = (maxAge) => ({
-//   httpOnly: true,
-//   secure: process.env.NODE_ENV === 'production',
-//   sameSite: 'strict',
-//   maxAge,
-// });
+// ── Packaged Electron uses http://localhost during local operation. A cookie
+// marked Secure there is never sent back, even though NODE_ENV is production.
+// Enable COOKIE_SECURE=true only when the API is served over HTTPS.
 const cookieOpts = (maxAge) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure: process.env.COOKIE_SECURE === 'true',
+  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
   maxAge,
 });
 exports.signup = async (req, res) => {

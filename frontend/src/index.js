@@ -1,6 +1,4 @@
 
-if (require('electron-squirrel-startup')) app.quit();
-
 const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, clipboard, Notification, screen } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
@@ -12,6 +10,12 @@ const http = require('http');
 const simpleGit = require('simple-git');
 const crypto = require('crypto');
 let serverProcess = null; 
+
+// Fix packaged startup crash: `app` must be imported before Squirrel startup
+// can call `app.quit()` during installation/uninstallation events.
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
 
 const isBackendRunning = () => new Promise((resolve) => {
   const request = http.get('http://localhost:5000/health', { timeout: 1500 }, (response) => {

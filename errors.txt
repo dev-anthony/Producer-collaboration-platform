@@ -1,0 +1,782 @@
+Download the React DevTools for a better development experience: https://react.dev/link/react-devtoolsYou might need to use a local HTTP server (instead of file://): https://react.dev/link/react-devtools-faq
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+localhost:5000/api/projects/collaborated:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+localhost:5000/api/projects:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:65 [WATCHER] Could not restore session watchers: Error: Project restore request failed (401/401)
+    at App.jsx:54:15
+    at Generator.<anonymous> (App.jsx:2:1)
+    at Generator.next (App.jsx:2:1)
+    at Oo (App.jsx:2:1)
+    at i (App.jsx:2:1)
+    at App.jsx:2:1
+    at new Promise (<anonymous>)
+    at App.jsx:2:1
+    at App.jsx:64:6
+(anonymous) @ App.jsx:65
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+localhost:5000/api/projects:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+localhost:5000/api/projects/collaborated:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event
+r.onerror @ App.jsx:94
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 1000ms
+(anonymous) @ App.jsx:102
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event
+r.onerror @ App.jsx:94
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 2000ms
+(anonymous) @ App.jsx:102
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event
+r.onerror @ App.jsx:94
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 4000ms
+(anonymous) @ App.jsx:102
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event
+r.onerror @ App.jsx:94
+localhost:5000/api/auth/me:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 8000ms
+(anonymous) @ App.jsx:102
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 16000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:78 WebSocket connection to 'ws://localhost:5000/realtime' failed: 
+s @ App.jsx:78
+App.jsx:94 [REALTIME-WS] Connection interrupted: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+r.onerror @ App.jsx:94
+App.jsx:98  GET http://localhost:5000/api/auth/me 401 (Unauthorized)
+(anonymous) @ App.jsx:98
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+App.jsx:102 [REALTIME-WS] Disconnected; retrying in 30000ms
+(anonymous) @ App.jsx:102
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2
+Oo @ App.jsx:2
+i @ App.jsx:2
+Promise.then
+Oo @ App.jsx:2
+i @ App.jsx:2
+(anonymous) @ App.jsx:2
+(anonymous) @ App.jsx:2

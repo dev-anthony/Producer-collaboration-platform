@@ -1,14 +1,11 @@
-// middleware/authMiddleware.js
-// ── Phase 4.10: read session from httpOnly cookie, validate via Supabase Auth ──
+
 const supabase = require('../config/supabase');
 const { createAuthClient } = require('../config/supabase');
 
-// ── Packaged Electron uses http://localhost. Do not mark refreshed cookies
-// Secure unless the API is actually served over HTTPS.
 const cookieOpts = (maxAge) => ({
   httpOnly: true,
-  secure: process.env.COOKIE_SECURE === 'true',
-  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+  secure: true,
+  sameSite: 'none',
   maxAge,
 });
 

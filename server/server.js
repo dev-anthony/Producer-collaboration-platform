@@ -9,6 +9,7 @@ const supabase = require('./config/supabase');
 
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const authMiddleware = require('./middleware/authMiddleware');
 const app = express();
 const server = http.createServer(app);
 app.use(express.json())
@@ -59,6 +60,9 @@ app.use('/api/auth/signup', authRateLimit);
 app.use('/api/auth/forgot-password', authRateLimit);
 app.use('/api/auth/reset-password', authRateLimit);
 app.use('/api/auth', authRoutes);
+app.get('/api/config/remote-recording', authMiddleware.verifyToken, (req, res) => {
+  res.json({ supabaseUrl: process.env.SUPABASE_URL, supabaseAnonKey: process.env.SUPABASE_ANON_KEY });
+});
 app.use('/api/projects', projectRoutes);
 
 app.get('/health', (req, res) => {

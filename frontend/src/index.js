@@ -9,6 +9,7 @@ const { fork } = require('child_process');
 const http = require('http');
 const simpleGit = require('simple-git');
 const crypto = require('crypto');
+const { registerRecordingHandlers } = require('./remote-recording/ipc/recordingHandlers');
 let serverProcess = null; 
 
 
@@ -1795,6 +1796,7 @@ ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
 // App Lifecycle
 // ──────────────────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  registerRecordingHandlers();
   // Windows requires an explicit AppUserModelID for toast/desktop
   // notifications to appear (especially when unpackaged). Without this,
   // `new Notification().show()` silently no-ops.

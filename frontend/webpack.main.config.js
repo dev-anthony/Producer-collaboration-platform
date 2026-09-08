@@ -7,4 +7,7 @@ module.exports = {
   resolve: {
     extensions: ['.js', '.jsx', '.json'],
   },
+  externals: {
+    naudiodon: 'commonjs naudiodon',
+  },
 };

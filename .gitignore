@@ -53,4 +53,5 @@ Thumbs.db
 .idea/
 *.swp
 migrations/
-logs.txt
+todo.txt
+testPrompt.txt

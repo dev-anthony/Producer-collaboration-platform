@@ -9,8 +9,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\"",
-    "test:remote-recording": "node src/remote-recording/test/testCapture.test.js"
+    "lint": "echo \"No linting configured\""
   },
   "keywords": [],
   "author": {
@@ -53,7 +52,6 @@
     "react-router-dom": "^7.10.1",
     "@supabase/supabase-js": "^2.112.0",
     "simple-git": "^3.36.0",
-    "naudiodon": "^2.3.6",
     "wav": "^1.0.2"
   }
 }

@@ -1831,13 +1831,11 @@ app.whenReady().then(async () => {
     }
   }
   
-  // if (app.isPackaged) {
-  //   createWindow();
-  // } else {
-  //   openDevTestWindow('ACCOUNT A', 0);
-  //   openDevTestWindow('ACCOUNT B', 1);
-  // }
-    createWindow();
+  if (app.isPackaged) createWindow();
+  else {
+    openDevTestWindow('ACCOUNT A', 0);
+    openDevTestWindow('ACCOUNT B', 1);
+  }
 
   // Phase 6.11: build the system tray (per-project "Push now")
   buildTray();

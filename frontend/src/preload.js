@@ -117,16 +117,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Remote recording
-  rrListInputDevices: () => ipcRenderer.invoke('rr-list-input-devices'),
-  rrListOutputDevices: () => ipcRenderer.invoke('rr-list-output-devices'),
-  rrSetDevice: (deviceId) => ipcRenderer.invoke('rr-set-device', deviceId),
-  rrStartRecording: (options) => ipcRenderer.invoke('rr-start-recording', options),
-  rrStopRecording: () => ipcRenderer.invoke('rr-stop-recording'),
+  rrStartMasterRecording: (options) => ipcRenderer.invoke('rr-start-master-recording', options),
+  rrWriteMasterChunk: (chunk) => ipcRenderer.invoke('rr-write-master-chunk', chunk),
+  rrStopMasterRecording: () => ipcRenderer.invoke('rr-stop-master-recording'),
   rrStartStreamRecording: (options) => ipcRenderer.invoke('rr-start-stream-recording', options),
   rrWriteStreamChunk: (chunk) => ipcRenderer.invoke('rr-write-stream-chunk', chunk),
   rrStopStreamRecording: () => ipcRenderer.invoke('rr-stop-stream-recording'),
   rrLeaveSession: () => ipcRenderer.invoke('rr-leave-session'),
-  rrGetClockStats: () => ipcRenderer.invoke('rr-get-clock-stats'),
   onRrAudioChunk: (callback) => {
     const handler = (_, data) => callback(data);
     ipcRenderer.on('rr-audio-chunk', handler);
@@ -134,7 +131,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   rrReconcile: (data) => ipcRenderer.invoke('rr-reconcile', data),
   rrNativeStatus: () => ipcRenderer.invoke('rr-native-status'),
-  rrEnableTestCapture: (enabled) => ipcRenderer.invoke('rr-enable-test-capture', enabled),
-  rrSetTestWav: (filePath) => ipcRenderer.invoke('rr-set-test-wav', filePath),
-  rrSelectTestWav: () => ipcRenderer.invoke('rr-select-test-wav'),
 });

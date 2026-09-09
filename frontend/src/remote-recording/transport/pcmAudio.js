@@ -40,16 +40,6 @@ class PcmOutput extends AudioWorkletProcessor {
     return true;
   }
 }
-class PcmSender extends AudioWorkletProcessor {
-  constructor() {
-    super();
-    this.port.onmessage = ({ data }) => {
-      const buffer = data instanceof ArrayBuffer ? data : data?.buffer;
-      if (buffer) this.port.postMessage(buffer, [buffer]);
-    };
-  }
-  process() { return true; }
-}
 registerProcessor('rr-pcm-input', PcmInput);
 registerProcessor('rr-pcm-output', PcmOutput);`;
 
@@ -69,11 +59,5 @@ export function createPcmInput(context, onChunk) {
 
 export function createPcmOutput(context) {
   const node = new AudioWorkletNode(context, 'rr-pcm-output', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
-  return { node, push(chunk) { node.port.postMessage(chunk, [chunk.buffer]); } };
-}
-
-export function createPcmSender(context, onChunk) {
-  const node = new AudioWorkletNode(context, 'rr-pcm-sender', { numberOfInputs: 0, numberOfOutputs: 0 });
-  node.port.onmessage = ({ data }) => onChunk(data);
   return { node, push(chunk) { node.port.postMessage(chunk, [chunk.buffer]); } };
 }

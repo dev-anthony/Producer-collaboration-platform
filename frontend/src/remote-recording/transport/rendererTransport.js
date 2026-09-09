@@ -15,6 +15,7 @@ export default class RendererTransport {
     this.peer = null;
     this.audioChannel = null;
     this.pendingCandidates = [];
+    this.pendingSignals = [];
     this.onAudio = onAudio;
     this.onControl = onControl;
     this.onStatus = onStatus;
@@ -22,7 +23,11 @@ export default class RendererTransport {
 
   async start() {
     this.channel = this.supabase.channel(`rr-session-${this.sessionId}`)
-      .on('broadcast', { event: 'signal' }, ({ payload }) => payload.to === this.role && this.signal(payload.data))
+      .on('broadcast', { event: 'signal' }, ({ payload }) => {
+        if (payload.to !== this.role) return;
+        if (this.peer) this.signal(payload.data);
+        else this.pendingSignals.push(payload.data);
+      })
       .on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
         if (this.role === 'producer' && payload.role === 'performer') this.makeOffer();
       })
@@ -34,8 +39,13 @@ export default class RendererTransport {
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error(`SIGNALING_${status}`));
     }));
     this.peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    this.peer.onicecandidate = ({ candidate }) => candidate && this.sendSignal({ type: 'candidate', candidate });
+    this.peer.onicecandidate = ({ candidate }) => {
+      console.log(`[RR-ICE] candidate ${new Date().toISOString()}`);
+      if (candidate) this.sendSignal({ type: 'candidate', candidate });
+    };
+    this.peer.oniceconnectionstatechange = () => console.log(`[RR-ICE] state ${new Date().toISOString()}: ${this.peer.iceConnectionState}`);
     this.peer.onconnectionstatechange = () => {
+      console.log(`[RR-PEER] connectionState ${new Date().toISOString()}: ${this.peer.connectionState}`);
       if (this.peer.connectionState === 'connected') this.onStatus?.('connected');
       if (['failed', 'closed', 'disconnected'].includes(this.peer.connectionState)) this.onStatus?.('disconnected');
     };
@@ -43,6 +53,7 @@ export default class RendererTransport {
     if (this.role === 'producer') {
       this.attachAudio(this.peer.createDataChannel('rr-pcm', { ordered: false, maxRetransmits: 0 }));
     }
+    for (const signal of this.pendingSignals.splice(0)) await this.signal(signal);
   }
 
   async makeOffer() {
@@ -55,9 +66,10 @@ export default class RendererTransport {
   attachAudio(channel) {
     this.audioChannel = channel;
     channel.binaryType = 'arraybuffer';
-    channel.onopen = () => this.onStatus?.('connected');
+    channel.onopen = () => { console.log(`[RR-DATA] open ${new Date().toISOString()}`); this.onStatus?.('connected'); };
     channel.onmessage = ({ data }) => this.onAudio?.(data instanceof ArrayBuffer ? data : data.buffer || data);
-    channel.onerror = (error) => this.onStatus?.(`audio channel error: ${error.message || 'unknown error'}`);
+    channel.onerror = (error) => { console.error(`[RR-DATA] error ${new Date().toISOString()}`, error); this.onStatus?.(`audio channel error: ${error.message || 'unknown error'}`); };
+    channel.onclose = () => console.log(`[RR-DATA] close ${new Date().toISOString()}`);
   }
 
   async signal(message) {

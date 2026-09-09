@@ -1,107 +1,102 @@
-const { ipcMain, BrowserWindow, dialog } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const ClockSync = require('../sync/clockSync');
 const ReconciliationEngine = require('../recording/reconciliation');
 const TakeManager = require('../recording/takeManager');
-const TestCapture = require('../audio/testCapture');
+const WavWriter = require('../audio/wavWriter');
 
 const takes = new TakeManager();
-const clockSync = new ClockSync();
 const reconciliation = new ReconciliationEngine();
+const masterWriters = new Map();
+const streamWavWriters = new Map();
 let registered = false;
-let nativeCapture = null;
-let testCapture = null;
-let capture = null;
-let wavWriter = null;
-let streamOutputPath = null;
-let nativeCaptureError = null;
 
-const send = (channel, payload) => BrowserWindow.getAllWindows().forEach((window) => {
-  if (!window.isDestroyed()) window.webContents.send(channel, payload);
-});
+const getMasterWriter = (senderId) => masterWriters.get(senderId);
 
 const registerRecordingHandlers = () => {
   if (registered) return;
   registered = true;
-  try {
-    nativeCapture = new (require('../audio/captureEngine'))();
-  } catch (error) {
-    nativeCaptureError = error;
-    console.error('[RR] Native microphone capture is unavailable:', error.message);
-  }
-  testCapture = new TestCapture();
-  capture = nativeCapture;
 
-  ipcMain.handle('rr-native-status', () => ({ success: true, nativeCapture: Boolean(nativeCapture), testCapture: true, nativeCaptureError: nativeCaptureError?.message || null }));
-  ipcMain.handle('rr-list-input-devices', () => {
-    if (!nativeCapture) return [];
-    try { return require('../audio/deviceManager').listInputDevices(); } catch { return []; }
+  ipcMain.handle('rr-native-status', () => ({ success: true, ready: true }));
+  ipcMain.handle('rr-start-master-recording', (event, { takeNumber = 1 } = {}) => {
+    if (masterWriters.has(event.sender.id)) throw new Error('MASTER_RECORDING_IN_PROGRESS');
+    const outputPath = takes.nextPath(takeNumber, 'master');
+    const writer = new WavWriter(outputPath, { sampleRate: 48000, bitDepth: 16, channels: 1 });
+    writer.start();
+    masterWriters.set(event.sender.id, { writer, outputPath, bytesWritten: 0, chunkCount: 0 });
+    console.log(`[RR-MASTER] Started ${outputPath}`);
+    return { success: true, path: outputPath, sampleRate: 48000, bitDepth: 16 };
   });
-  ipcMain.handle('rr-list-output-devices', () => {
-    if (!nativeCapture) return [];
-    try { return require('../audio/deviceManager').listOutputDevices(); } catch { return []; }
-  });
-  ipcMain.handle('rr-enable-test-capture', (_, enabled) => {
-    capture = enabled ? testCapture : nativeCapture;
-    if (!capture) throw new Error('NATIVE_CAPTURE_UNAVAILABLE');
-    return { success: true, mode: enabled ? 'test' : 'native' };
-  });
-  ipcMain.handle('rr-set-test-wav', (_, sourcePath) => { testCapture.setSource(sourcePath); return { success: true, path: sourcePath }; });
-  ipcMain.handle('rr-select-test-wav', async () => {
-    const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'WAV audio', extensions: ['wav'] }] });
-    return result.canceled ? null : result.filePaths[0];
-  });
-  ipcMain.handle('rr-set-device', (_, deviceId) => { capture?.setDevice(deviceId); return { success: true }; });
-  ipcMain.handle('rr-start-recording', (_, { takeNumber = 1 }) => {
-    if (!capture) throw new Error('CAPTURE_ENGINE_UNAVAILABLE');
-    const outputPath = takes.nextPath(takeNumber);
-    capture.setChunkCallback((chunk) => send('rr-audio-chunk', new Uint8Array(chunk)));
-    capture.startRecording(outputPath);
-    return { success: true, path: outputPath, sampleRate: 48000, bitDepth: 24 };
-  });
-  ipcMain.handle('rr-stop-recording', async () => ({ success: true, path: await capture?.stopRecording() }));
 
-  ipcMain.handle('rr-start-stream-recording', (_, { takeNumber = 1 } = {}) => {
-    const WavWriter = require('../audio/wavWriter');
-    streamOutputPath = takes.nextPath(takeNumber, 'stream_backup');
-    wavWriter = new WavWriter(streamOutputPath, { sampleRate: 48000, bitDepth: 16, channels: 1 });
-    wavWriter.start();
-    return { success: true, path: streamOutputPath };
-  });
-  ipcMain.handle('rr-write-stream-chunk', (_, chunk) => {
-    if (!wavWriter || !chunk) return { success: false };
-    wavWriter.write(Buffer.from(chunk));
+  ipcMain.handle('rr-write-master-chunk', (event, chunk) => {
+    const record = getMasterWriter(event.sender.id);
+    if (!record || !chunk) return { success: false };
+    const bytes = Buffer.from(chunk);
+    record.writer.write(bytes);
+    record.bytesWritten += bytes.length;
+    record.chunkCount += 1;
+    console.log(`[RR-MASTER] Chunk ${record.chunkCount}: ${bytes.length} bytes, total ${record.bytesWritten}`);
     return { success: true };
   });
-  ipcMain.handle('rr-stop-stream-recording', async () => {
-    if (!wavWriter) return { success: false, path: null };
-    const writer = wavWriter;
-    wavWriter = null;
-    return { success: true, path: await writer.stop() };
+
+  ipcMain.handle('rr-stop-master-recording', async (event) => {
+    const record = masterWriters.get(event.sender.id);
+    if (!record) return { success: false, path: null };
+    masterWriters.delete(event.sender.id);
+    const outputPath = await record.writer.stop();
+    console.log(`[RR-MASTER] Finished ${outputPath}: ${record.bytesWritten} bytes`);
+    return { success: true, path: outputPath, bytesWritten: record.bytesWritten };
   });
-  ipcMain.handle('rr-leave-session', async () => {
-    if (wavWriter) {
-      await wavWriter.stop().catch(() => {});
-      wavWriter = null;
-    }
-    capture?.setChunkCallback(null);
+
+  ipcMain.handle('rr-start-stream-recording', (event, { takeNumber = 1 } = {}) => {
+    if (streamWavWriters.has(event.sender.id)) throw new Error('STREAM_RECORDING_IN_PROGRESS');
+    const outputPath = takes.nextPath(takeNumber, 'stream_backup');
+    const streamWavWriter = { writer: new WavWriter(outputPath, { sampleRate: 48000, bitDepth: 16, channels: 1 }), outputPath, bytesWritten: 0, chunkCount: 0 };
+    streamWavWriters.set(event.sender.id, streamWavWriter);
+    streamWavWriter.writer.start();
+    console.log(`[RR-STREAM] Started ${outputPath}`);
+    return { success: true, path: outputPath };
+  });
+
+  ipcMain.handle('rr-write-stream-chunk', (event, chunk) => {
+    const streamWavWriter = streamWavWriters.get(event.sender.id);
+    if (!streamWavWriter || !chunk) return { success: false };
+    const bytes = Buffer.from(chunk);
+    streamWavWriter.writer.write(bytes);
+    streamWavWriter.bytesWritten += bytes.length;
+    streamWavWriter.chunkCount += 1;
+    console.log(`[RR-STREAM] Chunk ${streamWavWriter.chunkCount}: ${bytes.length} bytes`);
     return { success: true };
   });
+
+  ipcMain.handle('rr-stop-stream-recording', async (event) => {
+    const streamWavWriter = streamWavWriters.get(event.sender.id);
+    if (!streamWavWriter) return { success: false, path: null };
+    streamWavWriters.delete(event.sender.id);
+    const outputPath = await streamWavWriter.writer.stop();
+    console.log(`[RR-STREAM] Finished ${outputPath}: ${streamWavWriter.bytesWritten} bytes`);
+    return { success: true, path: outputPath, bytesWritten: streamWavWriter.bytesWritten };
+  });
+
+  ipcMain.handle('rr-leave-session', async (event) => {
+    const record = masterWriters.get(event.sender.id);
+    if (record) { masterWriters.delete(event.sender.id); await record.writer.stop().catch(() => {}); }
+    const stream = streamWavWriters.get(event.sender.id);
+    if (stream) { streamWavWriters.delete(event.sender.id); await stream.writer.stop().catch(() => {}); }
+    return { success: true };
+  });
+
   ipcMain.handle('rr-reconcile', (_, { streamPath, masterPath, outputPath }) => {
     const stream = fs.readFileSync(streamPath);
     const master = fs.readFileSync(masterPath);
     const streamPcm = stream.slice(44);
+    const masterPcm = master.slice(44);
     const dropouts = reconciliation.findDropouts(streamPcm);
-    const master24 = master.slice(44);
-    const master16 = Buffer.alloc(Math.floor(master24.length / 3) * 2);
-    for (let source = 0, target = 0; source + 2 < master24.length; source += 3, target += 2) master16.writeInt16LE(master24.readIntLE(source, 3) >> 8, target);
-    const pcm = reconciliation.reconcile(streamPcm, master16, dropouts);
+    const pcm = reconciliation.reconcile(streamPcm, masterPcm, dropouts, 48000, 2);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, Buffer.concat([stream.slice(0, 44), pcm]));
     return { success: true, dropouts: dropouts.length, outputPath };
   });
-  ipcMain.handle('rr-get-clock-stats', () => ({ latency: clockSync.getAverageLatency(), offset: clockSync.offset }));
 };
 
 module.exports = { registerRecordingHandlers };

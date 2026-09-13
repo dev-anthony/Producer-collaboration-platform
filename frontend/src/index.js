@@ -186,9 +186,33 @@ function createWindow(sessionName = 'default', bounds = {}) {
   });
 
   // CSP for security
+  // win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+  //     const isGitHub = details.url.includes('github.com') ||
+  //                  details.url.includes('githubusercontent.com');
+
+  // callback({
+  //   responseHeaders: {
+  //     ...details.responseHeaders,
+  //     'Content-Security-Policy': isGitHub ? [
+  //       "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+  //     ] : [
+  //     //   process.env.NODE_ENV === 'development'
+  //     //     ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+  //     //     : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
+  //     // ]
+  //     //  process.env.NODE_ENV === 'development'
+  //     //      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+  //     //      : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+  //     // ]
+  //     process.env.NODE_ENV === 'development'
+  //   ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+  //   : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+  //   }
+  // });
+  // });
   win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-      const isGitHub = details.url.includes('github.com') ||
-                   details.url.includes('githubusercontent.com');
+  const isGitHub = details.url.includes('github.com') ||
+               details.url.includes('githubusercontent.com');
 
   callback({
     responseHeaders: {
@@ -196,20 +220,13 @@ function createWindow(sessionName = 'default', bounds = {}) {
       'Content-Security-Policy': isGitHub ? [
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
       ] : [
-      //   process.env.NODE_ENV === 'development'
-      //     ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-      //     : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-      // ]
-      //  process.env.NODE_ENV === 'development'
-      //      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-      //      : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-      // ]
-      process.env.NODE_ENV === 'development'
-    ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-    : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+        process.env.NODE_ENV === 'development'
+          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+          : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+      ]
     }
   });
-  });
+});
 
   
 

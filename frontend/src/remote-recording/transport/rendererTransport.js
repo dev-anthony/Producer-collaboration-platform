@@ -10,7 +10,11 @@ export default class RendererTransport {
     this.sessionId = sessionId;
     this.role = role;
     this.otherRole = role === 'producer' ? 'performer' : 'producer';
-    this.supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (!supabaseUrl || !supabaseAnonKey) throw new Error('SIGNALING_CONFIG_MISSING');
+    this.supabase = createClient(supabaseUrl.trim(), supabaseAnonKey.trim(), {
+      auth: { persistSession: false, autoRefreshToken: false },
+      realtime: { params: { eventsPerSecond: 100 } },
+    });
     this.channel = null;
     this.peer = null;
     this.audioChannel = null;
@@ -36,7 +40,10 @@ export default class RendererTransport {
       if (status === 'SUBSCRIBED') {
         await this.channel.send({ type: 'broadcast', event: 'peer-joined', payload: { role: this.role } });
         resolve();
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error(`SIGNALING_${status}`));
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[RR-SIGNALING] Channel subscription failed:', { status, sessionId: this.sessionId, supabaseUrl: this.supabase.supabaseUrl });
+        reject(new Error(`SIGNALING_${status}`));
+      }
     }));
     this.peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.peer.onicecandidate = ({ candidate }) => {

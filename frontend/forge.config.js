@@ -71,8 +71,9 @@ module.exports = {
         port: 9000,
         loggerPort: 9001,
         devContentSecurityPolicy:
-          "default-src 'self' http://localhost:9000;" +
-          " script-src 'self' 'unsafe-inline' 'unsafe-eval';" +
+         "default-src 'self' http://localhost:9000;" +
+          " script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;" +
+          " worker-src 'self' blob:;" +
            " connect-src 'self' http://localhost:5000 http://localhost:9000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co;" +
           " img-src 'self' data: https:;" +
           " style-src 'self' 'unsafe-inline';",

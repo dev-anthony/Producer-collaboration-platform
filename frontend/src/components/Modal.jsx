@@ -341,13 +341,15 @@ const handleNativeFolderSelect = async () => {
                 });
                 if (!pushRes.success) throw new Error(pushRes.error || 'Initial backup failed');
 
-                
-                await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
+                if (pushRes.pushed && pushRes.commitSha) {
+
+                  await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
                   method: 'POST',
                   credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ commitMessage: 'Initial project files' })
-                });
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ commitMessage: 'Initial project files', pushed: true, commitSha: pushRes.commitSha, fileCount: pushRes.filesStaged || 0 })
+                  });
+                }
               }
             } catch (pushErr) {
               console.error('[CREATE] Initial backup failed:', pushErr);

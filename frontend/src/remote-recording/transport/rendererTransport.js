@@ -23,6 +23,14 @@ export default class RendererTransport {
     this.onAudio = onAudio;
     this.onControl = onControl;
     this.onStatus = onStatus;
+    // Guards against duplicate offer/negotiation cycles caused by a stray
+    // second 'peer-joined' broadcast (e.g. a double-mounted session or a
+    // duplicate join click). Without this, a second offer can orphan the
+    // first data channel mid-negotiation, which showed up as the producer's
+    // channel opening then immediately erroring/closing while the performer
+    // never saw ondatachannel fire at all.
+    this.hasOffered = false;
+    this.closed = false;
   }
 
   async start() {
@@ -33,7 +41,7 @@ export default class RendererTransport {
         else this.pendingSignals.push(payload.data);
       })
       .on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
-        if (this.role === 'producer' && payload.role === 'performer') this.makeOffer();
+        if (this.role === 'producer' && payload.role === 'performer' && !this.hasOffered) this.makeOffer();
       })
       .on('broadcast', { event: 'control' }, ({ payload }) => payload.to === this.role && this.onControl?.(payload));
     await new Promise((resolve, reject) => this.channel.subscribe(async (status) => {
@@ -56,7 +64,10 @@ export default class RendererTransport {
       if (this.peer.connectionState === 'connected') this.onStatus?.('connected');
       if (['failed', 'closed', 'disconnected'].includes(this.peer.connectionState)) this.onStatus?.('disconnected');
     };
-    this.peer.ondatachannel = ({ channel }) => this.attachAudio(channel);
+    this.peer.ondatachannel = ({ channel }) => {
+      console.log(`[RR-DATA] ondatachannel fired ${new Date().toISOString()} label=${channel.label}`);
+      this.attachAudio(channel);
+    };
     if (this.role === 'producer') {
       this.attachAudio(this.peer.createDataChannel('rr-pcm', { ordered: false, maxRetransmits: 0 }));
     }
@@ -64,7 +75,11 @@ export default class RendererTransport {
   }
 
   async makeOffer() {
-    if (!this.peer || this.peer.signalingState !== 'stable') return;
+    if (!this.peer || this.peer.signalingState !== 'stable' || this.hasOffered) return;
+    // Set the flag before awaiting anything, so a second synchronous call
+    // (e.g. a duplicate broadcast arriving before this promise resolves)
+    // can't slip through and start a second negotiation.
+    this.hasOffered = true;
     const offer = await this.peer.createOffer();
     await this.peer.setLocalDescription(offer);
     await this.sendSignal({ type: 'description', description: this.peer.localDescription });
@@ -75,8 +90,19 @@ export default class RendererTransport {
     channel.binaryType = 'arraybuffer';
     channel.onopen = () => { console.log(`[RR-DATA] open ${new Date().toISOString()}`); this.onStatus?.('connected'); };
     channel.onmessage = ({ data }) => this.onAudio?.(data instanceof ArrayBuffer ? data : data.buffer || data);
-    channel.onerror = (error) => { console.error(`[RR-DATA] error ${new Date().toISOString()}`, error); this.onStatus?.(`audio channel error: ${error.message || 'unknown error'}`); };
-    channel.onclose = () => console.log(`[RR-DATA] close ${new Date().toISOString()}`);
+    channel.onerror = (error) => {
+      console.error(`[RR-DATA] error ${new Date().toISOString()}`, error);
+      this.onStatus?.(`audio channel error: ${error.message || 'unknown error'}`);
+      // Don't leave a dead channel referenced — sendAudio() checks
+      // readyState, but keeping the stale object around masks the failure
+      // in logs (bufferedAmount would still read a stale number instead of
+      // undefined, hiding that nothing is actually being sent anymore).
+      if (this.audioChannel === channel) this.audioChannel = null;
+    };
+    channel.onclose = () => {
+      console.log(`[RR-DATA] close ${new Date().toISOString()}`);
+      if (this.audioChannel === channel) this.audioChannel = null;
+    };
   }
 
   async signal(message) {
@@ -104,6 +130,7 @@ export default class RendererTransport {
   sendControl(data) { return this.channel.send({ type: 'broadcast', event: 'control', payload: { to: this.otherRole, ...data } }); }
 
   leave() {
+    this.closed = true;
     this.audioChannel?.close();
     this.peer?.close();
     if (this.channel) this.supabase.removeChannel(this.channel);

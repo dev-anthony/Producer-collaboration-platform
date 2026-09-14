@@ -123,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rrStartStreamRecording: (options) => ipcRenderer.invoke('rr-start-stream-recording', options),
   rrWriteStreamChunk: (chunk) => ipcRenderer.invoke('rr-write-stream-chunk', chunk),
   rrStopStreamRecording: () => ipcRenderer.invoke('rr-stop-stream-recording'),
+  rrReadAudioFile: (filePath) => ipcRenderer.invoke('rr-read-audio-file', filePath),
   rrLeaveSession: () => ipcRenderer.invoke('rr-leave-session'),
   onRrAudioChunk: (callback) => {
     const handler = (_, data) => callback(data);

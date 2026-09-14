@@ -78,6 +78,13 @@ const registerRecordingHandlers = () => {
     return { success: true, path: outputPath, bytesWritten: streamWavWriter.bytesWritten };
   });
 
+  ipcMain.handle('rr-read-audio-file', async (_, filePath) => {
+    if (!filePath || !path.isAbsolute(filePath)) throw new Error('INVALID_AUDIO_PATH');
+    const stats = await fs.promises.stat(filePath);
+    if (stats.size > 100 * 1024 * 1024) throw new Error('AUDIO_FILE_TOO_LARGE');
+    return `data:audio/wav;base64,${(await fs.promises.readFile(filePath)).toString('base64')}`;
+  });
+
   ipcMain.handle('rr-leave-session', async (event) => {
     const record = masterWriters.get(event.sender.id);
     if (record) { masterWriters.delete(event.sender.id); await record.writer.stop().catch(() => {}); }

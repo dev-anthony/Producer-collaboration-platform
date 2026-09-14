@@ -95,9 +95,24 @@ function scheduleAutoPush(watcherKey, pid, target, filePath) {
   const delayLabel = pushDelay < 60000 ? `${Math.round(pushDelay / 1000)} second(s)` : `${Math.round(pushDelay / 60000)} minute(s)`;
   console.log(`[AUTO-PUSH] Scheduled ${watcherKey} in ${delayLabel}`);
   if (target && !target.isDestroyed()) target.send('auto-push-scheduled', { projectId: pid, dueAt, delay: pushDelay });
-  const timer = setTimeout(() => {
+  const timer = setTimeout(async () => {
     pushTimers.delete(watcherKey);
     pendingPushPaths.delete(watcherKey);
+    try {
+      const status = await simpleGit(folderPath).status();
+      const hasStageableChanges = (status.files || []).some(({ path: changedPath, working_dir: workingDir, index: indexState }) => {
+        const normalizedPath = String(changedPath || '').replace(/\\/g, '/');
+        return normalizedPath && !isProtectedConflict(folderPath, path.join(folderPath, normalizedPath)) &&
+          (workingDir !== 'D' || indexState !== ' ') && (workingDir !== ' ' || indexState !== 'D');
+      });
+      if (!hasStageableChanges) {
+        console.log(`[AUTO-PUSH] Skipping stale/no-op timer for ${watcherKey}`);
+        return;
+      }
+    } catch (error) {
+      console.warn(`[AUTO-PUSH] Skipping ${watcherKey}; Git status failed:`, error.message);
+      return;
+    }
     if (target && !target.isDestroyed()) {
       console.log(`[AUTO-PUSH] Timer ready for ${watcherKey}`);
       target.send('auto-push-ready', { projectId: pid });
@@ -377,7 +392,16 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
           pendingPushPaths.set(watcherKey, pending);
           scheduleAutoPush(watcherKey, pid, target, [...pending][0]);
         }
-      }).catch((error) => console.warn(`[AUTO-PUSH] Could not inspect existing changes for ${watcherKey}:`, error.message));
+      }).catch((error) => {
+        // A broken Git index must never become an auto-push signal.
+        pendingPushPaths.delete(watcherKey);
+        if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
+        pushTimers.delete(watcherKey);
+        watcherDetails.delete(watcherKey);
+        watchers.delete(watcherKey);
+        watcher.close().catch(() => {});
+        console.warn(`[AUTO-PUSH] Could not inspect existing changes for ${watcherKey}; auto-push disabled:`, error.message);
+      });
     });
 
   watchers.set(watcherKey, watcher);
@@ -1480,7 +1504,7 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
       } catch {
         commitsAhead = 0;
       }
-      if (commitsAhead === 0) return { success: true, nothingToCommit: true };
+      if (commitsAhead === 0) return { success: true, pushed: false, nothingToCommit: true, commitSha: null };
       sendGitProgress(event, 'push', `Uploading ${commitsAhead} local commit${commitsAhead === 1 ? '' : 's'}`);
     }
 
@@ -1521,7 +1545,8 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     }
 
     sendGitProgress(event, 'push', 'Push complete', 100);
-    return { success: true, filesStaged: stagedPaths.length };
+    const commitSha = (await git.revparse(['HEAD'])).trim();
+    return { success: true, pushed: true, commitSha, filesStaged: stagedPaths.length };
   } catch (err) {
     console.error('[GIT] git-push failed:', sanitizeGitError(err, token));
     return { success: false, code: 'PUSH_FAILED' };

@@ -1318,8 +1318,44 @@ exports.getGitCredentials = async (req, res) => {
 exports.recordPush = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { fileCount, commitMessage } = req.body;
+    const { fileCount, commitMessage, pushed, commitSha } = req.body;
+    if (pushed !== true || !commitSha || !/^[0-9a-f]{7,64}$/i.test(String(commitSha))) {
+      return res.status(400).json({ error: 'NO_VERIFIED_PUSH', message: 'A recorded push must include the pushed commit SHA.' });
+    }
     const sourceClientId = req.get('x-prodcollab-client-id') || null;
+    const { data: ownedProject } = await supabase
+      .from('projects')
+      .select('id, repo_name')
+      .eq('id', projectId)
+      .eq('user_id', req.userId)
+      .maybeSingle();
+    let projectForPush = ownedProject;
+    if (!projectForPush) {
+      const { data: membership } = await supabase
+        .from('project_collaborators')
+        .select('project_id')
+        .eq('project_id', projectId)
+        .eq('user_id', req.userId)
+        .maybeSingle();
+      if (membership) {
+        const { data: sharedProject } = await supabase
+          .from('projects')
+          .select('id, repo_name')
+          .eq('id', projectId)
+          .maybeSingle();
+        projectForPush = sharedProject;
+      }
+    }
+    if (!projectForPush) return res.status(404).json({ error: 'Project not found or access denied' });
+    try {
+      const { data: mainRef } = await prodOctokit.git.getRef({ owner: GITHUB_OWNER, repo: projectForPush.repo_name, ref: 'heads/main' });
+      if (mainRef.object.sha !== String(commitSha)) {
+        return res.status(409).json({ error: 'PUSH_SHA_MISMATCH', message: 'The recorded commit is not the current remote commit.' });
+      }
+    } catch (verificationError) {
+      console.error('recordPush verification failed:', verificationError.message);
+      return res.status(409).json({ error: 'PUSH_NOT_VERIFIED', message: 'The remote commit could not be verified.' });
+    }
     const { data: pusherProfile, error: profileError } = await supabase
       .from('users')
       .select('id, email, username')

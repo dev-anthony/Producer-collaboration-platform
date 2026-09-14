@@ -162,6 +162,9 @@ app.locals.broadcastProjectUpdate = (project, sourceClientId = null) => {
 supabase
   .channel('project-updates-server')
   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, (payload) => {
+    // Only push records should generate collaborator notifications. Other
+    // project bookkeeping updates must not look like remote Git pushes.
+    if (!payload.new?.last_pushed_by || payload.new.updated_at === payload.old?.updated_at) return;
     app.locals.broadcastProjectUpdate(payload.new);
   })
   .subscribe((status) => console.log(`[REALTIME-WS] Supabase bridge: ${status}`));

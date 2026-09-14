@@ -420,6 +420,12 @@ function Collaboration({ onLogout }) {
     });
     if (!pushRes.success) throw new Error(pushRes.code || 'PUSH_FAILED');
 
+    if (!pushRes.pushed || pushRes.nothingToCommit) {
+      window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
+      setToast({ type: 'success', message: 'Everything is already backed up.' });
+      return;
+    }
+
     // Tell the server the push happened
     const recordResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
       method: 'POST',
@@ -428,7 +434,7 @@ function Collaboration({ onLogout }) {
         'Content-Type': 'application/json',
         'x-prodcollab-client-id': window.localStorage.getItem('prodcollab_realtime_client_id') || ''
       },
-      body: JSON.stringify({ commitMessage: `Update by ${creds.authorName || 'ProdCollab'}` })
+      body: JSON.stringify({ commitMessage: `Update by ${creds.authorName || 'ProdCollab'}`, pushed: true, commitSha: pushRes.commitSha, fileCount: pushRes.filesStaged || 0 })
     });
     if (!recordResponse.ok) {
       console.error('[BACKUP] Files were saved, but collaborator notification recording failed:', await recordResponse.text());

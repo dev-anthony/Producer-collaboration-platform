@@ -23,6 +23,7 @@ export default class RendererTransport {
     this.pendingSignals = [];
     this.onAudio = onAudio;
     this.onControl = onControl;
+    this.onTalkback = onTalkback;
     this.onStatus = onStatus;
     // Guards against duplicate offer/negotiation cycles caused by a stray
     // second 'peer-joined' broadcast (e.g. a double-mounted session or a
@@ -69,6 +70,7 @@ export default class RendererTransport {
       console.log(`[RR-DATA] ondatachannel fired ${new Date().toISOString()} label=${channel.label}`);
       this.attachAudio(channel);
     };
+    this.peer.ontrack = ({ streams }) => { if (streams[0]) this.onTalkback?.(streams[0]); };
     if (this.role === 'producer') {
       this.attachAudio(this.peer.createDataChannel('rr-pcm', { ordered: false, maxRetransmits: 0 }));
     }

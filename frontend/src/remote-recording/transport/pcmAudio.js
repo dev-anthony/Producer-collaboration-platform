@@ -66,12 +66,10 @@ export function createPcmInput(context, onChunk) {
 
 export function createPcmOutput(context) {
   const node = new AudioWorkletNode(context, 'rr-pcm-output', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
-  let paused = false;
   node.port.onmessage = () => {};
   return {
     node,
     setPaused(paused) { node.port.postMessage({ type: 'pause', paused: Boolean(paused) }); },
-    setPaused(value) { paused = value; node.port.postMessage({ type: 'pause', paused }); },
     push(chunk) {
       const buffer = chunk instanceof ArrayBuffer
         ? chunk

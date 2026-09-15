@@ -20,7 +20,13 @@ class PcmOutput extends AudioWorkletProcessor {
   constructor() {
     super();
     this.queue = [];
+    this.paused = false;
     this.port.onmessage = ({ data }) => {
+      if (data?.type === 'pause') {
+        this.paused = Boolean(data.paused);
+        if (this.paused) this.queue = [];
+        return;
+      }
       if (data instanceof ArrayBuffer) this.queue.push(new Uint8Array(data));
       else if (data?.buffer) this.queue.push(new Uint8Array(data.buffer, data.byteOffset || 0, data.byteLength));
       if (this.queue.length > 12) this.queue.splice(0, this.queue.length - 12);
@@ -29,6 +35,7 @@ class PcmOutput extends AudioWorkletProcessor {
   process(_, outputs) {
     const output = outputs[0] && outputs[0][0];
     if (!output) return true;
+    if (this.paused) { output.fill(0); return true; }
     for (let i = 0; i < output.length; i++) {
       const chunk = this.queue[0];
       if (!chunk || chunk.length < 2) { output[i] = 0; continue; }
@@ -63,6 +70,7 @@ export function createPcmOutput(context) {
   node.port.onmessage = () => {};
   return {
     node,
+    setPaused(paused) { node.port.postMessage({ type: 'pause', paused: Boolean(paused) }); },
     setPaused(value) { paused = value; node.port.postMessage({ type: 'pause', paused }); },
     push(chunk) {
       const buffer = chunk instanceof ArrayBuffer

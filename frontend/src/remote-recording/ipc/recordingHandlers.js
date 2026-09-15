@@ -84,6 +84,14 @@ const registerRecordingHandlers = () => {
     if (stats.size > 100 * 1024 * 1024) throw new Error('AUDIO_FILE_TOO_LARGE');
     return `data:audio/wav;base64,${(await fs.promises.readFile(filePath)).toString('base64')}`;
   });
+  ipcMain.handle('rr-delete-audio-file', async (_, filePath) => {
+    if (!filePath || !path.isAbsolute(filePath)) throw new Error('INVALID_AUDIO_PATH');
+    const root = path.resolve(takes.root);
+    const target = path.resolve(filePath);
+    if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw new Error('AUDIO_PATH_NOT_ALLOWED');
+    await fs.promises.rm(target, { force: true });
+    return { success: true };
+  });
 
   ipcMain.handle('rr-leave-session', async (event) => {
     const record = masterWriters.get(event.sender.id);

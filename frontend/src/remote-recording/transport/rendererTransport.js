@@ -18,6 +18,7 @@ export default class RendererTransport {
     this.channel = null;
     this.peer = null;
     this.audioChannel = null;
+    this.talkbackSenders = [];
     this.pendingCandidates = [];
     this.pendingSignals = [];
     this.onAudio = onAudio;
@@ -105,6 +106,13 @@ export default class RendererTransport {
     };
   }
 
+  async addTalkbackStream(stream) {
+    if (!this.peer) throw new Error('RECORDING_SESSION_NOT_READY');
+    this.talkbackSenders = stream.getTracks().map((track) => this.peer.addTrack(track, stream));
+    this.hasOffered = false;
+    await this.makeOffer();
+  }
+
   async signal(message) {
     if (!this.peer) return;
     if (message.type === 'description') {
@@ -132,6 +140,8 @@ export default class RendererTransport {
   leave() {
     this.closed = true;
     this.audioChannel?.close();
+    this.talkbackSenders.forEach((sender) => this.peer?.removeTrack(sender));
+    this.talkbackSenders = [];
     this.peer?.close();
     if (this.channel) this.supabase.removeChannel(this.channel);
     this.audioChannel = null;

@@ -6,7 +6,7 @@ const ICE_SERVERS = [
 ];
 
 export default class RendererTransport {
-  constructor({ sessionId, role, supabaseUrl, supabaseAnonKey, onAudio, onControl, onStatus }) {
+  constructor({ sessionId, role, supabaseUrl, supabaseAnonKey, onAudio, onControl, onTalkback, onStatus }) {
     this.sessionId = sessionId;
     this.role = role;
     this.otherRole = role === 'producer' ? 'performer' : 'producer';
@@ -21,6 +21,7 @@ export default class RendererTransport {
     this.talkbackSenders = [];
     this.pendingCandidates = [];
     this.pendingSignals = [];
+    this.performerPresent = false;
     this.onAudio = onAudio;
     this.onControl = onControl;
     this.onTalkback = onTalkback;
@@ -33,6 +34,8 @@ export default class RendererTransport {
     // never saw ondatachannel fire at all.
     this.hasOffered = false;
     this.closed = false;
+    this.negotiating = false;
+    this.offerPending = false;
   }
 
   async start() {
@@ -43,18 +46,26 @@ export default class RendererTransport {
         else this.pendingSignals.push(payload.data);
       })
       .on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
-        if (this.role === 'producer' && payload.role === 'performer' && !this.hasOffered) this.makeOffer();
+        if (this.role === 'producer' && payload.role === 'performer') {
+          this.performerPresent = true;
+          if (this.peer) this.makeOffer();
+        }
       })
       .on('broadcast', { event: 'control' }, ({ payload }) => payload.to === this.role && this.onControl?.(payload));
-    await new Promise((resolve, reject) => this.channel.subscribe(async (status) => {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('SIGNALING_TIMEOUT')), 15000);
+      this.channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
+        clearTimeout(timeout);
         await this.channel.send({ type: 'broadcast', event: 'peer-joined', payload: { role: this.role } });
         resolve();
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timeout);
         console.error('[RR-SIGNALING] Channel subscription failed:', { status, sessionId: this.sessionId, supabaseUrl: this.supabase.supabaseUrl });
         reject(new Error(`SIGNALING_${status}`));
       }
-    }));
+      });
+    });
     this.peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.peer.onicecandidate = ({ candidate }) => {
       console.log(`[RR-ICE] candidate ${new Date().toISOString()}`);
@@ -75,17 +86,34 @@ export default class RendererTransport {
       this.attachAudio(this.peer.createDataChannel('rr-pcm', { ordered: false, maxRetransmits: 0 }));
     }
     for (const signal of this.pendingSignals.splice(0)) await this.signal(signal);
+    if (this.role === 'producer' && this.performerPresent) await this.makeOffer();
   }
 
   async makeOffer() {
-    if (!this.peer || this.peer.signalingState !== 'stable' || this.hasOffered) return;
+    if (!this.peer || this.hasOffered) return;
+    if (this.negotiating || this.peer.signalingState !== 'stable') {
+      this.offerPending = true;
+      return;
+    }
     // Set the flag before awaiting anything, so a second synchronous call
     // (e.g. a duplicate broadcast arriving before this promise resolves)
     // can't slip through and start a second negotiation.
     this.hasOffered = true;
-    const offer = await this.peer.createOffer();
-    await this.peer.setLocalDescription(offer);
-    await this.sendSignal({ type: 'description', description: this.peer.localDescription });
+    this.negotiating = true;
+    try {
+      const offer = await this.peer.createOffer();
+      await this.peer.setLocalDescription(offer);
+      await this.sendSignal({ type: 'description', description: this.peer.localDescription });
+    } catch (error) {
+      this.hasOffered = false;
+      throw error;
+    } finally {
+      this.negotiating = false;
+      if (this.offerPending && this.peer?.signalingState === 'stable') {
+        this.offerPending = false;
+        await this.makeOffer();
+      }
+    }
   }
 
   attachAudio(channel) {

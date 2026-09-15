@@ -67,6 +67,10 @@ export default function RemoteSession({ projectId, onClose }) {
     setIsConnecting(true);
     try {
       const nextId = requestedId || `${projectId}-${Date.now()}`;
+      roleRef.current = nextRole;
+      setRole(nextRole);
+      setSessionId(nextId);
+      setStatus(nextRole === 'producer' ? 'Connecting to signaling…' : 'Connecting to producer…');
       const response = await fetch('http://localhost:5000/api/config/remote-recording', { credentials: 'include' });
       if (!response.ok) throw new Error('Could not load recording configuration');
       const config = await response.json();
@@ -84,8 +88,8 @@ export default function RemoteSession({ projectId, onClose }) {
           const audio = new Audio(); audio.autoplay = true; audio.srcObject = stream; talkbackAudio.current = audio; audio.play().catch(() => {});
         },
       });
-      await next.start();
       transport.current = next;
+      await next.start();
       context.current = await createPcmContext();
       await context.current.resume();
       if (nextRole === 'producer') {
@@ -103,12 +107,12 @@ export default function RemoteSession({ projectId, onClose }) {
         const silent = context.current.createGain(); silent.gain.value = 0;
         source.connect(inputNode.current).connect(silent).connect(context.current.destination);
       }
-      roleRef.current = nextRole;
-      setRole(nextRole); setSessionId(nextId); setStatus(nextRole === 'producer' ? 'Waiting for performer' : 'Connecting');
+      setStatus(nextRole === 'producer' ? 'Waiting for performer' : 'Connected; waiting for producer');
     } catch (error) {
       console.error('[RR] create() failed:', error);
       setStatus(error.message || 'Could not start session.');
       transport.current?.leave(); transport.current = null;
+      setConnected(false);
     } finally { connecting.current = false; setIsConnecting(false); }
   };
 
@@ -137,5 +141,5 @@ export default function RemoteSession({ projectId, onClose }) {
 
   const closeOrMinimize = () => recordingRef.current ? setMinimized(true) : onClose();
   if (minimized) return <div className="fixed bottom-4 right-4 z-[140] flex items-center gap-3 border border-border bg-card px-4 py-3 shadow-xl"><span className="h-2 w-2 animate-pulse rounded-full bg-primary" /><span className="text-xs text-foreground">Recording session active</span><button onClick={() => setMinimized(false)} className="text-xs text-primary">Open studio</button></div>;
-  return <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4" onMouseDown={(event) => event.target === event.currentTarget && closeOrMinimize()}><section className="w-full max-w-md border border-border bg-card p-6"><header className="mb-6 flex items-start justify-between"><div><p className="text-[10px] uppercase tracking-[0.2em] text-primary">Remote recording</p><h2 className="mt-1 text-xl font-semibold text-foreground">Studio session</h2></div><div className="flex gap-2"><button onClick={() => setMinimized(true)} aria-label="Minimize" className="text-muted-foreground">−</button><button onClick={closeOrMinimize} aria-label="Close" className="text-muted-foreground">×</button></div></header>{!role ? <div className="space-y-3"><button disabled={!ready || isConnecting} onClick={() => create('producer')} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{isConnecting ? 'Connecting…' : 'Start as producer'}</button><div className="text-center text-xs text-muted-foreground">or join an existing session</div><input disabled={!ready || isConnecting} value={joinId} onChange={(event) => setJoinId(event.target.value)} placeholder="Paste session ID" className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground" /><button disabled={!ready || isConnecting || !joinId.trim()} onClick={() => create('performer', joinId.trim())} className="w-full border border-primary/40 px-4 py-3 text-sm text-primary disabled:opacity-40">{isConnecting ? 'Connecting…' : 'Join as performer'}</button></div> : <><div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-success' : 'bg-primary'}`} />{status}</div>{role === 'producer' ? <ProducerView sessionId={sessionId} onStart={start} onStop={stop} recording={recording} monitorPaused={monitorPaused} onToggleMonitor={() => { const next = !monitorPaused; monitorPausedRef.current = next; setMonitorPaused(next); outputNode.current?.setPaused(next); }} talkbackActive={talkbackActive} onToggleTalkback={toggleTalkback} takes={takes} onDeleteTake={(take) => window.electronAPI.rrDeleteAudioFile(take.path).then(() => setTakes((current) => current.filter((item) => item.path !== take.path)))} /> : <PerformerView onStart={start} onStop={stop} recording={recording} />}</>}</section></div>;
+  return <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/80 p-4" onMouseDown={(event) => event.target === event.currentTarget && closeOrMinimize()}><section className="w-full max-w-md border border-border bg-card p-6"><header className="mb-6 flex items-start justify-between"><div><p className="text-[10px] uppercase tracking-[0.2em] text-primary">Remote recording</p><h2 className="mt-1 text-xl font-semibold text-foreground">Studio session</h2></div><div className="flex gap-2"><button onClick={() => setMinimized(true)} aria-label="Minimize" className="text-muted-foreground">−</button><button onClick={closeOrMinimize} aria-label="Close" className="text-muted-foreground">×</button></div></header>{!role ? <div className="space-y-3"><button disabled={!ready || isConnecting} onClick={() => create('producer')} className="w-full rounded-md bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40">{isConnecting ? 'Connecting…' : 'Start as producer'}</button><div className="text-center text-xs text-muted-foreground">or join an existing session</div><input disabled={!ready || isConnecting} value={joinId} onChange={(event) => setJoinId(event.target.value)} placeholder="Paste session ID" className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground" /><button disabled={!ready || isConnecting || !joinId.trim()} onClick={() => create('performer', joinId.trim())} className="w-full border border-primary/40 px-4 py-3 text-sm text-primary disabled:opacity-40">{isConnecting ? 'Connecting…' : 'Join as performer'}</button></div> : <><div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground"><span className={`h-2 w-2 rounded-full ${connected ? 'bg-success' : 'bg-primary'}`} />{status}</div>{role === 'producer' ? <ProducerView sessionId={sessionId} onStart={start} onStop={stop} recording={recording} monitorPaused={monitorPaused} onToggleMonitor={() => { const next = !monitorPaused; monitorPausedRef.current = next; setMonitorPaused(next); outputNode.current?.setPaused(next); }} talkbackActive={talkbackActive} onToggleTalkback={toggleTalkback} takes={takes} onDeleteTake={(take) => window.electronAPI.rrDeleteAudioFile(take.path).then(() => setTakes((current) => current.filter((item) => item.path !== take.path)))} /> : <PerformerView onStart={start} onStop={stop} recording={recording} talkbackActive={talkbackActive} onToggleTalkback={toggleTalkback} />}</>}</section></div>;
 }

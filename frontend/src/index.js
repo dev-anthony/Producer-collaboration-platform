@@ -232,12 +232,18 @@ function createWindow(sessionName = 'default', bounds = {}) {
   callback({
     responseHeaders: {
       ...details.responseHeaders,
+      // media-src has to be explicit: with no media-src directive, an
+      // <audio>/<video> load falls back to default-src, and 'self' does not
+      // cover blob: (or data:) URLs on its own — script-src and worker-src
+      // already had to list blob: for the same reason (the recording studio's
+      // audio worklets are loaded that way), and media playback needs the
+      // same allowance or a recorded take can never play back in the app.
       'Content-Security-Policy': isGitHub ? [
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
       ] : [
         process.env.NODE_ENV === 'development'
-          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-          : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+          ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; media-src 'self' blob: data:; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+          : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; media-src 'self' blob: data:; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
       ]
     }
   });
@@ -311,6 +317,16 @@ function createWindow(sessionName = 'default', bounds = {}) {
 function startWatching(projectId, folderPath, scope = 'default', target = null) {
   const pid = String(projectId);
   const watcherKey = getProjectKey(scope, pid);
+
+  // A stored folder can disappear between runs — moved, renamed, on a drive
+  // that is not plugged in, or deleted outright. Watching it anyway used to
+  // take the whole app down: chokidar happily watches a missing path, fires
+  // 'ready', and the Git inspection below then throws out of an event
+  // emitter where nothing can catch it.
+  if (!folderPath || !require('fs').existsSync(folderPath)) {
+    console.warn(`[WATCHER] Folder for ${watcherKey} is missing; not watching → ${folderPath}`);
+    return;
+  }
   const notifyTarget = (channel, data) => {
     if (target && !target.isDestroyed()) target.send(channel, data);
     else notifyAll(channel, data);
@@ -383,17 +399,8 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     })
     .on('ready', () => {
       console.log(`[WATCHER] Ready ${watcherKey} → ${folderPath}`);
-      simpleGit(folderPath).status().then((status) => {
-        const existingChanges = (status.files || [])
-          .map(({ path: changedPath }) => changedPath)
-          .filter(Boolean);
-        if (existingChanges.length > 0) {
-          const pending = new Set(existingChanges.map((changedPath) => path.join(folderPath, changedPath)));
-          pendingPushPaths.set(watcherKey, pending);
-          scheduleAutoPush(watcherKey, pid, target, [...pending][0]);
-        }
-      }).catch((error) => {
-        // A broken Git index must never become an auto-push signal.
+      // A broken Git index must never become an auto-push signal.
+      const disableAutoPush = (error) => {
         pendingPushPaths.delete(watcherKey);
         if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
         pushTimers.delete(watcherKey);
@@ -401,7 +408,25 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
         watchers.delete(watcherKey);
         watcher.close().catch(() => {});
         console.warn(`[AUTO-PUSH] Could not inspect existing changes for ${watcherKey}; auto-push disabled:`, error.message);
-      });
+      };
+      // simple-git throws synchronously when the folder is gone, before there
+      // is any promise to reject, so the chain below cannot contain it on its
+      // own. Unhandled here it escapes through the emitter and crashes the
+      // main process.
+      try {
+        simpleGit(folderPath).status().then((status) => {
+          const existingChanges = (status.files || [])
+            .map(({ path: changedPath }) => changedPath)
+            .filter(Boolean);
+          if (existingChanges.length > 0) {
+            const pending = new Set(existingChanges.map((changedPath) => path.join(folderPath, changedPath)));
+            pendingPushPaths.set(watcherKey, pending);
+            scheduleAutoPush(watcherKey, pid, target, [...pending][0]);
+          }
+        }).catch(disableAutoPush);
+      } catch (error) {
+        disableAutoPush(error);
+      }
     });
 
   watchers.set(watcherKey, watcher);

@@ -13,6 +13,9 @@ import Profile from './pages/Profile.jsx';
 import History from './pages/History.jsx';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import SessionProvider from './remote-recording/session/SessionProvider.jsx';
+import SessionDock from './remote-recording/ui/SessionDock.jsx';
+import StudioPage from './remote-recording/ui/studio/StudioPage.jsx';
 
 function ProtectedRoute({ isAuthenticated, children }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -330,6 +333,7 @@ function App() {
 
   return (
     <HashRouter>
+      <SessionProvider>
       {devAccount && (
         <div className="fixed bottom-3 right-3 z-[100] bg-yellow-400 text-black px-3 py-1.5 rounded-md text-xs font-bold shadow-lg">
           DEV TEST {devAccount}
@@ -434,6 +438,18 @@ function App() {
           path="/profile"
           element={<ProtectedRoute isAuthenticated={isAuthenticated}><Profile onLogout={handleLogout} /></ProtectedRoute>}
         />
+        {/* The studio is a route, not an overlay: a recording session is a
+            place a producer sits inside, and it has to survive a reload. The
+            session engine itself lives in <SessionProvider> above the router,
+            so leaving this route leaves the room running. */}
+        <Route
+          path="/studio/:projectId"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <StudioPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/"
           element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
@@ -442,7 +458,8 @@ function App() {
           path="*"
           element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
         />
-      </Routes></ErrorBoundary>
+      </Routes>{isAuthenticated && <SessionDock />}</ErrorBoundary>
+      </SessionProvider>
     </HashRouter>
   );
 }

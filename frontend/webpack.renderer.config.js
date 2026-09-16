@@ -68,7 +68,12 @@ module.exports = {
     port: 3000,
     hot: true,
     headers: {
-      'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:3000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';",
+      // media-src has to be explicit: with no media-src directive, browsers
+      // fall back to default-src for <audio>/<video> loads, and 'self' does
+      // not cover blob: (or data:) URLs on its own. That silently blocked
+      // take playback in the studio (a take is handed to <audio> as a blob:
+      // URL) even though every other part of the same CSP was fine.
+      'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:3000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; media-src 'self' blob: data:;",
     },
   },
 };

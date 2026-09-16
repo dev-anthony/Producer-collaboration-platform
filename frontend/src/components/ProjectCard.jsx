@@ -21,7 +21,7 @@ import {
 import VersionHistory from './VersionHistory';
 import ProjectMetadata from './ProjectMetadata';
 import { createPortal } from 'react-dom';
-import RemoteSession from '../remote-recording/ui/RemoteSession';
+import { useNavigate } from 'react-router-dom';
 // ── Phase 4.15: session via httpOnly cookie; jwtToken prop no longer used ──
 function ProjectCard({
   project,
@@ -52,7 +52,7 @@ function ProjectCard({
   const [resolvingConflict, setResolvingConflict] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showConflictReview, setShowConflictReview] = useState(false);
-  const [showRemoteRecording, setShowRemoteRecording] = useState(false);
+  const navigate = useNavigate();
 
   const loadConflicts = async () => {
     if (!window.electronAPI?.getProjectConflicts) return;
@@ -446,9 +446,12 @@ function ProjectCard({
               )}
             </button>
 
+            {/* The card is the box; Record opens it. The studio is its own
+                route rather than a dialog on top of this card, because a
+                session is somewhere a producer works, not a task they confirm. */}
             <button
-              onClick={() => setShowRemoteRecording(true)}
-              title="Remote recording"
+              onClick={() => navigate(`/studio/${project.id}`, { state: { projectName: project.repo_name || project.name } })}
+              title="Open the studio"
               className="inline-flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
             >
               Record
@@ -569,10 +572,6 @@ function ProjectCard({
             </div>
           </div>
         </div>,
-        document.body
-      )}
-      {showRemoteRecording && createPortal(
-        <RemoteSession projectId={project.id} onClose={() => setShowRemoteRecording(false)} />,
         document.body
       )}
     </>

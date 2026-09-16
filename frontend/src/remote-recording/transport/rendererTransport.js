@@ -81,7 +81,10 @@ export default class RendererTransport {
       console.log(`[RR-DATA] ondatachannel fired ${new Date().toISOString()} label=${channel.label}`);
       this.attachAudio(channel);
     };
-    this.peer.ontrack = ({ streams }) => { if (streams[0]) this.onTalkback?.(streams[0]); };
+    this.peer.ontrack = ({ streams, track }) => {
+      console.log(`[RR-TALKBACK] ontrack fired ${new Date().toISOString()} kind=${track.kind} readyState=${track.readyState} streams=${streams.length}`);
+      if (streams[0]) this.onTalkback?.(streams[0]);
+    };
     if (this.role === 'producer') {
       this.attachAudio(this.peer.createDataChannel('rr-pcm', { ordered: false, maxRetransmits: 0 }));
     }
@@ -138,9 +141,35 @@ export default class RendererTransport {
 
   async addTalkbackStream(stream) {
     if (!this.peer) throw new Error('RECORDING_SESSION_NOT_READY');
+    // A leftover sender from a previous talkback toggle would otherwise sit
+    // on the connection with a dead track, and addTrack() cannot reuse it —
+    // it always opens a new transceiver, growing the SDP with a dead m-line
+    // on every re-toggle. Clear stale senders first so toggling talkback
+    // on/off/on stays a clean single audio line.
+    if (this.talkbackSenders.length) this._clearTalkbackSenders();
+    console.log(`[RR-TALKBACK] adding ${stream.getTracks().length} local track(s) ${new Date().toISOString()}`);
     this.talkbackSenders = stream.getTracks().map((track) => this.peer.addTrack(track, stream));
     this.hasOffered = false;
     await this.makeOffer();
+    console.log(`[RR-TALKBACK] renegotiation offer sent ${new Date().toISOString()} signalingState=${this.peer.signalingState}`);
+  }
+
+  // Turning talkback off removes the sender and renegotiates, rather than
+  // just stopping the local track — otherwise the dead sender lingers on the
+  // connection and the next addTrack() opens a second, competing audio line
+  // instead of reusing a clean one.
+  async removeTalkbackStream() {
+    if (!this.peer || !this.talkbackSenders.length) return;
+    this._clearTalkbackSenders();
+    this.hasOffered = false;
+    await this.makeOffer();
+  }
+
+  _clearTalkbackSenders() {
+    this.talkbackSenders.forEach((sender) => {
+      try { this.peer.removeTrack(sender); } catch { /* connection may already be gone */ }
+    });
+    this.talkbackSenders = [];
   }
 
   async signal(message) {
@@ -170,8 +199,7 @@ export default class RendererTransport {
   leave() {
     this.closed = true;
     this.audioChannel?.close();
-    this.talkbackSenders.forEach((sender) => this.peer?.removeTrack(sender));
-    this.talkbackSenders = [];
+    if (this.peer) this._clearTalkbackSenders();
     this.peer?.close();
     if (this.channel) this.supabase.removeChannel(this.channel);
     this.audioChannel = null;

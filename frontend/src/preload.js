@@ -125,6 +125,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rrStopStreamRecording: () => ipcRenderer.invoke('rr-stop-stream-recording'),
   rrReadAudioFile: (filePath) => ipcRenderer.invoke('rr-read-audio-file', filePath),
   rrDeleteAudioFile: (filePath) => ipcRenderer.invoke('rr-delete-audio-file', filePath),
+  rrPushTakeToFolder: (data) => ipcRenderer.invoke('rr-push-take-to-folder', data),
   rrLeaveSession: () => ipcRenderer.invoke('rr-leave-session'),
   onRrAudioChunk: (callback) => {
     const handler = (_, data) => callback(data);

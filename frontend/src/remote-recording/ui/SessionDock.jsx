@@ -9,8 +9,7 @@ const clock = (ms) => {
 };
 
 // The session keeps running when you walk out of the studio, so something has
-// to say so from everywhere else in the app. This is that: a live room you can
-// step back into, and while a take is rolling it is impossible to miss.
+
 export default function SessionDock() {
   const session = useSession();
   const navigate = useNavigate();

@@ -11,6 +11,8 @@ import Projects from './pages/Projects.jsx';
 import Settings from './pages/Settings.jsx';
 import Profile from './pages/Profile.jsx';
 import History from './pages/History.jsx';
+import Sessions from './pages/Sessions.jsx';
+import SessionHistory from './pages/SessionHistory.jsx';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import SessionProvider from './remote-recording/session/SessionProvider.jsx';
@@ -427,6 +429,26 @@ function App() {
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <History onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+        {/* Session history lives on the normal app side of the router, not
+            under /studio — it is a project record you browse, not a room
+            you walk into, and it has to stay reachable even while a live
+            session for a different project is running elsewhere. */}
+        <Route
+          path="/sessions"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <Sessions onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions/:projectId"
+          element={
+            <ProtectedRoute isAuthenticated={isAuthenticated}>
+              <SessionHistory onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />

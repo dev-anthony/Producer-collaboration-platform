@@ -1733,6 +1733,14 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
 
 ipcMain.handle('get-project-conflicts', async (_, { folderPath }) => {
   const records = [...getProtectedConflicts(folderPath)];
+  // Same situation as a missing watched folder (see startWatching): a
+  // linked folder can point at a path from another machine or a drive that
+  // is not plugged in right now. simple-git already can't do anything
+  // useful against a folder that is not there, and the card polls this on
+  // every mount — without this check it was retrying and re-logging the
+  // same failure every time, for a condition that will not resolve itself
+  // until the producer relinks the folder.
+  if (!folderPath || !require('fs').existsSync(folderPath)) return records;
   try {
     const git = simpleGit(folderPath);
     if (await git.checkIsRepo()) {

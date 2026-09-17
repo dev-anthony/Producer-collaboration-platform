@@ -13,21 +13,28 @@ export default function LoadIn({ session }) {
   const blocked = !ready || patching;
 
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-4xl">
-        <div className="mb-10 text-center">
+    // A centered layout that assumes it always fits the viewport breaks the
+    // moment it doesn't — two full cards plus the solo bar is genuinely tall
+    // content on a short window, and items-center with no scroll container
+    // just clips it top and bottom with nothing to scroll to reach the rest.
+    // flex-1 + justify-center on the inner wrapper keeps the centered look
+    // when everything fits, and still lets the page scroll top-down the
+    // moment it does not.
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-4">
+        <div className="mb-6 text-center sm:mb-10">
           <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
             {projectName ? `${projectName} session` : 'Session'}
           </p>
-          <h1 className="mt-3 text-2xl font-semibold text-foreground">The room is cold</h1>
+          <h1 className="mt-3 text-xl font-semibold text-foreground sm:text-2xl">The room is cold</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Pick your side of the glass to patch in.
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4">
           {/* ── Control room ─────────────────────────────────────────────── */}
-          <section className="flex flex-col border border-border bg-card p-6">
+          <section className="flex flex-col border border-border bg-card p-5 sm:p-6">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-md border border-border bg-background/60 text-muted-foreground">
               <SlidersHorizontal className="h-5 w-5" />
             </div>
@@ -48,7 +55,11 @@ export default function LoadIn({ session }) {
             </button>
           </section>
 
-          {/* The glass. */}
+          {/* The glass — a vertical pane between two side-by-side cards from
+              md up, and the same idea laid on its side between two stacked
+              cards below that, rather than just disappearing. Either way it
+              reads as one continuous piece of glass, not a rule that was
+              turned off for small screens. */}
           <div className="hidden flex-col items-center justify-center md:flex">
             <div className="h-full w-px bg-gradient-to-b from-transparent via-border to-transparent" />
             <span className="my-4 whitespace-nowrap text-[9px] uppercase tracking-[0.25em] text-muted-foreground/50">
@@ -56,9 +67,16 @@ export default function LoadIn({ session }) {
             </span>
             <div className="h-full w-px bg-gradient-to-b from-transparent via-border to-transparent" />
           </div>
+          <div className="flex items-center justify-center py-3 md:hidden">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <span className="mx-4 whitespace-nowrap text-[9px] uppercase tracking-[0.25em] text-muted-foreground/50">
+              the glass
+            </span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
 
           {/* ── Live room ────────────────────────────────────────────────── */}
-          <section className="flex flex-col border border-border bg-card p-6">
+          <section className="flex flex-col border border-border bg-card p-5 sm:p-6">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-md border border-border bg-background/60 text-muted-foreground">
               <Mic className="h-5 w-5" />
             </div>
@@ -93,7 +111,7 @@ export default function LoadIn({ session }) {
             is the honest case for a performer running their own transport.
             It gets its own room rather than being folded into either side of
             the glass above. */}
-        <div className="mt-4 flex items-center gap-3 border border-border bg-card/60 px-5 py-4">
+        <div className="mt-4 flex flex-col items-start gap-3 border border-border bg-card/60 px-5 py-4 sm:flex-row sm:items-center">
           <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md border border-border bg-background/60 text-muted-foreground">
             <User className="h-4 w-4" />
           </div>
@@ -106,7 +124,7 @@ export default function LoadIn({ session }) {
           <button
             onClick={() => loadIn('solo')}
             disabled={blocked}
-            className="inline-flex flex-none items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
+            className="inline-flex w-full flex-none items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 sm:w-auto"
           >
             {patching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             Start a solo session

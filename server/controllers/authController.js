@@ -1,4 +1,4 @@
-
+const { isAuthRetryableFetchError } = require('@supabase/supabase-js');
 const supabase = require('../config/supabase');
 const { createAuthClient } = require('../config/supabase');
 
@@ -8,6 +8,36 @@ const cookieOpts = (maxAge) => ({
   sameSite: 'none',
   maxAge,
 });
+
+// Every auth call below goes out to Supabase over the internet. When that
+// call can't complete — no internet, DNS down, Supabase unreachable — the
+// client library throws the same generic shape (AuthRetryableFetchError,
+// status 0) as it does for other transient failures. Left unhandled, that
+// error used to fall into the same branch as a wrong password and come back
+// as "Invalid credentials" — true for neither case, and actively misleading
+// for the first: a producer with no internet was being told their password
+// was wrong. This tells the two apart and gives the network case its own
+// honest message instead.
+const isNetworkFailure = (error) => Boolean(error) && (
+  isAuthRetryableFetchError(error)
+  || error.status === 0
+  || /fetch failed|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(error.message || '')
+);
+
+const NETWORK_ERROR_MESSAGE = 'Could not reach the authentication service. Check your internet connection and try again.';
+
+// Sends the network message when the failure was ours to blame (no route to
+// Supabase), or the caller's own message when Supabase actually answered and
+// rejected the request. Logs the real error either way — only the response
+// to the user is simplified.
+const respondToAuthError = (res, error, { status, message, context }) => {
+  console.error(`${context} error:`, error);
+  if (isNetworkFailure(error)) {
+    return res.status(503).json({ error: NETWORK_ERROR_MESSAGE });
+  }
+  return res.status(status).json({ error: message });
+};
+
 exports.signup = async (req, res) => {
   try {
     const { email, password, username } = req.body;
@@ -22,7 +52,7 @@ exports.signup = async (req, res) => {
       email_confirm: true,
     });
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) return respondToAuthError(res, error, { status: 400, message: error.message, context: 'signup' });
 
     const { error: profileError } = await supabase
       .from('users')
@@ -30,12 +60,13 @@ exports.signup = async (req, res) => {
 
     if (profileError) {
       await supabase.auth.admin.deleteUser(data.user.id).catch(() => {});
-      return res.status(400).json({ error: profileError.message });
+      return respondToAuthError(res, profileError, { status: 400, message: profileError.message, context: 'signup (profile)' });
     }
 
     res.json({ message: 'Account created' });
   } catch (error) {
     console.error('signup error:', error);
+    if (isNetworkFailure(error)) return res.status(503).json({ error: NETWORK_ERROR_MESSAGE });
     res.status(500).json({ error: 'Signup failed', message: error.message });
   }
 };
@@ -50,7 +81,7 @@ exports.login = async (req, res) => {
 
     const { data, error } = await createAuthClient().auth.signInWithPassword({ email, password });
 
-    if (error) return res.status(401).json({ error: 'Invalid credentials' });
+    if (error) return respondToAuthError(res, error, { status: 401, message: 'Invalid credentials', context: 'login' });
 
     res.cookie('prodcollab_token', data.session.access_token, cookieOpts(60 * 60 * 1000)); // 1h
     res.cookie('prodcollab_refresh', data.session.refresh_token, cookieOpts(7 * 24 * 60 * 60 * 1000)); // 7d
@@ -58,6 +89,7 @@ exports.login = async (req, res) => {
     res.json({ user: data.user });
   } catch (error) {
     console.error('login error:', error);
+    if (isNetworkFailure(error)) return res.status(503).json({ error: NETWORK_ERROR_MESSAGE });
     res.status(500).json({ error: 'Login failed', message: error.message });
   }
 };
@@ -68,7 +100,15 @@ exports.forgotPassword = async (req, res) => {
   const { error } = await createAuthClient().auth.resetPasswordForEmail(email, {
     redirectTo: 'prodcollab://reset-password'
   });
-  if (error) console.error('forgotPassword error:', error);
+  if (error) {
+    console.error('forgotPassword error:', error);
+    // A network failure is safe to say out loud — unlike "no such account",
+    // it reveals nothing about whether the email is registered. Anything
+    // else stays silent, on purpose: see the comment below.
+    if (isNetworkFailure(error)) {
+      return res.status(503).json({ error: NETWORK_ERROR_MESSAGE });
+    }
+  }
   // Do not reveal whether an account exists.
   res.json({ message: 'If that account exists, a reset link has been sent.' });
 };
@@ -83,9 +123,13 @@ exports.resetPassword = async (req, res) => {
     access_token: accessToken,
     refresh_token: refreshToken
   });
-  if (sessionError) return res.status(400).json({ error: 'This reset link is invalid or expired' });
+  if (sessionError) {
+    return respondToAuthError(res, sessionError, { status: 400, message: 'This reset link is invalid or expired', context: 'resetPassword (session)' });
+  }
   const { error } = await auth.auth.updateUser({ password });
-  if (error) return res.status(400).json({ error: error.message });
+  if (error) {
+    return respondToAuthError(res, error, { status: 400, message: error.message, context: 'resetPassword' });
+  }
   res.json({ message: 'Password updated. You can now sign in.' });
 };
 

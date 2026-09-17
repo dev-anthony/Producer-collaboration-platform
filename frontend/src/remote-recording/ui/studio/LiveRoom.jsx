@@ -1,7 +1,8 @@
-import React from 'react';
-import { Mic, Radio } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Mic, Radio, ListMusic } from 'lucide-react';
 import LevelMeter from './LevelMeter';
 import TakeRack from './TakeRack';
+import RoomTabs from './RoomTabs';
 
 const clock = (ms) => {
   const total = Math.floor(ms / 1000);
@@ -19,13 +20,37 @@ const clock = (ms) => {
 export default function LiveRoom({ session }) {
   const { patched, rolling, takeNumber, takes, level, elapsedMs, talkbackOpen, toggleTalkback, discardTake, pushTake, pushingTakeId } = session;
 
+  // Below lg only one of these is visible at a time — see RoomTabs. Both
+  // panels stay mounted regardless, so the meter keeps reading and a
+  // playing take keeps playing underneath whichever one is on screen.
+  const [tab, setTab] = useState('performance');
+
+  // A stopped take is the one moment you actually want to be looking at the
+  // rack — no reason to make that a second tap on a small screen. Harmless
+  // on lg, where both panels are visible anyway and this state only decides
+  // which tab is highlighted.
+  const wasRolling = useRef(false);
+  useEffect(() => {
+    if (wasRolling.current && !rolling) setTab('takes');
+    wasRolling.current = rolling;
+  }, [rolling]);
+
   return (
-    <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,25rem)]">
-      <section className="flex min-h-0 flex-col items-center justify-center border border-border bg-card p-6">
+    <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-rows-1 lg:gap-4 lg:p-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,25rem)]">
+      <RoomTabs
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'performance', label: 'Performance', icon: Mic, live: rolling },
+          { id: 'takes', label: 'Takes', icon: ListMusic, badge: takes.length || null },
+        ]}
+      />
+
+      <section className={`${tab === 'performance' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto border border-border bg-card p-4 lg:flex lg:overflow-visible lg:p-6`}>
         {/* On-air sign. The one thing that has to be readable from across a
             room, because it answers the only question that matters in a booth. */}
         <div
-          className={`mb-10 rounded-sm border px-8 py-3 transition-all ${
+          className={`mb-6 rounded-sm border px-6 py-2.5 transition-all lg:mb-10 lg:px-8 lg:py-3 ${
             rolling
               ? 'border-destructive bg-destructive/15'
               : 'border-border bg-background/50'
@@ -33,7 +58,7 @@ export default function LiveRoom({ session }) {
           style={rolling ? { boxShadow: '0 0 48px hsl(var(--destructive) / 0.35)' } : undefined}
         >
           <span
-            className={`font-mono text-2xl font-bold tracking-[0.3em] ${
+            className={`font-mono text-lg font-bold tracking-[0.3em] lg:text-2xl ${
               rolling ? 'text-destructive' : 'text-muted-foreground/40'
             }`}
           >
@@ -41,15 +66,15 @@ export default function LiveRoom({ session }) {
           </span>
         </div>
 
-        <div className="mb-8 flex flex-col items-center">
+        <div className="mb-6 flex flex-col items-center lg:mb-8">
           <div
-            className={`mb-5 flex h-16 w-16 items-center justify-center rounded-full border transition-colors ${
+            className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full border transition-colors lg:mb-5 lg:h-16 lg:w-16 ${
               rolling ? 'border-destructive/50 bg-destructive/10 text-destructive' : 'border-border bg-background/50 text-muted-foreground'
             }`}
           >
-            <Mic className="h-7 w-7" />
+            <Mic className="h-5 w-5 lg:h-7 lg:w-7" />
           </div>
-          <div className="w-64">
+          <div className="w-56 lg:w-64">
             <LevelMeter level={level} orientation="horizontal" label="Your mic" />
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
@@ -57,7 +82,7 @@ export default function LiveRoom({ session }) {
           </p>
         </div>
 
-        <p className="mb-2 font-mono text-4xl font-semibold tabular-nums text-foreground">
+        <p className="mb-2 font-mono text-3xl font-semibold tabular-nums text-foreground lg:text-4xl">
           {rolling ? clock(elapsedMs) : `TAKE ${String(takeNumber).padStart(2, '0')}`}
         </p>
         <p className="mb-8 text-[11px] text-muted-foreground">
@@ -82,7 +107,7 @@ export default function LiveRoom({ session }) {
         </button>
       </section>
 
-      <div className="min-h-0">
+      <div className={`${tab === 'takes' ? 'block' : 'hidden'} min-h-0 flex-1 lg:block`}>
         <TakeRack
           takes={takes}
           onDiscard={discardTake}

@@ -103,17 +103,26 @@ function Take({ take, onDiscard, onPush, pushing }) {
         <span className="font-mono text-xs font-semibold tracking-wide text-foreground">
           TAKE {String(take.number).padStart(2, '0')}
         </span>
-        <span
-          title={take.pushed ? 'Backed up to the project' : 'Saved on this computer only'}
-          className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] ${
-            take.pushed
-              ? 'bg-success/10 text-success'
-              : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {take.pushed ? <FolderCheck className="h-2.5 w-2.5" /> : <HardDrive className="h-2.5 w-2.5" />}
-          {take.pushed ? 'Backed up' : 'Not backed up'}
-        </span>
+        {take.missing ? (
+          <span
+            title="This file could not be found on disk"
+            className="inline-flex items-center gap-1 rounded-sm bg-destructive/10 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-destructive"
+          >
+            File not found
+          </span>
+        ) : (
+          <span
+            title={take.pushed ? 'Backed up to the project' : 'Saved on this computer only'}
+            className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] ${
+              take.pushed
+                ? 'bg-success/10 text-success'
+                : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {take.pushed ? <FolderCheck className="h-2.5 w-2.5" /> : <HardDrive className="h-2.5 w-2.5" />}
+            {take.pushed ? 'Backed up' : 'Not backed up'}
+          </span>
+        )}
         <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">
           {clock(duration * 1000 || take.durationMs)}
         </span>
@@ -122,8 +131,9 @@ function Take({ take, onDiscard, onPush, pushing }) {
       <div className="flex items-center gap-3">
         <button
           onClick={toggle}
+          disabled={take.missing}
           aria-label={playing ? `Pause take ${take.number}` : `Play take ${take.number}`}
-          className="flex h-8 w-8 flex-none items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+          className="flex h-8 w-8 flex-none items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-0.5 h-3.5 w-3.5" />}
         </button>
@@ -172,7 +182,7 @@ function Take({ take, onDiscard, onPush, pushing }) {
         </button>
       </div>
 
-      {playError && (
+      {playError && !take.missing && (
         <p className="mt-2 text-[10px] text-destructive">This take could not be played back.</p>
       )}
 
@@ -180,7 +190,7 @@ function Take({ take, onDiscard, onPush, pushing }) {
           keeper. Pushing is per-take and never automatic. */}
       <button
         onClick={() => onPush(take)}
-        disabled={take.pushed || pushing}
+        disabled={take.pushed || pushing || take.missing}
         className={`mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-default ${
           take.pushed
             ? 'border-success/30 bg-success/5 text-success disabled:opacity-100'
@@ -196,7 +206,7 @@ function Take({ take, onDiscard, onPush, pushing }) {
         )}
       </button>
 
-      <audio ref={audio} src={take.replayUrl} preload="metadata" className="hidden" />
+      {take.replayUrl && <audio ref={audio} src={take.replayUrl} preload="metadata" className="hidden" />}
     </div>
   );
 }

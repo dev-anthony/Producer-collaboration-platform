@@ -1,13 +1,14 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, FolderGit2, Users, Settings, LogOut, GitBranch, CircleUserRound, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Home, FolderGit2, Users, Settings, LogOut, GitBranch, Mic2, CircleUserRound, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { LogoMark } from "./Logo";
 
 const navItems = [
   { icon: Home, label: "Dashboard", path: "/dashboard" },
   { icon: FolderGit2, label: "Projects", path: "/projects" },
   { icon: Users, label: "Collaborations", path: "/collaboration" },
+  { icon: Mic2, label: "Sessions", path: "/sessions" },
   { icon: GitBranch, label: "Version history", path: "/history" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -36,7 +37,7 @@ const Sidebar = ({ onLogout, user, collapsed = false, mobileOpen = false, onNavi
       <nav className={`flex-1 p-4 ${collapsed ? 'lg:px-2' : ''}`}>
         <div className="space-y-2">
           {navItems.map((item, index) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
             
             return (
               <Link

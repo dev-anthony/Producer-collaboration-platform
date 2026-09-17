@@ -1,6 +1,8 @@
 const { ipcMain, BrowserWindow } = require('electron');
+const Store = require('electron-store').default;
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const ReconciliationEngine = require('../recording/reconciliation');
 const TakeManager = require('../recording/takeManager');
 const WavWriter = require('../audio/wavWriter');
@@ -9,13 +11,44 @@ const takes = new TakeManager();
 const reconciliation = new ReconciliationEngine();
 const masterWriters = new Map();
 const streamWavWriters = new Map();
-// Files this module created, and therefore the only files it is allowed to
-// touch from rr-delete-audio-file / rr-push-take-to-folder. Takes now live
-// inside a per-project vault and eventually the project folder itself, so a
-// path-prefix rule alone is no longer a safe guard — this module has to know
-// exactly which files are its own.
-const ownedTakes = new Set();
 let registered = false;
+
+// Same underlying config file index.js already reads and writes — a second
+// electron-store instance with the same name is exactly how two main-process
+// modules are meant to share persisted state, so this needs no wiring
+// between the two files. Only ever read here, never written — folder links
+// are index.js's to own.
+const projectFolders = new Store({ name: 'project-folders' });
+
+// Every session's take list, kept per project so the Sessions page can
+// browse a project's past sessions after the live one has ended and its
+// React state is long gone. The audio files themselves already outlive the
+// session on disk (see TakeManager) — this is the record of which files
+// belonged to which session, and when.
+const sessionHistory = new Store({ name: 'session-history' });
+
+const isUnderDir = (target, dir) => {
+  const resolvedDir = path.resolve(dir);
+  const resolvedTarget = path.resolve(target);
+  return resolvedTarget === resolvedDir || resolvedTarget.startsWith(resolvedDir + path.sep);
+};
+
+// Whether a path is a take this module could plausibly have produced, and
+// therefore the only kind of path rr-delete-audio-file / rr-push-take-to-folder
+// are allowed to touch. This used to be tracked in an in-memory Set built up
+// as takes were created — but that Set resets on every app restart, which
+// breaks the moment someone opens a past session from the Sessions page in a
+// later run of the app. A structural check survives restarts because it does
+// not depend on anything the app remembered doing: a path either sits inside
+// the ProdCollab-Takes tree (staging, vault, monitor captures — nothing else
+// is ever written there) or inside some linked project's own takes/
+// subfolder (the one place a pushed take lands, and nothing else writes
+// there either).
+const isOwnedTakePath = (target) => {
+  if (isUnderDir(target, takes.root)) return true;
+  const linkedFolders = Object.values(projectFolders.get('watchedFolders', {}));
+  return linkedFolders.some((folderPath) => folderPath && isUnderDir(target, path.join(folderPath, 'takes')));
+};
 
 // A chunk is 128 samples — about 2.7ms at 48k — so a line per chunk is
 // roughly 375 lines a second, per writer. That buries every other log in the
@@ -69,7 +102,6 @@ const registerRecordingHandlers = () => {
     masterWriters.delete(event.sender.id);
     const stagedPath = await record.writer.stop();
     const vaultPath = await takes.toVault(stagedPath, record.projectId, record.takeNumber);
-    ownedTakes.add(path.resolve(vaultPath));
     console.log(`[RR-MASTER] Finished ${vaultPath}: ${record.bytesWritten} bytes (in vault, not yet pushed)`);
     return {
       success: true,
@@ -108,7 +140,6 @@ const registerRecordingHandlers = () => {
     if (!streamWavWriter) return { success: false, path: null };
     streamWavWriters.delete(event.sender.id);
     const outputPath = await streamWavWriter.writer.stop();
-    ownedTakes.add(path.resolve(outputPath));
     console.log(`[RR-STREAM] Finished ${outputPath}: ${streamWavWriter.bytesWritten} bytes`);
     return {
       success: true,
@@ -126,11 +157,8 @@ const registerRecordingHandlers = () => {
   // every other push in the app already uses.
   ipcMain.handle('rr-push-take-to-folder', async (_, { vaultPath, folderPath, takeNumber }) => {
     if (!vaultPath || !path.isAbsolute(vaultPath)) throw new Error('INVALID_AUDIO_PATH');
-    const resolvedVaultPath = path.resolve(vaultPath);
-    if (!ownedTakes.has(resolvedVaultPath)) throw new Error('AUDIO_PATH_NOT_ALLOWED');
+    if (!isOwnedTakePath(vaultPath)) throw new Error('AUDIO_PATH_NOT_ALLOWED');
     const projectPath = await takes.toProject(vaultPath, folderPath, takeNumber);
-    ownedTakes.delete(resolvedVaultPath);
-    ownedTakes.add(path.resolve(projectPath));
     console.log(`[RR-PUSH] ${vaultPath} → ${projectPath}`);
     return { success: true, path: projectPath, fileName: path.basename(projectPath) };
   });
@@ -151,13 +179,11 @@ const registerRecordingHandlers = () => {
   ipcMain.handle('rr-delete-audio-file', async (_, filePath) => {
     if (!filePath || !path.isAbsolute(filePath)) throw new Error('INVALID_AUDIO_PATH');
     const target = path.resolve(filePath);
-    // Only takes this module actually produced can be discarded. Now that
-    // takes can end up in the project's own takes/ folder, nothing else in
-    // there is ours to delete — a producer's other session files must never
-    // be reachable from here.
-    if (!ownedTakes.has(target)) throw new Error('AUDIO_PATH_NOT_ALLOWED');
+    // Only takes this module could plausibly have produced can be discarded
+    // — see isOwnedTakePath. A producer's other project files must never be
+    // reachable from here.
+    if (!isOwnedTakePath(target)) throw new Error('AUDIO_PATH_NOT_ALLOWED');
     await fs.promises.rm(target, { force: true });
-    ownedTakes.delete(target);
     return { success: true };
   });
 
@@ -168,10 +194,7 @@ const registerRecordingHandlers = () => {
       // A session that ends mid-take still owes a vaulted copy of it — close
       // the file and file it rather than leaving it orphaned in staging.
       const stagedPath = await record.writer.stop().catch(() => null);
-      if (stagedPath) {
-        const vaultPath = await takes.toVault(stagedPath, record.projectId, record.takeNumber).catch(() => null);
-        if (vaultPath) ownedTakes.add(path.resolve(vaultPath));
-      }
+      if (stagedPath) await takes.toVault(stagedPath, record.projectId, record.takeNumber).catch(() => null);
     }
     const stream = streamWavWriters.get(event.sender.id);
     if (stream) { streamWavWriters.delete(event.sender.id); await stream.writer.stop().catch(() => {}); }
@@ -188,6 +211,82 @@ const registerRecordingHandlers = () => {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, Buffer.concat([stream.slice(0, 44), pcm]));
     return { success: true, dropouts: dropouts.length, outputPath };
+  });
+
+  // ── Session history ────────────────────────────────────────────────────
+  // A session record is the studio equivalent of a session log: who was in
+  // the room, when, and what takes came out of it. Ending a session used to
+  // just clear the take rack from memory — the files stayed on disk (see
+  // TakeManager) but nothing pointed back at them once the tab closed. This
+  // is that pointer, kept per project so the Sessions page can list a
+  // project's past sessions and reopen any of their take racks.
+  ipcMain.handle('rr-save-session-record', (_, { projectId, projectName, side, startedAt, endedAt, takes: sessionTakes }) => {
+    if (!projectId) throw new Error('INVALID_AUDIO_PATH');
+    const all = sessionHistory.get('sessions', {});
+    const forProject = all[projectId] || [];
+    const record = {
+      id: crypto.randomUUID(),
+      projectId,
+      projectName: projectName || null,
+      side,
+      startedAt,
+      endedAt,
+      takes: (sessionTakes || []).map((take) => ({
+        number: take.number,
+        path: take.path,
+        fileName: take.fileName,
+        durationMs: take.durationMs,
+        pushed: Boolean(take.pushed),
+        source: take.source,
+      })),
+    };
+    all[projectId] = [record, ...forProject].slice(0, 200);
+    sessionHistory.set('sessions', all);
+    console.log(`[RR-HISTORY] Saved session ${record.id} for project ${projectId} (${record.takes.length} takes)`);
+    return { success: true, id: record.id };
+  });
+
+  ipcMain.handle('rr-list-session-records', (_, { projectId } = {}) => {
+    const all = sessionHistory.get('sessions', {});
+    if (projectId) return all[projectId] || [];
+    return all;
+  });
+
+  ipcMain.handle('rr-delete-session-record', (_, { projectId, sessionId, deleteFiles = false }) => {
+    const all = sessionHistory.get('sessions', {});
+    const forProject = all[projectId] || [];
+    const record = forProject.find((entry) => entry.id === sessionId);
+    if (!record) return { success: false };
+    if (deleteFiles) {
+      for (const take of record.takes) {
+        if (take.path && isOwnedTakePath(take.path)) {
+          fs.promises.rm(take.path, { force: true }).catch(() => {});
+        }
+      }
+    }
+    all[projectId] = forProject.filter((entry) => entry.id !== sessionId);
+    sessionHistory.set('sessions', all);
+    return { success: true };
+  });
+
+  // Reopening a past session and pushing or discarding one of its takes has
+  // to update the saved record too, or the Sessions page would keep showing
+  // a take that no longer exists, or one that says "not backed up" after it
+  // was. This is that one update, in place, without touching the rest of
+  // the session's takes.
+  ipcMain.handle('rr-update-session-take', (_, { projectId, sessionId, takeNumber, patch, remove }) => {
+    const all = sessionHistory.get('sessions', {});
+    const forProject = all[projectId] || [];
+    const recordIndex = forProject.findIndex((entry) => entry.id === sessionId);
+    if (recordIndex === -1) return { success: false };
+    const record = forProject[recordIndex];
+    const nextTakes = remove
+      ? record.takes.filter((take) => take.number !== takeNumber)
+      : record.takes.map((take) => (take.number === takeNumber ? { ...take, ...patch } : take));
+    forProject[recordIndex] = { ...record, takes: nextTakes };
+    all[projectId] = forProject;
+    sessionHistory.set('sessions', all);
+    return { success: true };
   });
 };
 

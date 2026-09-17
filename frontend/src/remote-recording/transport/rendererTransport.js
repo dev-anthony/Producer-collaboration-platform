@@ -5,6 +5,15 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
+// Connection lifecycle logging, on everywhere except a packaged production
+// build. It earned its keep tracking down the WAV, talkback and CSP issues
+// during development, but a per-ICE-candidate line has no business in a
+// producer's console once the studio is finished, not still being debugged.
+// Actual failures (console.error) stay on regardless — those are worth
+// seeing in the field, not just during development.
+const DEBUG = process.env.NODE_ENV !== 'production';
+const log = (...args) => { if (DEBUG) console.log(...args); };
+
 export default class RendererTransport {
   constructor({ sessionId, role, supabaseUrl, supabaseAnonKey, onAudio, onControl, onTalkback, onStatus }) {
     this.sessionId = sessionId;
@@ -68,21 +77,21 @@ export default class RendererTransport {
     });
     this.peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.peer.onicecandidate = ({ candidate }) => {
-      console.log(`[RR-ICE] candidate ${new Date().toISOString()}`);
+      log(`[RR-ICE] candidate ${new Date().toISOString()}`);
       if (candidate) this.sendSignal({ type: 'candidate', candidate });
     };
-    this.peer.oniceconnectionstatechange = () => console.log(`[RR-ICE] state ${new Date().toISOString()}: ${this.peer.iceConnectionState}`);
+    this.peer.oniceconnectionstatechange = () => log(`[RR-ICE] state ${new Date().toISOString()}: ${this.peer.iceConnectionState}`);
     this.peer.onconnectionstatechange = () => {
-      console.log(`[RR-PEER] connectionState ${new Date().toISOString()}: ${this.peer.connectionState}`);
+      log(`[RR-PEER] connectionState ${new Date().toISOString()}: ${this.peer.connectionState}`);
       if (this.peer.connectionState === 'connected') this.onStatus?.('connected');
       if (['failed', 'closed', 'disconnected'].includes(this.peer.connectionState)) this.onStatus?.('disconnected');
     };
     this.peer.ondatachannel = ({ channel }) => {
-      console.log(`[RR-DATA] ondatachannel fired ${new Date().toISOString()} label=${channel.label}`);
+      log(`[RR-DATA] ondatachannel fired ${new Date().toISOString()} label=${channel.label}`);
       this.attachAudio(channel);
     };
     this.peer.ontrack = ({ streams, track }) => {
-      console.log(`[RR-TALKBACK] ontrack fired ${new Date().toISOString()} kind=${track.kind} readyState=${track.readyState} streams=${streams.length}`);
+      log(`[RR-TALKBACK] ontrack fired ${new Date().toISOString()} kind=${track.kind} readyState=${track.readyState} streams=${streams.length}`);
       if (streams[0]) this.onTalkback?.(streams[0]);
     };
     if (this.role === 'producer') {
@@ -122,7 +131,7 @@ export default class RendererTransport {
   attachAudio(channel) {
     this.audioChannel = channel;
     channel.binaryType = 'arraybuffer';
-    channel.onopen = () => { console.log(`[RR-DATA] open ${new Date().toISOString()}`); this.onStatus?.('connected'); };
+    channel.onopen = () => { log(`[RR-DATA] open ${new Date().toISOString()}`); this.onStatus?.('connected'); };
     channel.onmessage = ({ data }) => this.onAudio?.(data instanceof ArrayBuffer ? data : data.buffer || data);
     channel.onerror = (error) => {
       console.error(`[RR-DATA] error ${new Date().toISOString()}`, error);
@@ -134,7 +143,7 @@ export default class RendererTransport {
       if (this.audioChannel === channel) this.audioChannel = null;
     };
     channel.onclose = () => {
-      console.log(`[RR-DATA] close ${new Date().toISOString()}`);
+      log(`[RR-DATA] close ${new Date().toISOString()}`);
       if (this.audioChannel === channel) this.audioChannel = null;
     };
   }
@@ -147,11 +156,11 @@ export default class RendererTransport {
     // on every re-toggle. Clear stale senders first so toggling talkback
     // on/off/on stays a clean single audio line.
     if (this.talkbackSenders.length) this._clearTalkbackSenders();
-    console.log(`[RR-TALKBACK] adding ${stream.getTracks().length} local track(s) ${new Date().toISOString()}`);
+    log(`[RR-TALKBACK] adding ${stream.getTracks().length} local track(s) ${new Date().toISOString()}`);
     this.talkbackSenders = stream.getTracks().map((track) => this.peer.addTrack(track, stream));
     this.hasOffered = false;
     await this.makeOffer();
-    console.log(`[RR-TALKBACK] renegotiation offer sent ${new Date().toISOString()} signalingState=${this.peer.signalingState}`);
+    log(`[RR-TALKBACK] renegotiation offer sent ${new Date().toISOString()} signalingState=${this.peer.signalingState}`);
   }
 
   // Turning talkback off removes the sender and renegotiates, rather than

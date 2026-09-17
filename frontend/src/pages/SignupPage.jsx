@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AuthLayout from '../components/AuthLayout';
+import { friendlyAuthError } from '../lib/authErrors';
 
 function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
   const [username, setUsername] = useState('');
@@ -33,8 +34,9 @@ function SignupPage({ onSignupComplete, onNavigateLogin, setToast }) {
       if (setToast) setToast({ type: 'success', message: 'Account created. Please log in.' });
       if (onSignupComplete) onSignupComplete();
     } catch (err) {
-      setErrorMsg(err.message);
-      if (setToast) setToast({ type: 'error', message: err.message });
+      const message = friendlyAuthError(err);
+      setErrorMsg(message);
+      if (setToast) setToast({ type: 'error', message });
     } finally {
       setLoading(false);
     }

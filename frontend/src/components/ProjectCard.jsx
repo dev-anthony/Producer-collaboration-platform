@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   CircleDashed,
   Loader2,
-  Clock3
+  Clock3,
+  Mic
 } from 'lucide-react';
 import VersionHistory from './VersionHistory';
 import ProjectMetadata from './ProjectMetadata';
@@ -452,9 +453,10 @@ function ProjectCard({
             <button
               onClick={() => navigate(`/studio/${project.id}`, { state: { projectName: project.repo_name || project.name } })}
               title="Open the studio"
-              className="inline-flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+              aria-label="Open the studio"
+              className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
             >
-              Record
+              <Mic className="h-4 w-4" />
             </button>
 
             <button

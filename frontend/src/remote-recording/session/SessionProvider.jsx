@@ -3,6 +3,7 @@ import RendererTransport from '../transport/rendererTransport';
 import { createPcmContext, createPcmInput, createPcmOutput } from '../transport/pcmAudio';
 import { meterPosition, peakFromPcm, rmsFromPcm, toDbfs } from '../audio/levels';
 import { ensureProjectFolder, pushTakeToProject } from './pushTake';
+import { base64ToReplayUrl } from '../audio/replayUrl';
 
 // ── Why the session lives here and not in the studio page ───────────────────
 // The studio is a route. A route unmounts the moment someone navigates away,
@@ -83,20 +84,6 @@ const friendlyError = (error, fallback) => {
   return match ? FRIENDLY_ERRORS[match] : fallback;
 };
 
-// A blob: URL, not a data: URI. rr-read-audio-file hands back a base64
-// string; atob() is the plain, standard way to turn that into raw bytes in
-// the browser, and a Blob is what a media element wants to play — a
-// seekable, first-class resource, not a multi-megabyte string glued into a
-// src attribute (which is the known-flaky part this replaces).
-const base64ToReplayUrl = (base64) => {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
-  console.log(`[RR-PLAYBACK] built replay url from ${bytes.length} bytes`);
-  return url;
-};
-
 export function SessionProvider({ children }) {
   // ── Room state ────────────────────────────────────────────────────────────
   const [projectId, setProjectId] = useState(null);
@@ -134,6 +121,7 @@ export function SessionProvider({ children }) {
   const talkbackStream = useRef(null);
   const talkbackElement = useRef(null);
   const rolledAt = useRef(null);
+  const sessionStartedAt = useRef(null);
   const signalTimer = useRef(null);
   const meterFrame = useRef(null);
   const pendingLevel = useRef(EMPTY_LEVEL);
@@ -238,6 +226,7 @@ export function SessionProvider({ children }) {
     try {
       sideRef.current = nextSide;
       projectIdRef.current = project;
+      sessionStartedAt.current = Date.now();
       setProjectId(project);
       if (options.projectName) setProjectName(options.projectName);
       setSide(nextSide);
@@ -520,7 +509,23 @@ export function SessionProvider({ children }) {
 
   // Leaving the room for good. Walking out of the studio route does not call
   // this — only shutting the session down does.
-  const closeSession = useCallback(() => {
+  const closeSession = useCallback(async () => {
+    // Written to history before anything is torn down, so today's takes are
+    // still reachable from the Sessions page once the room is gone. Skipped
+    // for an empty session — a room nobody recorded in is not a session
+    // worth remembering.
+    if (takes.length > 0 && projectIdRef.current) {
+      await window.electronAPI.rrSaveSessionRecord({
+        projectId: projectIdRef.current,
+        projectName,
+        side: sideRef.current,
+        startedAt: sessionStartedAt.current,
+        endedAt: Date.now(),
+        takes: takes.map(({ number, path: takePath, fileName, durationMs, pushed, source }) => ({
+          number, path: takePath, fileName, durationMs, pushed, source,
+        })),
+      }).catch((error) => console.error('[RR] could not save session history:', error));
+    }
     teardown();
     sideRef.current = null;
     rollingRef.current = false;
@@ -546,7 +551,7 @@ export function SessionProvider({ children }) {
     setProjectId(null);
     setProjectName('');
     setPushingTakeId(null);
-  }, [teardown]);
+  }, [teardown, takes, projectName]);
 
   const setProject = useCallback((id, name) => {
     projectIdRef.current = id;

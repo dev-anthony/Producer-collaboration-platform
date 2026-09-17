@@ -134,4 +134,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   rrReconcile: (data) => ipcRenderer.invoke('rr-reconcile', data),
   rrNativeStatus: () => ipcRenderer.invoke('rr-native-status'),
+  rrSaveSessionRecord: (data) => ipcRenderer.invoke('rr-save-session-record', data),
+  rrListSessionRecords: (data) => ipcRenderer.invoke('rr-list-session-records', data),
+  rrDeleteSessionRecord: (data) => ipcRenderer.invoke('rr-delete-session-record', data),
+  rrUpdateSessionTake: (data) => ipcRenderer.invoke('rr-update-session-take', data),
 });

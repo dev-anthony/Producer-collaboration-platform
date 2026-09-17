@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AuthLayout from '../components/AuthLayout';
+import { friendlyAuthError } from '../lib/authErrors';
 
 function LoginPage({ onLogin, onNavigateSignup, setToast }) {
   const [email, setEmail] = useState('');
@@ -39,8 +40,9 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
       if (!res.ok) throw new Error(data.error || 'Login failed');
       if (onLogin) onLogin(data.user);
     } catch (err) {
-      setErrorMsg(err.message);
-      if (setToast) setToast({ type: 'error', message: err.message });
+      const message = friendlyAuthError(err);
+      setErrorMsg(message);
+      if (setToast) setToast({ type: 'error', message });
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
       setToast?.({ type: 'success', message: data.message });
       setMode('login');
     } catch (error) {
-      setErrorMsg(error.message);
+      setErrorMsg(friendlyAuthError(error));
     } finally {
       setLoading(false);
     }
@@ -85,7 +87,7 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
       setPassword('');
       setConfirmPassword('');
     } catch (error) {
-      setErrorMsg(error.message);
+      setErrorMsg(friendlyAuthError(error));
     } finally {
       setLoading(false);
     }

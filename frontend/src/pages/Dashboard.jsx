@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Sidebar from '../components/Sidebar';
 import ProjectCard from '../components/ProjectCard';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Mic } from 'lucide-react';
 import Modal from '../components/Modal';
 import JoinProjectModal from '../components/JoinProjectModal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import ResponsiveShell from '../components/ResponsiveShell';
+import LiveRecordPicker from '../remote-recording/ui/LiveRecordPicker';
 
 function Dashboard({ onLogout }) {
   const [user, setUser] = useState(null);
@@ -15,6 +17,7 @@ function Dashboard({ onLogout }) {
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [showLiveRecordPicker, setShowLiveRecordPicker] = useState(false);
   const [collaboratedProjects, setCollaboratedProjects] = useState([]);
   const [projectsWithChanges, setProjectsWithChanges] = useState(new Set());
   const [toast, setToast] = useState(null);
@@ -726,6 +729,19 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
                   <Users className="w-5 h-5 transition-transform group-hover:scale-110 duration-200" />
                   Join a session
                 </button>
+
+                {/* A second door into the studio, for when you know you want
+                    to record before you know which project's card you would
+                    otherwise have clicked. Picking a project here lands in
+                    exactly the same load-in screen the card's own Record
+                    button opens. */}
+                <button
+                  onClick={() => setShowLiveRecordPicker(true)}
+                  className="group flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-5 py-2.5 font-semibold text-primary transition-colors duration-150 hover:bg-primary/20"
+                >
+                  <Mic className="w-5 h-5 transition-transform group-hover:scale-110 duration-200" />
+                  Live record
+                </button>
               </div>
 
               {/* Your Projects Section */}
@@ -795,6 +811,16 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         )}
 
         {isModalOpen && <Modal toggleModal={toggleModal} />}
+
+        {showLiveRecordPicker && createPortal(
+          <LiveRecordPicker
+            projects={[...projects, ...collaboratedProjects].filter(
+              (project, index, all) => all.findIndex((item) => String(item.id) === String(project.id)) === index
+            )}
+            onClose={() => setShowLiveRecordPicker(false)}
+          />,
+          document.body
+        )}
       </div>
     </ResponsiveShell>
   );

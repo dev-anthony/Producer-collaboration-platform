@@ -1,0 +1,3 @@
+after the session ends, there should be a ui page called sessions in the nav bar that stores session for the particular project that was clicked upon. and we can see the track rack and every other thing that went on in that session. sessions should not be thrown away inmmedialy the session ends. we should still have everything and the datas and track racks(playable and pausable as it is rn). 
+
+then also lets decide on the architecture. if we  should link the live session to the projects or  we should live it as a standalone feature to be used anytime not just linked to project which do u think is better and why?

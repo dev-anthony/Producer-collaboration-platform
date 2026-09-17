@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, PowerOff, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, PowerOff, AlertTriangle, Loader2 } from 'lucide-react';
 import { useSession } from '../../session/SessionProvider';
 import LoadIn from './LoadIn';
 import ControlRoom from './ControlRoom';
@@ -30,9 +30,20 @@ export default function StudioPage() {
 
   const leave = () => navigate('/projects');
 
-  const endSession = () => {
-    closeSession();
-    navigate('/projects');
+  const [ending, setEnding] = useState(false);
+  const endSession = async () => {
+    if (ending) return;
+    setEnding(true);
+    const endedProjectId = sessionProjectId;
+    try {
+      // Saving the session record is awaited before navigating away, so the
+      // Sessions page it lands on is never missing the session that just
+      // finished.
+      await closeSession();
+      navigate(`/sessions/${endedProjectId}`);
+    } finally {
+      setEnding(false);
+    }
   };
 
   // One room at a time. A second session would mean two open mics and two
@@ -54,10 +65,19 @@ export default function StudioPage() {
 
         <div className="h-5 w-px bg-border" />
 
-        <div className="flex min-w-0 items-baseline gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-semibold text-foreground">
             {projectName || 'Studio'}
           </span>
+          {/* The room name says where you are; this says who you are in it —
+              the two read differently at a glance (Control room vs Producer)
+              and someone glancing at the header should not have to infer
+              their own role from the room name. */}
+          {(side === 'producer' || side === 'performer') && (
+            <span className="flex-none rounded-sm border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+              {side === 'producer' ? 'Producer' : 'Performer'}
+            </span>
+          )}
           {side && (
             <span className="flex-none text-[10px] uppercase tracking-[0.18em] text-primary">
               {side === 'producer' ? 'Control room' : side === 'performer' ? 'Live room' : 'Solo session'}
@@ -90,10 +110,12 @@ export default function StudioPage() {
           {active && (
             <button
               onClick={endSession}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+              disabled={ending}
+              title="End session"
+              className="inline-flex flex-none items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
             >
-              <PowerOff className="h-3.5 w-3.5" />
-              End session
+              {ending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PowerOff className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{ending ? 'Saving…' : 'End session'}</span>
             </button>
           )}
         </div>

@@ -30,7 +30,7 @@ export default function ControlRoom({ session }) {
   };
 
   return (
-    <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[13rem_minmax(0,1fr)_minmax(20rem,25rem)]">
+    <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-4 overflow-y-auto p-4 lg:grid-rows-1 lg:overflow-visible lg:grid-cols-[13rem_minmax(0,1fr)_minmax(20rem,25rem)]">
       {/* ── Booth channel ──────────────────────────────────────────────── */}
       <section className="flex min-h-0 flex-col border border-border bg-card p-4">
         <div className="mb-4 flex items-center gap-2">
@@ -38,8 +38,8 @@ export default function ControlRoom({ session }) {
           <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Booth channel</span>
         </div>
 
-        <div className="flex min-h-0 flex-1 justify-center pb-4">
-          <LevelMeter level={level} orientation="vertical" label="Input" />
+        <div className="flex min-h-0 justify-center pb-4 lg:flex-1">
+          <LevelMeter level={level} orientation="vertical" responsive label="Input" />
         </div>
 
         {/* Signal lamp reads the line, not the speakers — it stays lit while
@@ -146,7 +146,7 @@ export default function ControlRoom({ session }) {
       </section>
 
       {/* ── Take rack ──────────────────────────────────────────────────── */}
-      <div className="min-h-0">
+      <div className="min-h-0 w-full">
         <TakeRack
           takes={takes}
           onDiscard={discardTake}

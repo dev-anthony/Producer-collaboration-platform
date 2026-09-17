@@ -15,10 +15,20 @@ const SCALE = [0, -6, -12, -18, -24, -36, -48, -60];
 
 const bandFor = (db) => (db >= -3 ? OVER : db >= -12 ? HOT : SAFE);
 
-export default function LevelMeter({ level, orientation = 'vertical', showScale = true, label }) {
+export default function LevelMeter({ level, orientation = 'vertical', showScale = true, label, responsive = false }) {
   const [peakHold, setPeakHold] = useState(0);
+  const [compact, setCompact] = useState(false);
   const holdRef = useRef({ value: 0, setAt: 0 });
   const frame = useRef(null);
+
+  useEffect(() => {
+    if (!responsive) return undefined;
+    const media = window.matchMedia('(max-width: 1023px)');
+    const update = () => setCompact(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, [responsive]);
 
   // Peak hold: the marker parks at the loudest thing that just happened, sits
   // for a beat so it can actually be read, then falls back. Without the hold a
@@ -48,7 +58,7 @@ export default function LevelMeter({ level, orientation = 'vertical', showScale 
   const position = level?.position || 0;
   const db = level?.db ?? -60;
   const lit = Math.round(position * SEGMENTS);
-  const vertical = orientation === 'vertical';
+  const vertical = orientation === 'vertical' && !(responsive && compact);
 
   const segments = Array.from({ length: SEGMENTS }, (_, index) => {
     // Segment 0 is the bottom of the scale in vertical orientation.

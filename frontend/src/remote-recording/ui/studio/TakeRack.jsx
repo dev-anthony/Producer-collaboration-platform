@@ -192,7 +192,7 @@ function Take({ take, onDiscard, onPush, pushing }) {
         ) : take.pushed ? (
           <><FolderCheck className="h-3 w-3" /> Backed up to the project</>
         ) : (
-          <><UploadCloud className="h-3 w-3" /> Back up this take to the project</>
+          <><UploadCloud className="h-3 w-3" /> Use take</>
         )}
       </button>
 

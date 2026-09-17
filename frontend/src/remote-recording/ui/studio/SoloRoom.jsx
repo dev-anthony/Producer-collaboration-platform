@@ -24,14 +24,14 @@ export default function SoloRoom({ session }) {
   } = session;
 
   return (
-    <div className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[13rem_minmax(0,1fr)_minmax(20rem,25rem)]">
+    <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-4 overflow-y-auto p-4 lg:grid-rows-1 lg:overflow-visible lg:grid-cols-[13rem_minmax(0,1fr)_minmax(20rem,25rem)]">
       <section className="flex min-h-0 flex-col border border-border bg-card p-4">
         <div className="mb-4 flex items-center gap-2">
           <Mic className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Your channel</span>
         </div>
-        <div className="flex min-h-0 flex-1 justify-center pb-4">
-          <LevelMeter level={level} orientation="vertical" label="Input" />
+        <div className="flex min-h-0 justify-center pb-4 lg:flex-1">
+          <LevelMeter level={level} orientation="vertical" responsive label="Input" />
         </div>
         <p className="border-t border-border pt-3 text-[10px] leading-relaxed text-muted-foreground/70">
           Recording alone. Each take is captured at full quality on this machine and lands in the rack the moment you stop.
@@ -76,7 +76,7 @@ export default function SoloRoom({ session }) {
         </p>
       </section>
 
-      <div className="min-h-0">
+      <div className="min-h-0 w-full">
         <TakeRack
           takes={takes}
           onDiscard={discardTake}

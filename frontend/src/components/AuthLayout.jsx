@@ -47,7 +47,6 @@ function AuthLayout({ title = "WELCOME BACK", descriptions = DEFAULT_DESCRIPTION
 
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2 overflow-hidden">
-      {/* Left Branding Section */}
       <section className="relative hidden min-h-screen flex-col justify-between border-r border-border bg-muted/10 p-8 xl:p-14 lg:flex overflow-hidden">
         <div className="z-20">
           <LogoLockup size={32} className="text-foreground" />
@@ -75,7 +74,6 @@ function AuthLayout({ title = "WELCOME BACK", descriptions = DEFAULT_DESCRIPTION
         </div>
       </section>
 
-      {/* Right Form Section with Custom Scrollbar */}
       <section className="relative flex max-h-screen flex-col justify-center overflow-y-auto app-scrollbar px-6 py-10 sm:px-12 lg:px-20">
         <div className="absolute left-6 top-6 lg:hidden">
           <LogoLockup size={32} className="text-foreground" />

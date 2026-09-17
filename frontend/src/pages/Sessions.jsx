@@ -6,11 +6,6 @@ import PageHeader from '../components/PageHeader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 
-// The recording studio is a project-scoped feature — every take belongs to a
-// project's own backup history, the same way every pushed file already does.
-// So a session's home after it ends is here: a page reachable from the main
-// nav, organized by project, rather than a standalone recordings library
-// disconnected from the project the recording was actually for.
 export default function Sessions({ onLogout }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);

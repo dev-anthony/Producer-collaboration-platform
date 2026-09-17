@@ -24,10 +24,6 @@ const formatDuration = (startMs, endMs) => {
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 };
 
-// A past session, reopened. Nothing here talks to a live room — there is no
-// transport, no meter, no connection to patch into — it is purely the
-// record of what happened: who was recording, when, and the takes that came
-// out of it, still playable exactly as they were the day they were made.
 export default function SessionHistory({ onLogout }) {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -40,10 +36,6 @@ export default function SessionHistory({ onLogout }) {
   const [loadingTakes, setLoadingTakes] = useState(false);
   const [pushingId, setPushingId] = useState(null);
   const [toast, setToast] = useState(null);
-  // A plain ref, not just the state — the unmount cleanup below needs
-  // whatever the latest set of replay URLs actually is, and a closure over
-  // state from the render that first set up this effect would still be
-  // looking at null on the way out.
   const selectedTakesRef = useRef(null);
   useEffect(() => { selectedTakesRef.current = selectedTakes; }, [selectedTakes]);
 
@@ -57,11 +49,7 @@ export default function SessionHistory({ onLogout }) {
       .then(setUser)
       .catch(() => {});
     load();
-    // Every replay URL is a Blob URL, alive in this tab's memory only —
-    // leaving the page has to let all of them go, not just the ones for
-    // whichever session was open when the effect was first set up.
     return () => revokeTakes(selectedTakesRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const load = async () => {
@@ -84,10 +72,6 @@ export default function SessionHistory({ onLogout }) {
 
   const openSession = async (session) => {
     if (session.id === selectedId) return;
-    // Switching sessions leaks the previous one's replay URLs unless they
-    // are revoked here — closing the page is not the only way to move on
-    // from a session, clicking a different one in the list is just as
-    // common and has to release the same memory.
     revokeTakes(selectedTakesRef.current);
     setSelectedId(session.id);
     setLoadingTakes(true);

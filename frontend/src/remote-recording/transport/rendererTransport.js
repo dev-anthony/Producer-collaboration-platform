@@ -5,12 +5,6 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
-// Connection lifecycle logging, on everywhere except a packaged production
-// build. It earned its keep tracking down the WAV, talkback and CSP issues
-// during development, but a per-ICE-candidate line has no business in a
-// producer's console once the studio is finished, not still being debugged.
-// Actual failures (console.error) stay on regardless — those are worth
-// seeing in the field, not just during development.
 const DEBUG = process.env.NODE_ENV !== 'production';
 const log = (...args) => { if (DEBUG) console.log(...args); };
 
@@ -35,12 +29,6 @@ export default class RendererTransport {
     this.onControl = onControl;
     this.onTalkback = onTalkback;
     this.onStatus = onStatus;
-    // Guards against duplicate offer/negotiation cycles caused by a stray
-    // second 'peer-joined' broadcast (e.g. a double-mounted session or a
-    // duplicate join click). Without this, a second offer can orphan the
-    // first data channel mid-negotiation, which showed up as the producer's
-    // channel opening then immediately erroring/closing while the performer
-    // never saw ondatachannel fire at all.
     this.hasOffered = false;
     this.closed = false;
     this.negotiating = false;
@@ -107,9 +95,6 @@ export default class RendererTransport {
       this.offerPending = true;
       return;
     }
-    // Set the flag before awaiting anything, so a second synchronous call
-    // (e.g. a duplicate broadcast arriving before this promise resolves)
-    // can't slip through and start a second negotiation.
     this.hasOffered = true;
     this.negotiating = true;
     try {
@@ -136,10 +121,6 @@ export default class RendererTransport {
     channel.onerror = (error) => {
       console.error(`[RR-DATA] error ${new Date().toISOString()}`, error);
       this.onStatus?.(`audio channel error: ${error.message || 'unknown error'}`);
-      // Don't leave a dead channel referenced — sendAudio() checks
-      // readyState, but keeping the stale object around masks the failure
-      // in logs (bufferedAmount would still read a stale number instead of
-      // undefined, hiding that nothing is actually being sent anymore).
       if (this.audioChannel === channel) this.audioChannel = null;
     };
     channel.onclose = () => {
@@ -150,11 +131,6 @@ export default class RendererTransport {
 
   async addTalkbackStream(stream) {
     if (!this.peer) throw new Error('RECORDING_SESSION_NOT_READY');
-    // A leftover sender from a previous talkback toggle would otherwise sit
-    // on the connection with a dead track, and addTrack() cannot reuse it —
-    // it always opens a new transceiver, growing the SDP with a dead m-line
-    // on every re-toggle. Clear stale senders first so toggling talkback
-    // on/off/on stays a clean single audio line.
     if (this.talkbackSenders.length) this._clearTalkbackSenders();
     log(`[RR-TALKBACK] adding ${stream.getTracks().length} local track(s) ${new Date().toISOString()}`);
     this.talkbackSenders = stream.getTracks().map((track) => this.peer.addTrack(track, stream));
@@ -163,10 +139,6 @@ export default class RendererTransport {
     log(`[RR-TALKBACK] renegotiation offer sent ${new Date().toISOString()} signalingState=${this.peer.signalingState}`);
   }
 
-  // Turning talkback off removes the sender and renegotiates, rather than
-  // just stopping the local track — otherwise the dead sender lingers on the
-  // connection and the next addTrack() opens a second, competing audio line
-  // instead of reusing a clean one.
   async removeTalkbackStream() {
     if (!this.peer || !this.talkbackSenders.length) return;
     this._clearTalkbackSenders();

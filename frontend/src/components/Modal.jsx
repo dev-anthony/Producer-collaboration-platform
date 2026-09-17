@@ -71,7 +71,7 @@ const handleFolderSelect = (e) => {
 const handleNativeFolderSelect = async () => {
   try {
     const folderPath = await window.electronAPI.selectFolder();
-    if (!folderPath) return; // cancelled
+    if (!folderPath) return;
 
     setLocalFolderPath(folderPath);
 
@@ -311,7 +311,6 @@ const handleNativeFolderSelect = async () => {
         if (projectId && localFolderPath) {
           try {
             await window.electronAPI.saveFolderPath(projectId, localFolderPath);
-            // Phase 6.6: create standard stems/ and exports/ subfolders
             if (window.electronAPI?.setupProjectFolder) {
               await window.electronAPI.setupProjectFolder(localFolderPath);
             }

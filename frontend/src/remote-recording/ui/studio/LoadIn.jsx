@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Mic, SlidersHorizontal, User } from 'lucide-react';
 
-// Load-in happens inside the room, not in front of it.
-//
-// You walk through the door first and the room is simply cold — nothing
-// patched, nobody on the other side of the glass. Choosing a side is setting
-// up, not asking permission to enter, so there is no gate before this screen.
 export default function LoadIn({ session }) {
   const { ready, patching, fault, loadIn, projectName } = session;
   const [key, setKey] = useState('');
@@ -13,13 +8,6 @@ export default function LoadIn({ session }) {
   const blocked = !ready || patching;
 
   return (
-    // A centered layout that assumes it always fits the viewport breaks the
-    // moment it doesn't — two full cards plus the solo bar is genuinely tall
-    // content on a short window, and items-center with no scroll container
-    // just clips it top and bottom with nothing to scroll to reach the rest.
-    // flex-1 + justify-center on the inner wrapper keeps the centered look
-    // when everything fits, and still lets the page scroll top-down the
-    // moment it does not.
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-4">
         <div className="mb-6 text-center sm:mb-10">

@@ -150,8 +150,6 @@ function Dashboard({ onLogout }) {
   const handleFileChange = (projectId, event, filePath) => {
  
     setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
-    // Persist so the "changes waiting" badge survives navigation/remount until
-    // the change is actually pushed (auto-push or manual).
     window.localStorage.setItem(`prodcollab_pending_${projectId}`, '1');
     
 
@@ -168,7 +166,6 @@ function Dashboard({ onLogout }) {
   };
   const getUserData = async () => {
     try {
-      // Phase 4.15: cookie-based session, fetch profile from /api/auth/me
       const response = await fetch("http://localhost:5000/api/auth/me", {
         credentials: 'include'
       });
@@ -263,9 +260,6 @@ function Dashboard({ onLogout }) {
       let project = projects.find(p => String(p.id) === String(projectId)) ||
                       collaboratedProjects.find(p => String(p.id) === String(projectId))
 
-      // Auto-push fires from a listener registered on mount, whose closure may
-      // predate the projects load. Fall back to fetching the project directly
-      // so a valid, watched project is never reported as "not found".
       if (!project) {
         try {
           const lookup = await fetch(`http://localhost:5000/api/projects/${projectId}`, { credentials: 'include' });
@@ -283,14 +277,11 @@ function Dashboard({ onLogout }) {
         return;
       }
 
-      // Auto-push always has a real pending change from the watcher, even if the
-      // in-memory flag is stale from a remount, so only block manual no-op pushes.
       if (!project.hasUnpushedChanges && !projectsWithChanges.has(String(projectId))) {
         setToast({ type: 'info', message: "Everything is already backed up" });
         return;
       }
 
-      // STEP 1: Ensure folder path exists
       let folderPath;
       try {
         folderPath = await ensureFolderPath(projectId);
@@ -304,7 +295,6 @@ function Dashboard({ onLogout }) {
 
       setToast({ type: 'info', message: 'Backing up your changes' });
 
-      // STEP 2: Get git credentials (ProdCollab token + repoUrl) from server
       const credRes = await fetch(`http://localhost:5000/api/projects/${projectId}/git-credentials`, {
         credentials: 'include'
       });
@@ -313,7 +303,6 @@ function Dashboard({ onLogout }) {
         throw new Error(creds.error || creds.message || 'Failed to get git credentials');
       }
 
-      // STEP 3: Ensure the local folder is a git repo wired to origin
       const initRes = await window.electronAPI.initGit({
         folderPath,
         repoUrl: creds.repoUrl,
@@ -321,7 +310,6 @@ function Dashboard({ onLogout }) {
       });
       if (!initRes.success) throw new Error(initRes.error || 'Git init failed');
 
-      // STEP 4: Commit + push via simple-git
       const pushRes = await window.electronAPI.gitPush({
         folderPath,
          message: `Update by ${creds.authorName || 'ProdCollab'}`,
@@ -338,7 +326,6 @@ function Dashboard({ onLogout }) {
         return;
       }
 
-      // STEP 5: Tell the server the push happened
       const recordResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/record-push`, {
         method: 'POST',
         credentials: 'include',
@@ -353,7 +340,6 @@ function Dashboard({ onLogout }) {
         throw new Error('PUSH_RECORD_FAILED');
       }
 
-      // STEP 6: Update UI state
       window.localStorage.removeItem(`prodcollab_pending_${projectId}`);
       setProjects(prev => prev.map(p =>
         String(p.id) === String(projectId) ? { ...p, hasUnpushedChanges: false } : p
@@ -374,113 +360,6 @@ function Dashboard({ onLogout }) {
           : 'Your changes are backed up.'
       });
 
-      /* ── OLD Octokit/FormData push flow (Phase 5 replaced with simple-git) ──
-      // console.log(`[PUSH] Starting push for project ${projectId}...`);
-
-      // STEP 2: Scan the CURRENT folder structure
-      const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-
-      // STEP 3: Transform scanned structure to match backend format
-      const storedStructure = typeof project.file_paths === 'string' 
-    ? JSON.parse(project.file_paths) 
-    : project.file_paths;
-      const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-      
-      let currentFileStructure;
-      
-      if (hasFolderStructure) {
-        const folderName = storedStructure.folders[0].name;
-        currentFileStructure = {
-          individualFiles: [],
-          folders: [{
-            name: folderName,
-            files: scannedStructure.files.map(file => ({
-              name: file.name,
-              size: file.size,
-              relativePath: `${folderName}/${file.name}`,
-              lastModified: file.lastModified
-            }))
-          }]
-        };
-      } else {
-        currentFileStructure = {
-          individualFiles: scannedStructure.files.map(file => ({
-            name: file.name,
-            size: file.size,
-            relativePath: file.relativePath || file.name,
-            lastModified: file.lastModified
-          })),
-          folders: []
-        };
-      }
-
-      // STEP 4: Read files from disk
-      let filesFromDisk;
-      try {
-        filesFromDisk = await window.electronAPI.readProjectFiles({
-          projectId: projectId,
-          fileStructure: storedStructure
-        });
-      } catch (error) {
-        if (error.message.includes('NO_FOLDER_PATH') || error.message.includes('No folder path')) {
-          setToast({ type: 'error', message: 'Folder path error. Please try again.' });
-          return;
-        }
-        throw error;
-      }
-
-      if (filesFromDisk.length === 0) {
-         setToast({
-          type: 'error',
-          message: 'No matching files found in the selected folder.\n\nMake sure your local files match the project structure.'
-        });
-        return;
-      }
-
-      // STEP 5: Build FormData with TRANSFORMED structure
-      const formData = new FormData();
-      formData.append('fileStructure', JSON.stringify(currentFileStructure));
-
-      for (const fileData of filesFromDisk) {
-        try {
-          const binaryString = atob(fileData.content);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          const blob = new Blob([bytes]);
-          const file = new File([blob], fileData.name, {
-            type: 'application/octet-stream',
-            lastModified: fileData.lastModified || Date.now()
-          });
-          formData.append('files', file);
-        } catch (err) {
-          setToast({
-            type: 'error',
-            message: `Error processing file ${fileData.name}: ${err.message}`
-          });
-        }
-      }
-
-      // STEP 6: Send to server using FormData
-      const pushResOld = await fetch(`http://localhost:5000/api/projects/${projectId}/push`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${jwtToken}` },
-        body: formData
-      });
-      const pushData = await pushResOld.json();
-      if(pushResOld.ok){
-        setTimeout(()=>{
-          setToast({
-          type: 'success',
-          message: `Backup complete. ${pushData.filesUploaded || filesFromDisk.length} file(s) are protected.`
-        });
-        window.dispatchEvent(new CustomEvent('prodcollab:projects-refresh'));
-        }, 1000)
-      }else{
-       throw new Error(pushData.error || pushData.message || 'Push failed')
-      }
-      ── END OLD push flow ── */
     } catch (err) {
       console.error('[PUSH] Failed:', err);
       setToast({
@@ -497,132 +376,6 @@ function Dashboard({ onLogout }) {
       });
     }
   };
-  // Phase 6.8: handleCheckChanges removed — auto-push replaces manual change checks.
-  /* const handleCheckChanges = async (projectId) => {
-    try {
-      
-const project = projects.find(p => String(p.id) === String(projectId)) ||
-                collaboratedProjects.find(p => String(p.id) === String(projectId))
-      
-      if (!project) {
-        // alert('Project not found');
-         setToast({
-          type: 'error',
-          message: 'Project not found'
-        });
-        return;
-      }
-
-      // console.log(`[CHECK] Checking changes for project ${projectId}...`);
-
-      // Ensure folder path exists
-      let folderPath;
-      try {
-        folderPath = await ensureFolderPath(projectId);
-      } catch (error) {
-        if (error.message === 'FOLDER_SELECTION_CANCELLED') {
-            setToast({
-              type: 'error',
-              message: 'FOLDER_SELECTION_CANCELLED'
-            });
-          return; 
-        }
-        if (error.message.includes('FOLDER_SELECTION_NOT_AVAILABLE')) {
-           setToast({
-            type: 'warning',
-            message: 'Folder selection is not available.\n\nPlease restart the application.'
-          });
-          return;
-        }
-        throw error;
-      }
-
-      // console.log(`[CHECK] Scanning folder:`, folderPath);
-
-      // Scan the folder for current structure
-      const scannedStructure = await window.electronAPI.scanFolder(folderPath);
-      
-      // Transform scanned structure to match backend format
-      const storedStructure = typeof project.file_paths === 'string' 
-        ? JSON.parse(project.file_paths) 
-        : project.file_paths;
-      
-      const hasFolderStructure = storedStructure?.folders && storedStructure.folders.length > 0;
-      
-      let currentFileStructure;
-      
-      if (hasFolderStructure) {
-        const folderName = storedStructure.folders[0].name;
-        currentFileStructure = {
-          individualFiles: [],
-          folders: [{
-            name: folderName,
-            files: scannedStructure.files.map(file => ({
-              name: file.name,
-              size: file.size,
-              relativePath: `${folderName}/${file.name}`,
-              lastModified: file.lastModified
-            }))
-          }]
-        };
-      } else {
-        currentFileStructure = {
-          individualFiles: scannedStructure.files.map(file => ({
-            name: file.name,
-            size: file.size,
-            relativePath: file.relativePath || file.name,
-            lastModified: file.lastModified
-          })),
-          folders: []
-        };
-      }
-
-      // console.log(`[CHECK] Transformed structure:`, currentFileStructure);
-
-      // Compare with server
-      const response = await fetch(`http://localhost:5000/api/projects/${projectId}/detect-changes`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ currentFileStructure })
-      });
-
-      const data = await response.json();
-      
-      if (data.hasChanges) {
-        // alert(` Changes detected!\n\n${data.changeDetails.join('\n')}`);
-         setToast({
-        type: 'info',
-        message: ` Changes detected!\n\n${data.changeDetails.join('\n')}`
-      });
-        setProjectsWithChanges(prev => new Set([...prev, String(projectId)]));
-      } else {
-        setToast({
-        type: 'info',
-         message: 'Everything is up to date. Your local files match the shared session.'
-      });
-        setProjectsWithChanges(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(projectId));
-          return newSet;
-        });
-      }
-
-      // Refresh project lists to sync with backend
-      await getProjects();
-      await getCollaboratedProjects();
-      
-    } catch (err) {
-      // console.error('[CHECK] Error checking changes:', err);
-      // alert(`Failed to check for changes:\n\n${err.message}`);
-      setToast({
-        type: 'error',
-        message: `Failed to check for changes:\n\n${err.message}`
-      });
-    }
-  }; */
   const handleDeleteProject = async (projectId) => {
     if (!confirm("Are you sure you want to delete this project?")) return;
     
@@ -635,7 +388,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
       if (!response.ok) throw new Error(data.error || data.message || 'Failed to delete project');
       
       if (response.ok) {
-        // Stop watching and remove folder path
         if (window.electronAPI) {
           await window.electronAPI.deleteFolderPath(projectId);
         }
@@ -654,7 +406,6 @@ const project = projects.find(p => String(p.id) === String(projectId)) ||
         });
       }
     } catch (err) {
-      // alert("Error deleting project");
       setToast({
         type: 'error',
         message: err.message || "Error deleting project"

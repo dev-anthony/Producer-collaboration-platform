@@ -2,7 +2,6 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { Octokit } = require('@octokit/rest');
 const crypto = require('crypto')
 const supabase = require('../config/supabase');
 
@@ -22,8 +21,6 @@ const broadcastProjectUpdate = (project, sourceClientId = null) => {
   }
   console.log(`[REALTIME] Project ${project.id} update delivered to ${delivered} connected collaborator(s)`);
 };
-// ── Phase 4.2/4.4: use the single shared ProdCollab Octokit + fixed owner ──
-// (replaces per-user Octokit built from github_tokens.access_token)
 const { octokit: prodOctokit, GITHUB_OWNER } = require('../config/github');
 const { createAvailableRepository } = require('../services/repositoryService');
 
@@ -36,7 +33,6 @@ const parseProjectMetadata = (description) => {
   }
 };
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads', req.userId.toString());
@@ -44,7 +40,6 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Keep original filename
     cb(null, file.originalname);
   }
 });
@@ -52,7 +47,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB per file
+    fileSize: 100 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
 
@@ -124,7 +119,6 @@ const upload = multer({
     const fileName = file.originalname.toLowerCase();
     const ext = path.extname(fileName);
     
-    // Skip hidden files and system files
     if (fileName.startsWith('.') || fileName.includes('/.git/') || fileName.includes('\\.git\\')) {
       console.log(' Skipping system/hidden file:', fileName);
       return cb(null, false);
@@ -781,7 +775,6 @@ exports.getCollaboratedProjects = async (req, res) => {
 
     if (projError) throw projError;
 
-    // Owners
     const ownerIds = [...new Set((projectRows || []).map(p => p.user_id))];
     const { data: owners } = await supabase
       .from('users')
@@ -1363,7 +1356,6 @@ exports.recordPush = async (req, res) => {
       .single();
     if (profileError || !pusherProfile) throw profileError || new Error('Pusher profile not found');
     console.log(`[PUSH] Recording project ${projectId} from user ${pusherProfile.id} (${pusherProfile.email}) client ${sourceClientId || '(unknown)'}`);
-    // ── Phase 3.10: Supabase ──
     const pushedAt = new Date().toISOString();
     const lastPushedBy = pusherProfile.username || pusherProfile.email || 'A collaborator';
     const { data: updatedProject, error } = await supabase
@@ -1381,7 +1373,6 @@ exports.recordPush = async (req, res) => {
     if (typeof broadcast === 'function') {
       broadcast(updatedProject, sourceClientId);
     } else {
-      // Fallback for the legacy SSE path (kept for safety).
       broadcastProjectUpdate(updatedProject, sourceClientId);
     }
     res.json({

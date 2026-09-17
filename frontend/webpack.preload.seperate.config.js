@@ -15,7 +15,6 @@ module.exports = {
   optimization: {
     minimize: false,
   },
-  // Absolutely no dev server
   infrastructureLogging: {
     level: 'error',
   },

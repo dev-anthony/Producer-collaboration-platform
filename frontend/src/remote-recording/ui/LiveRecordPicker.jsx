@@ -2,11 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mic, Music2, Search, X } from 'lucide-react';
 
-// The quick way into the studio from outside a specific project: pick the
-// project first, then go straight into load-in exactly as if Record had
-// been clicked on that project's own card — this is a second door into the
-// same room, not a second flow. Every session still belongs to a project;
-// this only changes where you start.
 export default function LiveRecordPicker({ projects, onClose }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');

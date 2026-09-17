@@ -12,27 +12,14 @@ const clock = (ms) => {
   return `${minutes}:${seconds}.${tenths}`;
 };
 
-// A solo session: one person, alone, self-operating — the honest case for a
-// performer running their own transport. There is no other side of the
-// glass here, so there is no counterpart, no session key, no talkback and
-// no patched connection to wait on; the room is ready the moment the mic
-// opens. Everything else a session has — meter, transport, take rack, the
-// choice of which take to push — is still here in full.
 export default function SoloRoom({ session }) {
   const {
     patched, rolling, busyTake, takeNumber, takes, level, elapsedMs,
     roll, stopTake, discardTake, pushTake, pushingTakeId,
   } = session;
 
-  // Below lg only one of these is visible at a time — see RoomTabs. All
-  // three panels stay mounted regardless, so the meter and the take rack
-  // keep running underneath whichever one is on screen.
   const [tab, setTab] = useState('transport');
 
-  // A stopped take is the one moment you actually want to be looking at the
-  // rack instead of the transport — no reason to make that a second tap on
-  // a small screen. Harmless on lg, where every panel is visible anyway and
-  // this state only decides which tab is highlighted.
   const wasRolling = useRef(false);
   useEffect(() => {
     if (wasRolling.current && !rolling) setTab('takes');

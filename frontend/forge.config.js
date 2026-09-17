@@ -9,17 +9,6 @@ module.exports = {
     ignore: (file) => {
       if (!file) return false;
 
-      // Always include the .webpack folder (required by webpack plugin)
-      if (file.startsWith('/.webpack')) return false;
-
-      // Always include package.json
-      if (file === '/package.json') return false;
-
-      // Ignore these
-      if (file.startsWith('/.git')) return true;
-      if (file.startsWith('/src')) return true;
-      // Runtime native modules and their transitive dependencies are pruned by
-      // Electron Packager; they cannot be omitted before the pruning pass.
       if (file.match(/node_modules\/.*\.md$/)) return true;
       if (file.startsWith('/.gitignore')) return true;
       if (file.startsWith('/webpack')) return true;

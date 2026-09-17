@@ -9,15 +9,6 @@ const cookieOpts = (maxAge) => ({
   maxAge,
 });
 
-// Every auth call below goes out to Supabase over the internet. When that
-// call can't complete — no internet, DNS down, Supabase unreachable — the
-// client library throws the same generic shape (AuthRetryableFetchError,
-// status 0) as it does for other transient failures. Left unhandled, that
-// error used to fall into the same branch as a wrong password and come back
-// as "Invalid credentials" — true for neither case, and actively misleading
-// for the first: a producer with no internet was being told their password
-// was wrong. This tells the two apart and gives the network case its own
-// honest message instead.
 const isNetworkFailure = (error) => Boolean(error) && (
   isAuthRetryableFetchError(error)
   || error.status === 0
@@ -26,10 +17,6 @@ const isNetworkFailure = (error) => Boolean(error) && (
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the authentication service. Check your internet connection and try again.';
 
-// Sends the network message when the failure was ours to blame (no route to
-// Supabase), or the caller's own message when Supabase actually answered and
-// rejected the request. Logs the real error either way — only the response
-// to the user is simplified.
 const respondToAuthError = (res, error, { status, message, context }) => {
   console.error(`${context} error:`, error);
   if (isNetworkFailure(error)) {
@@ -102,14 +89,10 @@ exports.forgotPassword = async (req, res) => {
   });
   if (error) {
     console.error('forgotPassword error:', error);
-    // A network failure is safe to say out loud — unlike "no such account",
-    // it reveals nothing about whether the email is registered. Anything
-    // else stays silent, on purpose: see the comment below.
     if (isNetworkFailure(error)) {
       return res.status(503).json({ error: NETWORK_ERROR_MESSAGE });
     }
   }
-  // Do not reveal whether an account exists.
   res.json({ message: 'If that account exists, a reset link has been sent.' });
 };
 

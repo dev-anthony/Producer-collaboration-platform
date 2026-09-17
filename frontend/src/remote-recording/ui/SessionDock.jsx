@@ -8,8 +8,6 @@ const clock = (ms) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
 
-// The session keeps running when you walk out of the studio, so something has
-
 export default function SessionDock() {
   const session = useSession();
   const navigate = useNavigate();

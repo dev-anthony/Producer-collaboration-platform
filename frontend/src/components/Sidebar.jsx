@@ -18,7 +18,6 @@ const Sidebar = ({ onLogout, user, collapsed = false, mobileOpen = false, onNavi
 
   return (
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-none flex-col border-r border-border bg-card shadow-[8px_0_24px_rgba(0,0,0,0.35)] transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${collapsed ? 'lg:w-16' : 'lg:w-56'}`}>
-      {/* Logo */}
       <div className={`flex items-center p-4 ${collapsed ? 'lg:justify-center' : 'justify-between'}`}>
         <Link to="/dashboard" title="ProdCollab" onClick={onNavigate} className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center transition-colors">
@@ -33,7 +32,6 @@ const Sidebar = ({ onLogout, user, collapsed = false, mobileOpen = false, onNavi
         {collapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
       </button>
 
-      {/* Navigation */}
       <nav className={`flex-1 p-4 ${collapsed ? 'lg:px-2' : ''}`}>
         <div className="space-y-2">
           {navItems.map((item, index) => {
@@ -60,7 +58,6 @@ const Sidebar = ({ onLogout, user, collapsed = false, mobileOpen = false, onNavi
         </div>
       </nav>
 
-      {/* User Section */}
       <div className={`w-full p-4 ${collapsed ? 'lg:px-2' : ''}`}>
         {user && (
           <Link to="/profile" title="Profile" onClick={onNavigate} className={`relative mb-3 flex items-center gap-3 transition-colors hover:text-primary ${collapsed ? 'lg:justify-center' : ''}`}>

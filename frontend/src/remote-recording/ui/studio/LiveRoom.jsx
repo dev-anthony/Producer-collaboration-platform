@@ -9,26 +9,11 @@ const clock = (ms) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`;
 };
 
-// The live room: the other side of the glass. In a real studio the performer
-// does not run their own transport — the person at the desk does, and the
-// performer's job is to perform. So this view has no record button of its
-// own: the control room rolls and stops (roll()/stopTake() fire here in
-// response to that relayed command), and the performer sees it happen —
-// the ON AIR sign, the clock, their own level — without operating anything.
-// A solo take, where one person legitimately does run their own transport,
-// lives in its own Solo Session view instead of here.
 export default function LiveRoom({ session }) {
   const { patched, rolling, takeNumber, takes, level, elapsedMs, talkbackOpen, toggleTalkback, discardTake, pushTake, pushingTakeId } = session;
 
-  // Below lg only one of these is visible at a time — see RoomTabs. Both
-  // panels stay mounted regardless, so the meter keeps reading and a
-  // playing take keeps playing underneath whichever one is on screen.
   const [tab, setTab] = useState('performance');
 
-  // A stopped take is the one moment you actually want to be looking at the
-  // rack — no reason to make that a second tap on a small screen. Harmless
-  // on lg, where both panels are visible anyway and this state only decides
-  // which tab is highlighted.
   const wasRolling = useRef(false);
   useEffect(() => {
     if (wasRolling.current && !rolling) setTab('takes');

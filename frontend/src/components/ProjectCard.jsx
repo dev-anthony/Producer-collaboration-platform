@@ -23,7 +23,6 @@ import VersionHistory from './VersionHistory';
 import ProjectMetadata from './ProjectMetadata';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-// ── Phase 4.15: session via httpOnly cookie; jwtToken prop no longer used ──
 function ProjectCard({
   project,
   hasUnpushedChanges = false,
@@ -32,15 +31,12 @@ function ProjectCard({
   isCollaborator = false,
   currentUser
 }) {
-  // Phase 6.7: isChecking state kept for the (removed) check button — no longer used
-  const [isChecking, setIsChecking] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [loadingShare, setLoadingShare] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [toast, setToast] = useState(null);
-  // Phase 6.10: sync status — 'idle' | 'pushing' | 'failed'
   const [pushState, setPushState] = useState('idle');
   const [pushDueAt, setPushDueAt] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem(`prodcollab_push_due_${project.id}`) || 'null')?.dueAt || null; } catch { return null; }
@@ -163,7 +159,6 @@ function ProjectCard({
     }
   };
 
-  // Phase 6.10: wrap the parent push handler so we can show a "Pushing…" state
   const handlePushClick = async () => {
     setPushState('pushing');
     try {
@@ -200,16 +195,6 @@ function ProjectCard({
           : `Automatically ${isCollaborator ? 'pushing' : 'backing up'}`
         : (isCollaborator ? 'Push update' : 'Back up now');
 
-  // Phase 6.7/6.8: "Check for changes" removed — auto-push handles syncing.
-  // const handleCheckForChanges = async () => {
-  //   setIsChecking(true);
-  //   try {
-  //     await onCheckChanges(project.id);
-  //   } finally {
-  //     setIsChecking(false);
-  //   }
-  // };
-
   const handleGenerateShareLink = async () => {
     setLoadingShare(true);
     try {
@@ -222,12 +207,9 @@ function ProjectCard({
         setShareLink(data.shareLink);
         setShowShareModal(true);
       } else {
-        // alert(data.error || 'Failed to generate share link');
         setToast({ type: 'error', message: data.error || 'Failed to generate share link' });
       }
     } catch (error) {
-      // console.error('Error generating share link:', error);
-      // alert('Failed to generate share link');
        setToast({ type: 'error', message:'Failed to generate share link' });
       
     } finally {
@@ -337,9 +319,7 @@ function ProjectCard({
               : 'hover:border-primary/40'
         }`}
       >
-        {/* Status Badges */}
         <div className="flex min-h-6 justify-end px-5 pt-4">
-          {/* Phase 6.10: subtle sync status indicator */}
           {pushState === 'pushing' ? (
             <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -368,9 +348,7 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Card Content */}
           <div className="flex min-h-[270px] flex-col px-5 pb-5 pt-2">
-          {/* Header */}
           <div className="flex items-start gap-4 mb-4">
             <div 
               className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border border-white/15 bg-black text-white transition-colors duration-150 group-hover:border-white/35"
@@ -400,7 +378,6 @@ function ProjectCard({
             <ProjectMetadata metadata={project.metadata} compact />
           </div>
 
-          {/* Meta Info */}
            <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{project.fileCount ?? 0} files</span>
             <span className="w-1 h-1 rounded-full bg-border" />
@@ -421,10 +398,7 @@ function ProjectCard({
             {showHistory ? 'Hide version history' : 'View version history'}
           </button>
 
-          {/* Actions */}
           <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            {/* Phase 6.7: manual "Check" button removed — file watcher + auto-push handle this now */}
-
             <button
               onClick={handlePushClick}
               disabled={!hasUnpushedChanges || pushState === 'pushing'}
@@ -447,9 +421,6 @@ function ProjectCard({
               )}
             </button>
 
-            {/* The card is the box; Record opens it. The studio is its own
-                route rather than a dialog on top of this card, because a
-                session is somewhere a producer works, not a task they confirm. */}
             <button
               onClick={() => navigate(`/studio/${project.id}`, { state: { projectName: project.repo_name || project.name } })}
               title="Open the studio"

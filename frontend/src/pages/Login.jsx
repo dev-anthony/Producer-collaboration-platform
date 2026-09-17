@@ -93,7 +93,6 @@ function LoginPage({ onLogin, onNavigateSignup, setToast }) {
     }
   };
 
-  // UX left-panel dynamic messages
   const leftTitle = mode === 'forgot' ? 'Need a quick reset?' : mode === 'reset' ? 'Secure your studio.' : 'Welcome back to the studio.';
   const leftDesc = mode === 'forgot' 
     ? "No worries, it happens. We will get you back into your creative workflow in seconds."

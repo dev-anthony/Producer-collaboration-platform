@@ -1,14 +1,5 @@
 import React from 'react';
 
-// Below lg, a room shows one panel at a time instead of three stacked or
-// squeezed ones. A fixed guess at how tall a stacked panel "should" be on a
-// small window is fragile — it is either too short (content gets clipped or
-// crammed) or too tall (something else loses its space) depending on the
-// window in front of you. A tab gives the active panel the entire available
-// height, every time, on every window size — nothing is ever competing with
-// anything else for room. Panels stay mounted underneath (see each room:
-// this only toggles which one is visible), so a live meter or a playing
-// take keeps running when its tab is not the one on screen.
 export default function RoomTabs({ tabs, active, onChange }) {
   return (
     <div className="flex flex-none gap-1 border-b border-border bg-card/60 p-1.5 lg:hidden">

@@ -8,11 +8,6 @@ const clock = (ms) => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };
 
-// The row for the take currently rolling. This is the "literally writing"
-// view: a live scrolling strip of the real incoming level plus a running
-// clock, standing in for watching a take arrive in a DAW until that
-// integration exists. It sits above the finished takes, not among them —
-// it is not a take yet, it is one being made.
 function LiveTakeRow({ level, elapsedMs, takeNumber }) {
   return (
     <div className="border-b border-destructive/30 bg-destructive/5 px-4 py-3">
@@ -33,9 +28,6 @@ function LiveTakeRow({ level, elapsedMs, takeNumber }) {
   );
 }
 
-// One take on the rack. Every take gets a real transport — play, pause, scrub,
-// loop — because the whole point is that a take stops being a live stream the
-// moment it is done and becomes something you can sit with and play back.
 function Take({ take, onDiscard, onPush, pushing }) {
   const audio = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -50,8 +42,6 @@ function Take({ take, onDiscard, onPush, pushing }) {
     if (!element) return undefined;
     const onTime = () => setPosition(element.currentTime);
     const onMeta = () => {
-      // A streamed WAV can report Infinity until it is fully buffered; the
-      // wall-clock length of the take is the honest fallback.
       if (Number.isFinite(element.duration)) setDuration(element.duration);
     };
     const onEnd = () => { setPlaying(false); setPosition(0); };

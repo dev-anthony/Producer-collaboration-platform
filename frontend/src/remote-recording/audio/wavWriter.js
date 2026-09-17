@@ -1,14 +1,6 @@
 const fs = require('fs');
 const wav = require('wav');
 
-// The 'wav' package writes its 44-byte PCM header eagerly, before any audio
-// exists, using a ~4GB placeholder for the RIFF and data chunk sizes — it
-// cannot know the real length until the stream ends, and it never goes back
-// and fixes the file on disk once it does. Left as-is, every take we write
-// carries a header claiming ~4GB of audio. Most decoders trust that field:
-// they either refuse to open the file or report zero duration, which is
-// exactly why finished takes would not play back. We patch the two size
-// fields ourselves once the file is fully flushed to disk.
 const HEADER_LENGTH = 44;
 const RIFF_SIZE_OFFSET = 4;
 const DATA_SIZE_OFFSET = 40;
@@ -51,9 +43,6 @@ class WavWriter {
     return new Promise((resolve, reject) => {
       writer.once('error', reject);
       fileStream.once('error', reject);
-      // The file stream's own 'finish' — not the writer's end callback — is
-      // the point every byte has actually reached disk. Patching the header
-      // any earlier can race the OS write and corrupt the file.
       fileStream.once('finish', async () => {
         try {
           await this._patchHeader(dataLength);

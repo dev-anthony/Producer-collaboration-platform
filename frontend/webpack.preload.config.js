@@ -19,7 +19,6 @@ module.exports = {
     __dirname: false,
     __filename: false,
   },
-  // CRITICAL: No webpack-dev-server features
   optimization: {
     minimize: false,
   },

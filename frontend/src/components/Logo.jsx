@@ -1,9 +1,5 @@
 import React from 'react';
 
-// Auto-generated from the assets/vector logo pack. Uses currentColor so the
-// mark adapts to surrounding text color. Do not hand-edit the path data.
-
-// Circular icon symbol only (sidebar + compact spots).
 export function LogoMark({ className = '', title = 'ProdCollab', ...props }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 89" role="img" aria-label={title} className={className} {...props}>
@@ -12,7 +8,6 @@ export function LogoMark({ className = '', title = 'ProdCollab', ...props }) {
   );
 }
 
-// "ProdCollab" wordmark only.
 export function LogoWordmark({ className = '', title = 'ProdCollab', ...props }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 402 60" role="img" aria-label={title} className={className} {...props}>
@@ -21,7 +16,6 @@ export function LogoWordmark({ className = '', title = 'ProdCollab', ...props })
   );
 }
 
-// Slogan glyphs from the pack (LindenHill), normalized to its own tight box.
 export function LogoSlogan({ className = '', ...props }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 321.26 7.21" role="presentation" className={className} {...props}>
@@ -30,12 +24,7 @@ export function LogoSlogan({ className = '', ...props }) {
   );
 }
 
-// Full lockup: icon on the left; wordmark with the slogan stacked neatly beneath
-// it on the right. Composed with flexbox so the slogan always sits under the
-// wordmark and shares its left edge.
 export function LogoLockup({ size = 56, className = '', markClassName = '', wordClassName = '', sloganClassName = '' }) {
-  // Proportional sizing keyed off the icon height so the icon, wordmark, and
-  // slogan always stay in balance regardless of where the lockup is used.
   const wordWidth = Math.round(size * 4.5);
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>

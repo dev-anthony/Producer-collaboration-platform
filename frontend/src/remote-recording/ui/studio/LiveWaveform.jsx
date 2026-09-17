@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 
-// The "tape is actually moving" strip. DAW integration — watching a take
-// write straight into a timeline — is the next phase; this is what stands
-// in for it until then. It draws a scrolling history of the real incoming
-// level (the same RMS the meters already read, not a decorative animation),
-// so a take rolling in the rack looks like something is genuinely being
-// captured, the way it would look arriving in a DAW.
 const HISTORY = 160;
 
 export default function LiveWaveform({ level, height = 40 }) {
@@ -16,10 +10,9 @@ export default function LiveWaveform({ level, height = 40 }) {
     historyRef.current.push(Math.min(1, level?.rms ? level.rms * 3.2 : 0));
     if (historyRef.current.length > HISTORY) historyRef.current.shift();
     draw();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
 
-  useEffect(() => { draw(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { draw(); }, []);
 
   const draw = () => {
     const canvas = canvasRef.current;

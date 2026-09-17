@@ -1,16 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// A meter is an instrument, not decoration, so its colours are functional and
-// deliberately sit outside the app palette: green is a usable level, amber is
-// hot, red is about to clip. Producers read these three bands without
-// thinking, and re-theming them would make the meter lie.
 const SAFE = 'hsl(145 38% 46%)';
 const HOT = 'hsl(38 88% 54%)';
 const OVER = 'hsl(0 72% 54%)';
 
 const SEGMENTS = 24;
-// Scale marks in dBFS. -18 is where a vocal wants to sit, -6 is the last
-// warning, 0 is the wall.
 const SCALE = [0, -6, -12, -18, -24, -36, -48, -60];
 
 const bandFor = (db) => (db >= -3 ? OVER : db >= -12 ? HOT : SAFE);
@@ -30,9 +24,6 @@ export default function LevelMeter({ level, orientation = 'vertical', showScale 
     return () => media.removeEventListener('change', update);
   }, [responsive]);
 
-  // Peak hold: the marker parks at the loudest thing that just happened, sits
-  // for a beat so it can actually be read, then falls back. Without the hold a
-  // transient that clips is gone before anyone sees it.
   useEffect(() => {
     const position = level?.position || 0;
     if (position >= holdRef.current.value) {
@@ -61,7 +52,6 @@ export default function LevelMeter({ level, orientation = 'vertical', showScale 
   const vertical = orientation === 'vertical' && !(responsive && compact);
 
   const segments = Array.from({ length: SEGMENTS }, (_, index) => {
-    // Segment 0 is the bottom of the scale in vertical orientation.
     const ordinal = vertical ? SEGMENTS - 1 - index : index;
     const segmentDb = -60 + ((ordinal + 1) / SEGMENTS) * 60;
     const isLit = ordinal < lit;

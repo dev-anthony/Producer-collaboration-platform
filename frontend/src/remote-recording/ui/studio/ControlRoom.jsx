@@ -12,9 +12,6 @@ const clock = (ms) => {
   return `${minutes}:${seconds}.${tenths}`;
 };
 
-// The control room: the producer side of the glass. Everything here is about
-// what is arriving from the booth — the level it is arriving at, whether to
-// commit it to tape, and what to say to the performer between takes.
 export default function ControlRoom({ session }) {
   const {
     sessionKey, patched, rolling, busyTake, takeNumber, takes, level, elapsedMs,
@@ -23,15 +20,8 @@ export default function ControlRoom({ session }) {
   } = session;
 
   const [copied, setCopied] = useState(false);
-  // Below lg only one of these is visible at a time — see RoomTabs. All
-  // three panels stay mounted regardless, so the meter and the take rack
-  // keep running underneath whichever one is on screen.
   const [tab, setTab] = useState('transport');
 
-  // A stopped take is the one moment you actually want to be looking at the
-  // rack instead of the transport — no reason to make that a second tap on
-  // a small screen. Harmless on lg, where every panel is visible anyway and
-  // this state only decides which tab is highlighted.
   const wasRolling = useRef(false);
   useEffect(() => {
     if (wasRolling.current && !rolling) setTab('takes');

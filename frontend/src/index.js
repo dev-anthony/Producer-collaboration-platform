@@ -47,9 +47,8 @@ console.log('[MAIN] Store initialized →', store.path);
 
 const windows = [];
 let pendingAuthUrl = process.argv.find((arg) => arg.startsWith('prodcollab://reset-password')) || null;
-const watchers = new Map(); // projectId -> watcher instance
-const watcherDetails = new Map(); // watcherKey -> routing details
-// auto-push timers (projectId -> timeout handle) ──
+const watchers = new Map();
+const watcherDetails = new Map();
 const pushTimers = new Map();
 const pendingPushPaths = new Map();
 const activeGitOperations = new Set();
@@ -79,7 +78,6 @@ function isProtectedConflict(folderPath, filePath) {
   return getProtectedConflicts(folderPath).some((conflict) => conflict.preservedPath === relativePath);
 }
 
-// Schedule (or reschedule) an auto-push for a project after PUSH_DELAY of quiet.
 function scheduleAutoPush(watcherKey, pid, target, filePath) {
   const pending = pendingPushPaths.get(watcherKey) || new Set();
   pending.add(filePath);
@@ -178,9 +176,6 @@ app.on('open-url', (event, url) => {
   forwardAuthUrl(url);
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Window Creation
-// ──────────────────────────────────────────────────────────────────────────────
 function createWindow(sessionName = 'default', bounds = {}) {
   const isDevTestWindow = !app.isPackaged && sessionName !== 'default';
   const win = new BrowserWindow({
@@ -200,31 +195,6 @@ function createWindow(sessionName = 'default', bounds = {}) {
     },
   });
 
-  // CSP for security
-  // win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-  //     const isGitHub = details.url.includes('github.com') ||
-  //                  details.url.includes('githubusercontent.com');
-
-  // callback({
-  //   responseHeaders: {
-  //     ...details.responseHeaders,
-  //     'Content-Security-Policy': isGitHub ? [
-  //       "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
-  //     ] : [
-  //     //   process.env.NODE_ENV === 'development'
-  //     //     ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-  //     //     : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
-  //     // ]
-  //     //  process.env.NODE_ENV === 'development'
-  //     //      ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:5000 ws://localhost:9000 wss://localhost:5000 wss://localhost:9000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-  //     //      : "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:5000 ws://localhost:5000 wss://localhost:5000 https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-  //     // ]
-  //     process.env.NODE_ENV === 'development'
-  //   ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-  //   : "default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src ...; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
-  //   }
-  // });
-  // });
   win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
   const isGitHub = details.url.includes('github.com') ||
                details.url.includes('githubusercontent.com');
@@ -232,12 +202,6 @@ function createWindow(sessionName = 'default', bounds = {}) {
   callback({
     responseHeaders: {
       ...details.responseHeaders,
-      // media-src has to be explicit: with no media-src directive, an
-      // <audio>/<video> load falls back to default-src, and 'self' does not
-      // cover blob: (or data:) URLs on its own — script-src and worker-src
-      // already had to list blob: for the same reason (the recording studio's
-      // audio worklets are loaded that way), and media playback needs the
-      // same allowance or a recorded take can never play back in the app.
       'Content-Security-Policy': isGitHub ? [
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
       ] : [
@@ -255,11 +219,6 @@ function createWindow(sessionName = 'default', bounds = {}) {
     console.log('[LOAD] Failed:', errorCode, errorDescription, validatedURL);
   });
 
-  // ============================================================================
-  // END OAUTH HANDLING
-  // ============================================================================
-
-  // Initial load
   const windowUrl = isDevTestWindow
     ? `${MAIN_WINDOW_WEBPACK_ENTRY}?devAccount=${encodeURIComponent(sessionName)}`
     : MAIN_WINDOW_WEBPACK_ENTRY;
@@ -318,11 +277,6 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
   const pid = String(projectId);
   const watcherKey = getProjectKey(scope, pid);
 
-  // A stored folder can disappear between runs — moved, renamed, on a drive
-  // that is not plugged in, or deleted outright. Watching it anyway used to
-  // take the whole app down: chokidar happily watches a missing path, fires
-  // 'ready', and the Git inspection below then throws out of an event
-  // emitter where nothing can catch it.
   if (!folderPath || !require('fs').existsSync(folderPath)) {
     console.warn(`[WATCHER] Folder for ${watcherKey} is missing; not watching → ${folderPath}`);
     return;
@@ -399,7 +353,6 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
     })
     .on('ready', () => {
       console.log(`[WATCHER] Ready ${watcherKey} → ${folderPath}`);
-      // A broken Git index must never become an auto-push signal.
       const disableAutoPush = (error) => {
         pendingPushPaths.delete(watcherKey);
         if (pushTimers.has(watcherKey)) clearTimeout(pushTimers.get(watcherKey));
@@ -409,10 +362,6 @@ function startWatching(projectId, folderPath, scope = 'default', target = null) 
         watcher.close().catch(() => {});
         console.warn(`[AUTO-PUSH] Could not inspect existing changes for ${watcherKey}; auto-push disabled:`, error.message);
       };
-      // simple-git throws synchronously when the folder is gone, before there
-      // is any promise to reject, so the chain below cannot contain it on its
-      // own. Unhandled here it escapes through the emitter and crashes the
-      // main process.
       try {
         simpleGit(folderPath).status().then((status) => {
           const existingChanges = (status.files || [])
@@ -513,7 +462,6 @@ function focusMainWindow() {
     win.show();
     win.focus();
   } else {
-    // createWindow(app.isPackaged ? 'default' : 'ACCOUNT A');
         createWindow();
   }
 }
@@ -543,12 +491,6 @@ function refreshTray() {
       ? projectItems
       : [{ label: 'No watched projects', enabled: false }]),
     { type: 'separator' },
-    // { label: 'Open ProdCollab', click: () => focusMainWindow() },
-    // ...(!app.isPackaged ? [
-    //   { label: 'Open DEV Account A', click: () => openDevTestWindow('ACCOUNT A', 0) },
-    //   { label: 'Open DEV Account B', click: () => openDevTestWindow('ACCOUNT B', 1) },
-    // ] : []),
-    // { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
     { label: 'Open ProdCollab', click: () => focusMainWindow() },
     { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
   ];
@@ -576,74 +518,52 @@ function buildTray() {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// File System Helpers
-// ──────────────────────────────────────────────────────────────────────────────
 async function scanFolderRecursive(dirPath, basePath = dirPath) {
 
   const allowed = [
-  // Audio - Lossless & High Quality
   '.wav', '.flac', '.aiff', '.aif', '.aifc', '.w64', '.rf64', '.caf',
   '.dsd', '.dsf', '.dff', '.mqa',
 
-  // Audio - Compressed
   '.mp3', '.mp4', '.m4a', '.aac', '.ogg', '.oga', '.opus',
   '.wma', '.ape', '.ac3', '.dts', '.amr', '.au', '.snd',
 
-  // Audio - Video Containers
   '.mpeg', '.mpg', '.avi', '.mov', '.flv', '.mkv', '.webm',
   '.mxf', '.m2v', '.m2ts', '.ts',
 
-  // MIDI & Notation
   '.midi', '.mid', '.smf', '.mxl', '.musicxml', '.xml', '.nwc',
   '.sib', '.mus', '.musx', '.mscz', '.mscx', '.capx',
 
-  // Ableton Live
   '.als', '.alp', '.adv', '.adg', '.asd',
 
-  // FL Studio
   '.flp', '.fsc', '.fst', '.fnv',
 
-  // Logic Pro / GarageBand
   '.logicx', '.band', '.aup3',
 
-  // Pro Tools
   '.ptx', '.ptf', '.pts', '.pte', '.ptxt',
   '.sdii', '.sd2',
 
-  // Cubase / Nuendo (Steinberg)
   '.cpr', '.npr', '.bak', '.vstpreset', '.fxb', '.fxp',
 
-  // Bitwig Studio
   '.bwproject', '.bwpreset', '.bwdevice', '.bwmodule', '.bwclip',
 
-  // Studio One (PreSonus)
   '.song', '.multitrack', '.instrument', '.preset',
 
-  // Reaper
   '.rpp', '.rpp-bak', '.rtrack', '.rfx',
 
-  // Reason Studios
   '.reason', '.rns', '.rsb', '.rx2', '.rcy',
 
-  // Cockos / Other DAWs
   '.ptxt', '.session',
 
-  // Plugins & Presets
   '.vst', '.vst3', '.au', '.aax', '.rtas', '.lv2',
 
-  // Samples & Loops
   '.rex', '.rx2', '.rex2', '.acidwav', '.loop',
   '.sf2', '.sfz', '.exs', '.nki', '.nkx', '.nkm',
   '.kontakt', '.gig', '.dls',
 
-  // Stems & Mastering
   '.stem', '.stem.mp4', '.atmos', '.adm',
 
-  // Project Archives / Exchange
   '.omf', '.aaf', '.edl', '.xml', '.dawproject',
 
-  // Text & Docs
   '.txt', '.pdf', '.rtf',
 ];
   const files = [];
@@ -656,7 +576,6 @@ async function scanFolderRecursive(dirPath, basePath = dirPath) {
       const full = path.join(current, entry.name);
       const rel = path.relative(basePath, full);
 
-      // Skip hidden files and .git
       if (entry.name.startsWith('.') || entry.name === '.git') continue;
 
       if (entry.isDirectory()) {
@@ -700,11 +619,7 @@ async function readFolderFiles(folderPath) {
   return result;
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// IPC Handlers
-// ──────────────────────────────────────────────────────────────────────────────
 
-// Folder selection
 ipcMain.handle('select-folder', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openDirectory'],
@@ -712,15 +627,11 @@ ipcMain.handle('select-folder', async () => {
   });
   return canceled ? null : filePaths[0];
 });
-// Read all files from an arbitrary folder path (used by Modal's native folder browse)
 ipcMain.handle('read-folder-files', async (_, folderPath) => {
   console.log(`[READ-FOLDER] Reading: ${folderPath}`);
   return await readFolderFiles(folderPath);
 });
 
-// Preflight folder validation used before create/join mutates server state.
-// projectId is optional for new projects; when present, relinking the same
-// project's existing folder remains valid.
 ipcMain.handle('validate-folder-link', async (event, { folderPath, projectId }) => {
   if (!folderPath) {
     return { valid: false, error: 'NO_FOLDER_SELECTED' };
@@ -749,7 +660,6 @@ ipcMain.handle('validate-folder-link', async (event, { folderPath, projectId }) 
 
   return { valid: true };
 });
-//Save folder path (persistent)
 ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
   if (!projectId || !folderPath) {
     throw new Error('Missing projectId or folderPath');
@@ -760,9 +670,6 @@ ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
   const pid = getProjectKey(scope, projectPid);
   const current = store.get('watchedFolders', {});
 
-  // ── Guard: a local folder may only be linked to ONE project. ──
-  // Linking the same folder to multiple projects makes a single file change fire
-  // pushes for every project sharing it (race → non-fast-forward conflicts).
   const normalize = (p) => path.resolve(p).replace(/[\\/]+$/, '').toLowerCase();
   const target = normalize(folderPath);
   const conflict = Object.entries(current).find(
@@ -776,9 +683,6 @@ ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
     const conflictProjectId = conflictKey.includes('::')
       ? conflictKey.slice(conflictKey.indexOf('::') + 2)
       : conflictKey;
-    // Only migrate the old unscoped development key. Never transfer a mapping
-    // between Account A and Account B: doing so stops the other account's
-    // watcher and makes local edits appear invisible.
     const canTransferDevMapping = !app.isPackaged &&
       !conflictKey.includes('::') &&
       conflictProjectId === projectPid &&
@@ -800,14 +704,12 @@ ipcMain.handle('save-folder-path', async (event, { projectId, folderPath }) => {
 
   console.log(`[SAVE] Project ${pid} → ${folderPath}`);
   
-  // Automatically start watching when folder is saved
   startWatching(projectPid, folderPath, scope, event.sender);
 
   return true;
 });
 
 
-// Get folder path
 ipcMain.handle('get-folder-path', async (event, projectId) => {
   const scope = getSessionScope(event);
   const pid = getProjectKey(scope, projectId);
@@ -856,7 +758,6 @@ ipcMain.handle('find-project-folder', async (event, { projectId, repoUrl }) => {
   return null;
 });
 
-// Delete folder path
 ipcMain.handle('delete-folder-path', async (event, projectId) => {
   const scope = getSessionScope(event);
   const pid = getProjectKey(scope, projectId);
@@ -874,7 +775,6 @@ ipcMain.handle('delete-folder-path', async (event, projectId) => {
   return true;
 });
 
-// Scan folder
 ipcMain.handle('scan-folder', async (_, folderPath) => {
   console.log(`[SCAN] Scanning: ${folderPath}`);
   try {
@@ -886,7 +786,6 @@ ipcMain.handle('scan-folder', async (_, folderPath) => {
     throw err;
   }
 });
-// Add this to your IPC handlers in main.js (if not already there)
 ipcMain.handle('has-folder-path', async (event, projectId) => {
   const scope = getSessionScope(event);
   const pid = getProjectKey(scope, projectId);
@@ -900,7 +799,6 @@ ipcMain.handle('has-folder-path', async (event, projectId) => {
   };
 });
 
-// Read project files
 ipcMain.handle('read-project-files', async (event, { projectId, fileStructure }) => {
   const scope = getSessionScope(event);
   const pid = getProjectKey(scope, projectId);
@@ -931,7 +829,6 @@ ipcMain.handle('write-files', async (event, payload) => {
     folderPath: payload?.folderPath
   });
 
-  // Validate payload
   if (!payload) {
     console.error('[WRITE]   Payload is undefined');
     return { 
@@ -994,7 +891,6 @@ ipcMain.handle('write-files', async (event, payload) => {
     const file = files[i];
     
     try {
-      // Validate file object
       if (!file) {
         console.error(`[WRITE]   File at index ${i} is undefined`);
         failCount++;
@@ -1016,7 +912,6 @@ ipcMain.handle('write-files', async (event, payload) => {
         continue;
       }
 
-      // Decode base64 content
       let content;
       try {
         content = Buffer.from(file.content, 'base64');
@@ -1027,17 +922,14 @@ ipcMain.handle('write-files', async (event, payload) => {
         continue;
       }
 
-      // Build full path (normalize path separators)
       const normalizedPath = file.path.replace(/\\/g, '/');
       const fullPath = path.join(folderPath, normalizedPath);
       
       console.log(`[WRITE] ${i + 1}/${files.length} Writing: ${fullPath} (${content.length} bytes)`);
       
-      // Create directory if it doesn't exist
       const dirPath = path.dirname(fullPath);
       await fs.mkdir(dirPath, { recursive: true });
       
-      // Write the file
       await fs.writeFile(fullPath, content);
       
       successCount++;
@@ -1060,7 +952,6 @@ ipcMain.handle('write-files', async (event, payload) => {
 
   return result;
 });
-// Start watching
 ipcMain.handle('start-watching', async (event, { projectId, folderPath }) => {
   try {
     startWatching(projectId, folderPath, getSessionScope(event), event.sender);
@@ -1095,7 +986,6 @@ ipcMain.handle('restore-session-watchers', async (event, { projectIds = [] } = {
   }
 });
 
-// Stop watching
 ipcMain.handle('stop-watching', async (event, projectId) => {
   try {
     stopWatching(projectId, getSessionScope(event));
@@ -1106,8 +996,6 @@ ipcMain.handle('stop-watching', async (event, projectId) => {
   }
 });
 
-//logout
-// Add this IPC handler to main.js, near your other ipcMain.handle() calls
 
 ipcMain.handle('clear-oauth-session', async (event) => {
   console.log('[AUTH] Clearing OAuth session...');
@@ -1117,7 +1005,6 @@ ipcMain.handle('clear-oauth-session', async (event) => {
       if (!win.isDestroyed() && win.webContents.id === event.sender.id) {
         const session = win.webContents.session;
         
-        // Clear ALL storage data
         await session.clearStorageData({
           storages: [
             'cookies',
@@ -1131,7 +1018,6 @@ ipcMain.handle('clear-oauth-session', async (event) => {
           ]
         });
         
-        // Specifically clear GitHub cookies
         const allCookies = await session.cookies.get({});
         
         for (const cookie of allCookies) {
@@ -1145,7 +1031,6 @@ ipcMain.handle('clear-oauth-session', async (event) => {
           }
         }
         
-        // Clear cache
         await session.clearCache();
         
         console.log('[AUTH] Session cleared for window');
@@ -1161,11 +1046,9 @@ ipcMain.handle('clear-oauth-session', async (event) => {
 
 
 
-// Build an authenticated https remote URL: https://<token>@github.com/owner/repo.git
 const buildAuthedRemoteUrl = (repoUrl, token) => {
   if (!repoUrl) throw new Error('Missing repoUrl');
   if (!token) return repoUrl; // fall back to unauthenticated (public repos)
-  // Normalize to https + ensure .git suffix
   let url = repoUrl.trim();
   if (url.startsWith('git@github.com:')) {
     url = 'https://github.com/' + url.slice('git@github.com:'.length);
@@ -1403,13 +1286,11 @@ async function findRemoteContentDuplicates(git, folderPath, candidatePaths) {
         duplicates.push({ path: normalizedPath, duplicateOf: remotePath });
       }
     } catch {
-      // Deleted paths and transient files have no local content to compare.
     }
   }
   return duplicates;
 }
 
-// Init a repo in an existing project folder and wire up the remote
 ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
   try {
     const git = simpleGit(folderPath);
@@ -1425,7 +1306,6 @@ ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
     if (!origin) {
       await git.addRemote('origin', authedUrl);
     } else {
-      // Keep the token fresh on the existing remote
       await git.remote(['set-url', 'origin', authedUrl]);
     }
 
@@ -1436,7 +1316,6 @@ ipcMain.handle('init-git', async (_, { folderPath, repoUrl, token }) => {
   }
 });
 
-// Stage everything, commit, and push
 ipcMain.handle('git-push', async (event, { folderPath, message, username, email, repoUrl, token }) => {
   const operationKey = normalizeFolderPath(folderPath);
   if (activeGitOperations.has(operationKey)) {
@@ -1447,7 +1326,6 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     const git = attachGitProgress(simpleGit(folderPath), event, 'push');
     sendGitProgress(event, 'push', 'Checking local changes');
 
-    // Make sure origin has a valid authenticated URL (token can rotate)
     if (repoUrl) {
       const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
       const remotes = await git.getRemotes(true);
@@ -1458,7 +1336,6 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
       }
     }
 
-    // Attribute the commit to the acting user
     if (username) await git.addConfig('user.name', username);
     if (email) await git.addConfig('user.email', email);
 
@@ -1485,7 +1362,6 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
         const stats = await fs.stat(path.join(folderPath, filePath));
         if (stats.size > GITHUB_FILE_LIMIT) oversizedFiles.push({ path: filePath, size: stats.size });
       } catch {
-        // Deleted paths are already excluded from changedPaths.
       }
     }
     if (oversizedFiles.length > 0) {
@@ -1515,7 +1391,6 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
     sendGitProgress(event, 'push', 'Staging changed files');
     if (changedPaths.length > 0) await git.add(changedPaths);
 
-    // Local deletions are intentionally not staged. Only commit indexed changes.
     const stagedPaths = (await git.diff(['--cached', '--name-only']))
       .split(/\r?\n/)
       .filter(Boolean);
@@ -1533,12 +1408,8 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
       sendGitProgress(event, 'push', `Uploading ${commitsAhead} local commit${commitsAhead === 1 ? '' : 's'}`);
     }
 
-    // Ensure branch is main
     await git.branch(['-M', 'main']).catch(() => {});
 
-    // Try to push. If the remote is ahead (e.g. GitHub's auto-init README, or a
-    // concurrent push), git rejects with "fetch first" / non-fast-forward.
-    // Recover by rebasing onto the remote and retrying once.
     try {
       sendGitProgress(event, 'push', 'Uploading changes');
       await git.push('origin', 'main', ['--set-upstream']);
@@ -1554,12 +1425,10 @@ ipcMain.handle('git-push', async (event, { folderPath, message, username, email,
 
       console.warn('[GIT] push rejected (remote ahead) — rebasing onto origin/main and retrying');
 
-      // Allow reconciling two independent histories (local git init vs remote auto-init).
       try {
         await git.raw(['-c', 'http.version=HTTP/1.1', 'fetch', 'origin', 'main']);
         await git.rebase(['origin/main']);
       } catch (rebaseErr) {
-        // Fallback: merge unrelated histories, preferring both sets of files.
         console.warn('[GIT] rebase failed, trying merge --allow-unrelated-histories');
         await git.rebase(['--abort']).catch(() => {});
         await git.merge(['origin/main', '--allow-unrelated-histories', '--no-edit'])
@@ -1593,7 +1462,6 @@ ipcMain.handle('set-git-identity', async (_, { folderPath, username, email }) =>
   }
 });
 
-// Pull latest from origin/main
 ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
   const operationKey = normalizeFolderPath(folderPath);
   if (activeGitOperations.has(operationKey)) {
@@ -1653,7 +1521,6 @@ ipcMain.handle('git-pull', async (event, { folderPath, repoUrl, token }) => {
   }
 });
 
-// Clone a repo into a folder (used when a collaborator joins)
 ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
   try {
     const authedUrl = buildAuthedRemoteUrl(repoUrl, token);
@@ -1662,9 +1529,6 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
     const entries = await fs.readdir(folderPath).catch(() => []);
     const hasLocalFiles = entries.some((name) => name !== '.git');
 
-    // A normal `git clone <url> <folder>` rejects a non-empty destination. For
-    // an existing project folder, preserve its files in a local commit first,
-    // then fetch/merge the remote history. Empty folders use normal clone.
     if (hasLocalFiles) {
       const git = attachGitProgress(simpleGit(folderPath), event, 'clone');
       if (!(await git.checkIsRepo())) await git.init();
@@ -1690,7 +1554,6 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
         await git.merge(['origin/main', '--allow-unrelated-histories', '--no-edit']);
       } catch (fetchOrMergeError) {
         const message = String(fetchOrMergeError && fetchOrMergeError.message);
-        // An empty remote has no main ref yet; the local project is still valid.
         if (!message.includes("couldn't find remote ref") &&
             !message.includes('Remote branch main not found')) {
           throw fetchOrMergeError;
@@ -1700,9 +1563,6 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
       return { success: true, mergedExistingFolder: true };
     }
 
-    // GitHub occasionally drops large HTTPS fetches through Windows Schannel.
-    // Retry once normally, then retry with HTTP/1.1 to avoid HTTP/2 transport
-    // disconnects. A failed clone may leave a partial .git directory behind.
     const attempts = [
       ['-c', 'http.version=HTTP/1.1', 'clone', '--depth', '1', '--single-branch', '--branch', 'main', authedUrl, folderPath],
       ['-c', 'http.version=HTTP/1.1', 'clone', authedUrl, folderPath]
@@ -1711,13 +1571,10 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
       try {
         await attachGitProgress(simpleGit(), event, 'clone').raw(cloneArgs);
         const clonedGit = simpleGit(folderPath);
-        // Reset origin to the token-embedded URL so future pushes/pulls authenticate
         await clonedGit.remote(['set-url', 'origin', authedUrl]);
         return { success: true };
       } catch (cloneError) {
         lastError = cloneError;
-        // Remove only the partial .git metadata before retrying. Preserve any
-        // files the user may already have in the selected destination folder.
         await fs.rm(path.join(folderPath, '.git'), { recursive: true, force: true }).catch(() => {});
       }
     }
@@ -1733,13 +1590,6 @@ ipcMain.handle('git-clone', async (event, { repoUrl, folderPath, token }) => {
 
 ipcMain.handle('get-project-conflicts', async (_, { folderPath }) => {
   const records = [...getProtectedConflicts(folderPath)];
-  // Same situation as a missing watched folder (see startWatching): a
-  // linked folder can point at a path from another machine or a drive that
-  // is not plugged in right now. simple-git already can't do anything
-  // useful against a folder that is not there, and the card polls this on
-  // every mount — without this check it was retrying and re-logging the
-  // same failure every time, for a condition that will not resolve itself
-  // until the producer relinks the folder.
   if (!folderPath || !require('fs').existsSync(folderPath)) return records;
   try {
     const git = simpleGit(folderPath);
@@ -1809,7 +1659,6 @@ ipcMain.handle('resolve-project-conflict', async (event, { projectId, folderPath
   }
 });
 
-// Commit history (version history)
 ipcMain.handle('git-log', async (_, { folderPath }) => {
   try {
     const git = simpleGit(folderPath);
@@ -1828,12 +1677,7 @@ ipcMain.handle('git-log', async (_, { folderPath }) => {
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Phase 6 — Auto-push / silent sync
-// ──────────────────────────────────────────────────────────────────────────────
 
-// 6.2 — Immediate manual push override. Clears the pending debounce timer and
-// signals the renderer to push right now.
 ipcMain.handle('push-now', async (event, { projectId }) => {
   triggerPushNow(projectId, getSessionScope(event), event.sender);
   return { success: true };
@@ -1858,7 +1702,6 @@ ipcMain.handle('set-auto-push-delay', async (event, { delay }) => {
   return { success: true };
 });
 
-// 6.5 — Auto-create the standard stems/ and exports/ subfolders for a project.
 ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
   try {
     await fs.mkdir(path.join(folderPath, 'stems'), { recursive: true });
@@ -1870,14 +1713,8 @@ ipcMain.handle('setup-project-folder', async (_, { folderPath }) => {
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// App Lifecycle
-// ──────────────────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   registerRecordingHandlers();
-  // Windows requires an explicit AppUserModelID for toast/desktop
-  // notifications to appear (especially when unpackaged). Without this,
-  // `new Notification().show()` silently no-ops.
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.prodcollab.app');
   }
@@ -1890,10 +1727,6 @@ app.whenReady().then(async () => {
   if (backendRunning) {
     console.log('[SERVER] Reusing development backend at http://localhost:5000');
   } else {
-    // serverProcess = spawn('node', [serverPath], {
-    //   cwd: path.dirname(serverPath),
-    //   env: { ...process.env }
-    // });
         serverProcess = fork(serverPath, [], {
       cwd: path.dirname(serverPath),
       execPath: process.execPath,
@@ -1915,30 +1748,19 @@ app.whenReady().then(async () => {
     openDevTestWindow('ACCOUNT B', 1);
   }
 
-  // Phase 6.11: build the system tray (per-project "Push now")
   buildTray();
 
-  // Watchers are restored only after an authenticated renderer supplies its current projects.
 
-  // app.on('activate', () => {
-  //   if (BrowserWindow.getAllWindows().length === 0) {
-  //     if (app.isPackaged) createWindow();
-  //     else openDevTestWindow('ACCOUNT A', 0);
-  //   }
-  // });
     app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on('window-all-closed', () => {
-  // Phase 6.11: only tear down + quit when the user explicitly chose to quit.
-  // Otherwise the app keeps running in the background (tray) so auto-push works.
   if (!app.isQuitting) {
     return;
   }
 
-  // Clean up all watchers
   watchers.forEach(w => w.close());
   watchers.clear();
 
@@ -1949,7 +1771,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
     if (serverProcess) serverProcess.kill();
-  // Clean up watchers before quitting
   watchers.forEach(w => w.close());
   watchers.clear();
   console.log('[MAIN] Application shutting down cleanly');

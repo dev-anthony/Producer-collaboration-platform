@@ -1,23 +1,17 @@
 
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Folder selection
   selectFolder: () => ipcRenderer.invoke('select-folder'),
 
-  // NEW — replaces removed File.path (Electron 32+)
   getPathForFile: (file) => webUtils.getPathForFile(file),
 
-  // Scan folder contents
   scanFolder: (folderPath) => ipcRenderer.invoke('scan-folder', folderPath),
   
-  // Read all files from folder (for Modal)
   readFolderFiles: (folderPath) => ipcRenderer.invoke('read-folder-files', folderPath),
 
-  // Validate before create/join so the server is not mutated on conflicts.
   validateFolderLink: (folderPath, projectId) =>
     ipcRenderer.invoke('validate-folder-link', { folderPath, projectId }),
   
-  // Project folder path management
   saveFolderPath: (projectId, folderPath) => 
     ipcRenderer.invoke('save-folder-path', { projectId, folderPath }),
   
@@ -72,7 +66,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('oauth-code', handler);
   },
 
-  // Git (simple-git) — Phase 5
   initGit: (data) => ipcRenderer.invoke('init-git', data),
   setGitIdentity: (data) => ipcRenderer.invoke('set-git-identity', data),
   gitPush: (data) => ipcRenderer.invoke('git-push', data),
@@ -98,7 +91,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('git-progress-end', handler);
   },
 
-  // Auto-push / silent sync — Phase 6
   pushNow: (projectId) => ipcRenderer.invoke('push-now', { projectId }),
   setupProjectFolder: (folderPath) => ipcRenderer.invoke('setup-project-folder', { folderPath }),
   setAutoPushDelay: (delay) => ipcRenderer.invoke('set-auto-push-delay', { delay }),
@@ -116,7 +108,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('auto-push-ready');
   },
 
-  // Remote recording
   rrStartMasterRecording: (options) => ipcRenderer.invoke('rr-start-master-recording', options),
   rrWriteMasterChunk: (chunk) => ipcRenderer.invoke('rr-write-master-chunk', chunk),
   rrStopMasterRecording: () => ipcRenderer.invoke('rr-stop-master-recording'),

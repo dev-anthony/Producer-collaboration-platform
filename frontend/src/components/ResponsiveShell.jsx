@@ -24,7 +24,6 @@ function ResponsiveShell({ children, onLogout, user }) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Fixed Sidebar for Desktop / Drawer for Mobile */}
       <Sidebar
         onLogout={onLogout}
         user={user}
@@ -35,7 +34,6 @@ function ResponsiveShell({ children, onLogout, user }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
       
-      {/* Mobile Drawer Overlay Backdrop */}
       {mobileOpen && (
         <button
           type="button"
@@ -45,9 +43,7 @@ function ResponsiveShell({ children, onLogout, user }) {
         />
       )}
 
-      {/* Main Container */}
       <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
-        {/* Mobile Header Bar */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center">
@@ -71,7 +67,6 @@ function ResponsiveShell({ children, onLogout, user }) {
           </button>
         </div>
 
-        {/* Scrollable Main Viewport */}
         <div className="flex-1 overflow-y-auto app-scrollbar">
           {children}
         </div>

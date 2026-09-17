@@ -24,12 +24,6 @@ function ProtectedRoute({ isAuthenticated, children }) {
   return children;
 }
 
-// ── Phase 4.14 ──────────────────────────────────────────────────────────────
-// Session is now managed entirely by httpOnly cookies + Supabase Auth.
-// Removed: localStorage token logic, isTokenExpired, refreshAccessToken,
-// Legacy auth flow removed. The current session uses the app account cookie.
-// The old JWT/localStorage implementation is preserved (commented) at the bottom.
-// ────────────────────────────────────────────────────────────────────────────
 function App() {
   const devAccount = new URLSearchParams(window.location.search).get('devAccount');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -76,10 +70,7 @@ function App() {
     const connect = () => {
       if (disposed) return;
       const realtimeProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // const realtimeHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      //   ? 'localhost:5000'
-      //   : window.location.host;
-            const realtimeHost = 'localhost:5000';
+      const realtimeHost = 'localhost:5000';
       socket = new WebSocket(`${realtimeProtocol}//${realtimeHost}/realtime`);
       socket.onopen = () => {
         reconnectDelay = 1000;
@@ -200,9 +191,6 @@ function App() {
     });
   }, []);
 
-  // Keep native auto-push events alive while route pages unmount. A timer can
-  // finish while Settings or another page is open, so the event must be queued
-  // at the app level instead of being lost by a page-level listener.
   useEffect(() => {
     if (!window.electronAPI?.onAutoPushReady) return undefined;
     return window.electronAPI.onAutoPushReady(({ projectId }) => {
@@ -219,8 +207,6 @@ function App() {
     });
   }, []);
 
-  // File watchers also outlive route pages. Persist and route their events here
-  // so edits made while Settings/Profile is open still appear on project cards.
   useEffect(() => {
     if (!window.electronAPI?.onFileChanged) return undefined;
     return window.electronAPI.onFileChanged((data) => {
@@ -239,8 +225,6 @@ function App() {
     });
   }, []);
 
-  // Enabling automatic pull applies to changes that already exist remotely;
-  // it does not wait for another WebSocket update to arrive.
   useEffect(() => {
     const pullExistingProjects = async () => {
       try {
@@ -280,7 +264,6 @@ function App() {
     checkAuth();
   }, []);
 
-  // Ask the server who we are. If the cookie is valid, we're in.
   const checkAuth = async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);

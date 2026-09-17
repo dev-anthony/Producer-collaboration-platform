@@ -8,7 +8,7 @@ function JoinProjectModal({ toggleModal }) {
   const [localPath, setLocalPath] = useState('');
   const [selectedFolderHandle, setSelectedFolderHandle] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Enter link, 2: Choose folder, 3: Confirm
+  const [step, setStep] = useState(1);
   const [cloneProgress, setCloneProgress] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -62,9 +62,6 @@ function JoinProjectModal({ toggleModal }) {
   };
 
   const handleChooseFolder = async () => {
-    // Use the native Electron directory picker so ANY folder can be chosen,
-    // including empty ones (the browser <input webkitdirectory> can't return a
-    // path for an empty folder because it derives the path from its files).
     try {
       const folderPath = await window.electronAPI.selectFolder();
       if (!folderPath) return; // user cancelled
@@ -72,7 +69,6 @@ function JoinProjectModal({ toggleModal }) {
       const sep = folderPath.includes('\\') ? '\\' : '/';
       const folderName = folderPath.split(/[\\/]/).filter(Boolean).pop() || folderPath;
 
-      // Read contents just to report empty/not — this never blocks selection.
       let isEmpty = true;
       try {
         const scan = await window.electronAPI.readFolderFiles(folderPath);
@@ -109,7 +105,6 @@ function JoinProjectModal({ toggleModal }) {
     setCloneProgress(null);
 
     try {
-      // Validate before adding/updating the collaborator record on the server.
       if (window.electronAPI?.validateFolderLink) {
         const validation = await window.electronAPI.validateFolderLink(
           localPath,
@@ -147,7 +142,6 @@ function JoinProjectModal({ toggleModal }) {
       const data = await response.json();
 
       if (response.ok) {
-        // Phase 5: clone the repo into the chosen local folder via simple-git
         try {
           const joinedProjectId = data.project?.id;
           const repoUrl = data.project?.repoUrl;
@@ -169,7 +163,6 @@ function JoinProjectModal({ toggleModal }) {
               cloneCompleted = true;
             }
           }
-          // Phase 6.6: ensure standard stems/ and exports/ subfolders exist
           if (localPath && window.electronAPI?.setupProjectFolder) {
             await window.electronAPI.setupProjectFolder(localPath);
           }
@@ -178,7 +171,6 @@ function JoinProjectModal({ toggleModal }) {
             throw new Error('The project was joined, but its files could not be downloaded into the selected folder.');
           }
 
-          // Persist locally and start watching only after clone/merge succeeds.
           await window.electronAPI.saveFolderPath(joinedProjectId, localPath);
           await window.electronAPI.startWatching(joinedProjectId, localPath);
         } catch (cloneErr) {

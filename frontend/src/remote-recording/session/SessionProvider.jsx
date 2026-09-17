@@ -5,15 +5,6 @@ import { meterPosition, peakFromPcm, rmsFromPcm, toDbfs } from '../audio/levels'
 import { ensureProjectFolder, pushTakeToProject } from './pushTake';
 import { base64ToReplayUrl } from '../audio/replayUrl';
 
-// ── Why the session lives here and not in the studio page ───────────────────
-// The studio is a route. A route unmounts the moment someone navigates away,
-// and a session cannot survive its own view being unmounted — the peer
-// connection, the AudioContext and the open mic would all go down with it.
-// So the session engine is mounted above the router and the studio page is
-// only a window onto it. Walking out of the studio leaves the room running,
-// exactly like stepping out of a control room mid-session.
-// ────────────────────────────────────────────────────────────────────────────
-
 const SessionContext = createContext(null);
 
 export const useSession = () => {
@@ -22,10 +13,6 @@ export const useSession = () => {
   return value;
 };
 
-// Every processing stage a browser normally applies to a microphone is a
-// mastering decision made without the producer. Echo cancellation, noise
-// suppression and auto gain all rewrite the performance. A studio capture
-// chain takes the mic as it is and leaves those calls to the producer.
 const MIC_CONSTRAINTS = {
   audio: {
     sampleRate: 48000,
@@ -39,9 +26,6 @@ const MIC_CONSTRAINTS = {
   video: false,
 };
 
-// Talkback is speech into someone's headphones, not a recording. Here the
-// browser cleanup is wanted: it keeps the control-room monitors out of the
-// performer cue mix.
 const TALKBACK_CONSTRAINTS = {
   audio: {
     sampleRate: 48000,
@@ -55,11 +39,6 @@ const TALKBACK_CONSTRAINTS = {
 
 const EMPTY_LEVEL = { rms: 0, peak: 0, db: -60, position: 0 };
 
-// Internal failures come back as short error codes (SIGNALING_TIMEOUT,
-// MASTER_RECORDING_IN_PROGRESS, and so on) — useful in the console, never
-// something a producer should see on screen. This maps every known code to
-// plain wording, and anything unrecognized falls back to a generic message
-// rather than ever showing raw error text in the studio.
 const FRIENDLY_ERRORS = {
   SIGNALING_CONFIG_MISSING: 'Could not reach the studio. Check your connection and try again.',
   SIGNALING_TIMEOUT: 'The connection timed out. Check your connection and try again.',
@@ -85,19 +64,18 @@ const friendlyError = (error, fallback) => {
 };
 
 export function SessionProvider({ children }) {
-  // ── Room state ────────────────────────────────────────────────────────────
   const [projectId, setProjectId] = useState(null);
   const [projectName, setProjectName] = useState('');
-  const [side, setSide] = useState(null);          // 'producer' | 'performer'
+  const [side, setSide] = useState(null);
   const [sessionKey, setSessionKey] = useState('');
-  const [patched, setPatched] = useState(false);   // peer link is up
+  const [patched, setPatched] = useState(false);
   const [patching, setPatching] = useState(false);
-  const [rolling, setRolling] = useState(false);   // a take is running
+  const [rolling, setRolling] = useState(false);
   const [takeNumber, setTakeNumber] = useState(1);
   const [takes, setTakes] = useState([]);
   const [status, setStatus] = useState('');
   const [fault, setFault] = useState(null);
-  const [ready, setReady] = useState(false);       // recording IPC is available
+  const [ready, setReady] = useState(false);
   const [monitorMuted, setMonitorMuted] = useState(false);
   const [talkbackOpen, setTalkbackOpen] = useState(false);
   const [signalPresent, setSignalPresent] = useState(false);
@@ -106,7 +84,6 @@ export function SessionProvider({ children }) {
   const [busyTake, setBusyTake] = useState(false);
   const [pushingTakeId, setPushingTakeId] = useState(null);
 
-  // ── Live handles (refs, because the audio path must not chase renders) ────
   const sideRef = useRef(null);
   const rollingRef = useRef(false);
   const monitorMutedRef = useRef(false);
@@ -134,9 +111,6 @@ export function SessionProvider({ children }) {
       .catch(() => setFault('Your recording setup could not be reached. Try restarting the app.'));
   }, []);
 
-  // Meters update on animation frames rather than on every audio chunk. Chunks
-  // arrive roughly every 2.7ms at 48k/128 frames; re-rendering React that
-  // often would starve the audio path it is trying to display.
   const publishLevel = useCallback((bytes) => {
     const rms = rmsFromPcm(bytes);
     const peak = peakFromPcm(bytes);
@@ -155,7 +129,6 @@ export function SessionProvider({ children }) {
     signalTimer.current = setTimeout(() => setSignalPresent(false), 700);
   }, []);
 
-  // ── Take clock ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!rolling) return undefined;
     const timer = setInterval(() => {
@@ -164,24 +137,14 @@ export function SessionProvider({ children }) {
     return () => clearInterval(timer);
   }, [rolling]);
 
-  // ── Incoming performance (control room) ───────────────────────────────────
   const handleIncomingAudio = useCallback((data) => {
     const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-    // Meters read the arriving signal, not the monitor bus, so dimming the
-    // monitors never makes it look like the performer stopped singing.
     publishLevel(bytes);
     markSignal();
-    // Playback is continuous the moment the room is patched — a control
-    // room hears the booth the whole time, not only once tape is rolling.
-    // The safety capture to disk is the part that is actually "the take",
-    // so that alone stays gated to when a take is really running.
     if (!monitorMutedRef.current) outputNode.current?.push(bytes);
     if (rollingRef.current) window.electronAPI.rrWriteStreamChunk?.(bytes.slice());
   }, [publishLevel, markSignal]);
 
-  // ── Remote transport control (live room follows the control room) ─────────
-  // Routed through refs because roll/stopTake are defined below and the
-  // transport is handed this callback while it is being constructed.
   const handleControl = useCallback(async (control) => {
     if (sideRef.current !== 'performer') return;
     if (control.type === 'start' && !rollingRef.current) await rollRef.current?.();
@@ -210,10 +173,6 @@ export function SessionProvider({ children }) {
 
   useEffect(() => () => teardown(), [teardown]);
 
-  // ── Load in ───────────────────────────────────────────────────────────────
-  // Walking into the room and patching in are the same move. The producer
-  // opens a room and gets a session key to hand out; the performer walks into
-  // a room that already exists.
   const loadIn = useCallback(async (nextSide, options = {}) => {
     if (patchingRef.current || sideRef.current || transport.current) return;
     patchingRef.current = true;
@@ -232,17 +191,11 @@ export function SessionProvider({ children }) {
       setSide(nextSide);
       setSessionKey(key);
 
-      // A take always lands first in a per-project vault, not the project
-      // folder itself — see TakeManager. The linked folder only matters once
-      // a take is actually pushed, so its absence here is never a blocker.
       folderPathRef.current = null;
       if (project && window.electronAPI?.getFolderPath) {
         folderPathRef.current = await window.electronAPI.getFolderPath(project).catch(() => null);
       }
 
-      // A solo session is one person, alone, self-operating — there is no
-      // counterpart to patch into, so it skips signaling and WebRTC
-      // entirely and is simply "patched" the moment the mic opens.
       if (nextSide === 'solo') {
         setStatus('Opening the mic…');
         micStream.current = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
@@ -254,8 +207,6 @@ export function SessionProvider({ children }) {
           if (!rollingRef.current) return;
           window.electronAPI.rrWriteMasterChunk(chunk);
         });
-        // Never routed back to the speakers — headphones are how a solo
-        // producer avoids hearing themselves a beat late while tracking.
         const silent = audioContext.current.createGain();
         silent.gain.value = 0;
         source.connect(inputNode.current).connect(silent).connect(audioContext.current.destination);
@@ -297,9 +248,6 @@ export function SessionProvider({ children }) {
           const element = new Audio();
           element.autoplay = true;
           element.srcObject = stream;
-          // Attached to the document rather than left detached — a detached
-          // media element can be reclaimed by the renderer's own cleanup in
-          // ways a mounted one is not, and it costs nothing to be sure.
           element.style.display = 'none';
           document.body.appendChild(element);
           talkbackElement.current = element;
@@ -321,22 +269,11 @@ export function SessionProvider({ children }) {
       } else {
         const source = audioContext.current.createMediaStreamSource(micStream.current);
         inputNode.current = createPcmInput(audioContext.current, (chunk) => {
-          // Metering runs whether or not tape is rolling. A performer has to be
-          // able to ring out the mic and set a level before the take starts.
           publishLevel(chunk);
-          // The control room hears the booth continuously once patched — the
-          // same way a real control room's monitors are live the whole
-          // session, not only once tape rolls. Only the disk write is what
-          // actually makes this "the take", so only that stays gated to
-          // rolling; sending it onward for monitoring never is.
           transport.current?.sendAudio(chunk);
           if (!rollingRef.current) return;
           window.electronAPI.rrWriteMasterChunk(chunk);
         });
-        // The worklet has to be pulled by the graph to run, but the performer
-        // must never hear themselves back through the app speakers — that is
-        // what the headphones are for, and routing it here would feed the room
-        // straight back into the take.
         const silent = audioContext.current.createGain();
         silent.gain.value = 0;
         source.connect(inputNode.current).connect(silent).connect(audioContext.current.destination);
@@ -357,14 +294,11 @@ export function SessionProvider({ children }) {
     }
   }, [handleIncomingAudio, handleControl, publishLevel, teardown]);
 
-  // ── Transport ─────────────────────────────────────────────────────────────
   const roll = useCallback(async () => {
     if (rollingRef.current || busyTake) return;
     setBusyTake(true);
     try {
       if (sideRef.current !== 'producer') {
-        // Performer and solo both record locally to a master file — the
-        // only difference is whether anyone is listening on the other end.
         await window.electronAPI.rrStartMasterRecording({
           takeNumber,
           projectId: projectIdRef.current,
@@ -390,8 +324,6 @@ export function SessionProvider({ children }) {
     if (!rollingRef.current) return;
     setBusyTake(true);
     const duration = rolledAt.current ? Date.now() - rolledAt.current : 0;
-    // Stop the clock first so the transport reads as stopped while the file is
-    // still being closed; a WAV header rewrite on a long take is not instant.
     rollingRef.current = false;
     setRolling(false);
     setStatus('Closing the take…');
@@ -415,9 +347,6 @@ export function SessionProvider({ children }) {
             fileName: result.fileName || result.path.split(/[\\/]/).pop(),
             replayUrl,
             durationMs: duration,
-            // Every fresh take starts in the vault, reviewable but not yet
-            // in the project — pushing it is a deliberate action, not
-            // something that happens automatically on stop.
             keptWithProject: false,
             pushed: false,
             source: sideRef.current === 'producer' ? 'monitor' : 'master',
@@ -440,8 +369,6 @@ export function SessionProvider({ children }) {
   rollRef.current = roll;
   stopRef.current = stopTake;
 
-  // Dimming the monitors. The take keeps rolling and the meters keep reading —
-  // this is the control-room speakers and nothing else.
   const toggleMonitor = useCallback(() => {
     const next = !monitorMutedRef.current;
     monitorMutedRef.current = next;
@@ -476,10 +403,6 @@ export function SessionProvider({ children }) {
     setTakes((current) => current.filter((item) => item.id !== take.id));
   }, []);
 
-  // The deliberate step the vault exists for: move the chosen take out of
-  // local review and into the project, then run it through the exact same
-  // backup pipeline every other project file already goes through. Every
-  // side — control room, live room, solo — pushes a take the same way.
   const pushTake = useCallback(async (take) => {
     if (!take || take.pushed || pushingTakeId) return;
     setPushingTakeId(take.id);
@@ -507,13 +430,7 @@ export function SessionProvider({ children }) {
     }
   }, [pushingTakeId]);
 
-  // Leaving the room for good. Walking out of the studio route does not call
-  // this — only shutting the session down does.
   const closeSession = useCallback(async () => {
-    // Written to history before anything is torn down, so today's takes are
-    // still reachable from the Sessions page once the room is gone. Skipped
-    // for an empty session — a room nobody recorded in is not a session
-    // worth remembering.
     if (takes.length > 0 && projectIdRef.current) {
       await window.electronAPI.rrSaveSessionRecord({
         projectId: projectIdRef.current,
@@ -534,9 +451,6 @@ export function SessionProvider({ children }) {
     setSessionKey('');
     setPatched(false);
     setRolling(false);
-    // Each take's replay URL is a Blob URL — it holds its bytes in memory
-    // until explicitly revoked, so leaving the room has to release the
-    // whole rack, not just clear it off screen.
     setTakes((current) => {
       current.forEach((take) => { if (take.replayUrl) URL.revokeObjectURL(take.replayUrl); });
       return [];

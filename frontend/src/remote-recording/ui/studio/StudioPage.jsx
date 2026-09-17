@@ -21,9 +21,6 @@ export default function StudioPage() {
 
   const projectName = location.state?.projectName || session.projectName;
 
-  // Claim the room for this project while it is empty. Once a session is live
-  // it owns the room, and the guard below handles anyone arriving from a
-  // different project.
   useEffect(() => {
     if (!active) setProject(projectId, location.state?.projectName);
   }, [active, projectId, location.state?.projectName, setProject]);
@@ -36,9 +33,6 @@ export default function StudioPage() {
     setEnding(true);
     const endedProjectId = sessionProjectId;
     try {
-      // Saving the session record is awaited before navigating away, so the
-      // Sessions page it lands on is never missing the session that just
-      // finished.
       await closeSession();
       navigate(`/sessions/${endedProjectId}`);
     } finally {
@@ -46,9 +40,6 @@ export default function StudioPage() {
     }
   };
 
-  // One room at a time. A second session would mean two open mics and two
-  // peer connections on one machine, which is not a thing that happens in a
-  // studio and not a thing the audio path can do cleanly.
   const wrongProject = active && String(sessionProjectId) !== String(projectId);
 
   return (

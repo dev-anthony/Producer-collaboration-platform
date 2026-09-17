@@ -1,65 +1,12 @@
-
-// // const rules = require('./webpack.rules');
-// // const plugins = require('./webpack.plugins');
-
-// // module.exports = {
-// //   target: 'web',
-// //   module: {
-// //     rules,
-// //   },
-// //   plugins: plugins,
-// //   resolve: {
-// //     extensions: ['.js', '.jsx', '.json', '.css'],
-// //   },
-// //   devServer: {
-    
-// //     host: 'localhost',  // ADD THIS
-// //     port: 3000,
-// //     hot: true,
-// //     headers: {
-// //       'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:3000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';",
-// //     },
-// //   },
-// // };
-// const rules = require('./webpack.rules');
-// const plugins = require('./webpack.plugins');
-// const webpack = require('webpack');
-// require('dotenv').config({ path: './.env' });
-
-// module.exports = {
-//   target: 'web',
-//   module: {
-//     rules,
-//   },
-//   plugins: [
-//     ...plugins,
-//     new webpack.DefinePlugin({
-//       'process.env.CLIENT_ID': JSON.stringify(process.env.GITHUB_CLIENT_ID),
-//     }),
-//   ],
-//   resolve: {
-//     extensions: ['.js', '.jsx', '.json', '.css'],
-//   },
-//   devServer: {
-//     host: 'localhost',
-//     port: 3000,
-//     hot: true,
-//     headers: {
-//       'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:3000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';",
-//     },
-//   },
-// };
 const rules = require('./webpack.rules');
-const plugins = require('./webpack.plugins'); // This already has your env variables
-// const webpack = require('webpack'); <-- You can delete this line now
-// require('dotenv').config({ path: './.env' }); <-- You can delete this line now too if it's already in webpack.plugins.js
+const plugins = require('./webpack.plugins');
 
 module.exports = {
   target: 'web',
   module: {
     rules,
   },
-  plugins: plugins, // <-- Just use the imported plugins directly!
+  plugins,
   resolve: {
     extensions: ['.js', '.jsx', '.json', '.css'],
   },
@@ -68,11 +15,6 @@ module.exports = {
     port: 3000,
     hot: true,
     headers: {
-      // media-src has to be explicit: with no media-src directive, browsers
-      // fall back to default-src for <audio>/<video> loads, and 'self' does
-      // not cover blob: (or data:) URLs on its own. That silently blocked
-      // take playback in the studio (a take is handed to <audio> as a blob:
-      // URL) even though every other part of the same CSP was fine.
       'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 ws://localhost:3000; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; media-src 'self' blob: data:;",
     },
   },

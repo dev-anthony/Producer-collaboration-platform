@@ -9,7 +9,7 @@ import {
 
 const Toast = ({
   message,
-  type = "error", // 'error' | 'success' | 'warning' | 'info'
+  type = "error",
   duration = 5000,
   onClose,
 }) => {
